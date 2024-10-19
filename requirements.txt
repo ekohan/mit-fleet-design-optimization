@@ -1,6 +1,11 @@
-numpy
+numpy<2
 pandas
 matplotlib
 scikit-learn
 gurobipy
 prophet
+geopy
+scipy
+jupyter
+scikit-learn-extra
+folium
