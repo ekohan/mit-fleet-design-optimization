@@ -2,13 +2,33 @@
 
 set -e  # Exit on error
 
-# Create Python virtual environment
-echo "Creating Python virtual environment..."
-python -m venv mit-fleet-env
+# Check if the virtual environment already exists
+if [ ! -d "mit-fleet-env" ]; then
+  echo "Creating Python virtual environment..."
+  python -m venv mit-fleet-env
+else
+  echo "Virtual environment 'mit-fleet-env' already exists. Skipping creation."
+fi
 
 # Activate the virtual environment
 echo "Activating Python virtual environment..."
-source mit-fleet-env/bin/activate
+
+# Check the OS and set the activation command accordingly
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+  # For Windows
+  source mit-fleet-env/Scripts/activate
+else
+  # For Unix-based systems (Linux, macOS)
+  source mit-fleet-env/bin/activate
+fi
+
+# Verify activation
+if [[ "$VIRTUAL_ENV" != "" ]]; then
+  echo "Virtual environment activated."
+else
+  echo "Failed to activate virtual environment. Exiting."
+  exit 1
+fi
 
 # Install requirements
 echo "Installing requirements..."
