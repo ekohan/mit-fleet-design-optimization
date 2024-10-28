@@ -9,3 +9,9 @@ scipy
 jupyter
 scikit-learn-extra
 folium
+pulp
+numba
+cython
+haversine
+joblib
+tqdm

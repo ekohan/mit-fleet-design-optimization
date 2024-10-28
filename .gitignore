@@ -7,9 +7,18 @@ __pycache__/
 data/raw/*
 data/processed/*
 data/forecasts/*
+data/opperar.db
+
+# Generated csv and html clustering examples
+src/*.csv
+src/*.html
 
 # Jupyter Notebooks checkpoints
 notebooks/.ipynb_checkpoints/
 
 # Python virtual environments
 venv/
+mit-fleet-env/
+
+# IDEs
+.idea/
