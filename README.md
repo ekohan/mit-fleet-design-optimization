@@ -4,20 +4,74 @@ This project focuses on optimizing fleet design for a food distribution company 
 
 ## Project Structure
 
-- **data/**: Contains datasets for analysis, including raw and processed customer demand data.
-- **notebooks/**: Jupyter notebooks for exploratory analysis.
-- **src/**: Python modules for clustering, optimization, forecasting, and sensitivity analysis.
-- **results/**: Generated output, including graphs, tables, and the final report.
-- **tests/**: Unit tests for validating the model.
-- **references/**: Bibliographic references.
+```
+mit-fleet-design-optimization/
+├── data/
+│   ├── forecasts/
+│   ├── raw/
+│   ├── export_avg_daily_demand.sql
+│   ├── sales_2023_avg_daily_demand.csv
+│   └── sales_2023_create_data.sql
+├── notebooks/
+├── src/
+│   ├── __init__.py
+│   ├── clustering_playground.py
+│   ├── column_generation_playground.py
+│   ├── toy_no_time_constraint.py
+│   └── toy_with_time__parallel.py
+├── init.sh
+├── requirements.txt
+└── README.md
+```
 
 ## Requirements
 
-Install dependencies with:
+### Installation Steps
+
+1. Initialize the project environment:
+```bash
+./init.sh
+```
+
+2. Activate the Python environment:
+
+For Mac/Linux:
+```bash
+source mit-fleet-env/bin/activate
+```
+
+For Windows:
+```bash
+mit-fleet-env\Scripts\activate
+```
+
+## Directory Structure Details
+
+### Data Directory
+- `forecasts/`: Contains demand forecasting results and models (TODO)
+- `raw/`: Contains original, unmodified data files
+- `*.sql`: SQL scripts for data extraction and transformation
+- `*.csv`: Processed data files containing locations and demand
+- `import.py`: Creates and populates a sqlite DB called "opperar.db" with sales data from 2023-01 to 2023-09.
+
+### Source Directory (src/)
+- `clustering_playground.py`: Implementation of customer clustering algorithms. Capacitated k-means, k-medeoids, hierachical clustering. Generates an html map with the clusters and a CSV summarizing results.
+- `column_generation_playground.py`: Column generation optimization methods. We can do it...!
+- `toy_no_time_constraint.py`: Full basic model using capacity but no time constraints for the clusters.
+- `toy_with_time__parallel.py`: Enhanced model with parallel processing, incorporates time constraints.
+
+## Example Usage
+
+After activating the environment, you can run any of the optimization scripts. For example, to run the basic optimization without time constraints:
 
 ```bash
-pip install -r requirements.txt
+python src/toy_no_time_constraint.py
 ```
+
+The script will:
+1. Load the data from `data/processed/sales_2023_avg_daily_demand.csv`
+2. Run the fleet optimization algorithm
+3. Output the results to the console
 
 ## Methodology
 
