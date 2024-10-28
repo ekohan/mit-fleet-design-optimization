@@ -4,6 +4,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import time
 
+
 # Clustering algorithms
 from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn_extra.cluster import KMedoids

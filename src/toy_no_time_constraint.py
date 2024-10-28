@@ -5,10 +5,13 @@ from sklearn.cluster import MiniBatchKMeans
 import itertools
 import time
 from haversine import haversine
+from pathlib import Path
+
 
 # Step 1: Read customer data from CSV file
 # Read the CSV file without headers
-df = pd.read_csv("../data/sales_2023_avg_daily_demand.csv", header=None, names=['Customer_ID', 'Latitude', 'Longitude', 'Units_Demand', 'Demand_Type'], encoding="latin-1")
+file_name = Path(__file__).resolve().parent / "../data/sales_2023_avg_daily_demand.csv"
+df = pd.read_csv(file_name, header=None, names=['Customer_ID', 'Latitude', 'Longitude', 'Units_Demand', 'Demand_Type'], encoding="latin-1")
 
 # Pivot the data to get separate columns for each type of demand, filling missing values with 0
 df_pivot = df.pivot_table(index=['Customer_ID', 'Latitude', 'Longitude'],

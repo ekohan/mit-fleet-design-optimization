@@ -9,13 +9,14 @@ import cProfile
 import pstats
 import io
 from joblib import Parallel, delayed
-
+from pathlib import Path
 pr = cProfile.Profile()
 pr.enable()
 
 # Step 1: Read customer data from CSV file
+file_name = Path(__file__).resolve().parent / "../data/sales_2023_avg_daily_demand.csv"
 df = pd.read_csv(
-    "../data/sales_2023_avg_daily_demand.csv",
+    file_name,
     header=None,
     names=["Customer_ID", "Latitude", "Longitude", "Units_Demand", "Demand_Type"],
     encoding="latin-1",
