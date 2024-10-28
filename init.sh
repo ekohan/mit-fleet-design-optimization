@@ -1,5 +1,6 @@
 #!/bin/bash
 
+echo "Eric is great!"
 set -e  # Exit on error
 
 # Check if the virtual environment already exists
