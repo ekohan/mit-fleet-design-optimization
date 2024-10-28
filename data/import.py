@@ -1,9 +1,11 @@
 import sqlite3
 from tqdm import tqdm
 import sys
+from pathlib import Path
+
 
 # Define file paths and table name
-sql_file_path = 'sales_2023_create_data.sql'
+sql_file_path = Path(__file__).resolve().parent / 'sales_2023_create_data.sql'
 db_path = 'opperar.db'
 table_name = 'sales_2023'  # Set the table name here
 
