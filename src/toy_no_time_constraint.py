@@ -4,32 +4,12 @@ import pulp
 from sklearn.cluster import MiniBatchKMeans
 import itertools
 import time
+from customer_data_loader import get_customer_demand
 from haversine import haversine
-from pathlib import Path
 
 
-# Step 1: Read customer data from CSV file
-# Read the CSV file without headers
-file_name = Path(__file__).resolve().parent / "../data/sales_2023_avg_daily_demand.csv"
-df = pd.read_csv(file_name, header=None, names=['Customer_ID', 'Latitude', 'Longitude', 'Units_Demand', 'Demand_Type'], encoding="latin-1")
-
-# Pivot the data to get separate columns for each type of demand, filling missing values with 0
-df_pivot = df.pivot_table(index=['Customer_ID', 'Latitude', 'Longitude'],
-                          columns='Demand_Type',
-                          values='Units_Demand',
-                          fill_value=0).reset_index()
-
-# Rename the columns to match the desired output
-df_pivot.columns.name = None  # Remove the pivot table's column grouping name
-df_pivot = df_pivot.rename(columns={'Dry': 'Dry_Demand', 'Chilled': 'Chilled_Demand', 'Frozen': 'Frozen_Demand'})
-
-# Ensure no customer has zero demand for all goods
-no_demand = (df_pivot['Dry_Demand'] == 0) & (df_pivot['Chilled_Demand'] == 0) & (df_pivot['Frozen_Demand'] == 0)
-if no_demand.any():
-    # Assign a minimal demand to Dry_Demand for customers with zero demand
-    df_pivot.loc[no_demand, 'Dry_Demand'] = 1
-
-customers = df_pivot
+# Step 1: Load Customer Data
+customers = get_customer_demand()
 num_customers = customers['Customer_ID'].nunique()
 
 # Depot location
