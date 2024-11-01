@@ -9,9 +9,11 @@ import cProfile
 import pstats
 import io
 from joblib import Parallel, delayed
+from customer_data_loader import get_customer_demand
+from config_utils import generate_vehicle_configurations, print_configurations
+
 pr = cProfile.Profile()
 pr.enable()
-from customer_data_loader import get_customer_demand
 
 # Step 1: Read customer data from CSV file
 
@@ -30,33 +32,10 @@ vehicle_types = {
 }
 
 variable_cost_per_km = 0.01  # Same for all vehicles
-
 goods = ["Dry", "Chilled", "Frozen"]
 
-# Generate all possible compartment configurations (binary options)
-compartment_options = list(itertools.product([0, 1], repeat=len(goods)))
-compartment_configs = []
-config_id = 1
-for vt_name, vt_info in vehicle_types.items():
-    for option in compartment_options:
-        # Skip configuration if no compartments are selected (i.e., all zeros)
-        if sum(option) == 0:
-            continue
-        compartment = dict(zip(goods, option))
-        compartment["Vehicle_Type"] = vt_name
-        compartment["Config_ID"] = config_id
-        compartment_configs.append(compartment)
-        config_id += 1
-
-configurations_df = pd.DataFrame(compartment_configs)
-
-# Merge with vehicle types to get capacities and costs
-configurations_df = configurations_df.merge(
-    pd.DataFrame(vehicle_types)
-    .T.reset_index()
-    .rename(columns={"index": "Vehicle_Type"}),
-    on="Vehicle_Type",
-)
+configurations_df = generate_vehicle_configurations(vehicle_types, goods)
+print_configurations(configurations_df, goods)
 
 # Step 3: Generate Clusters for Each Vehicle Configuration
 
