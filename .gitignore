@@ -22,3 +22,9 @@ mit-fleet-env/
 
 # IDEs
 .idea/
+
+# Results
+results/*.xlsx
+
+# Etc
+Notes_Eric.txt

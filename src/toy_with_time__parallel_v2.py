@@ -7,10 +7,13 @@ from customer_data_loader import get_customer_demand
 from haversine import haversine
 import sys
 from config_utils import generate_vehicle_configurations, print_configurations
+from cluster_utils import calculate_cluster_time, estimate_initial_clusters
 import cProfile
 import io
 import pstats
+from joblib import Parallel, delayed
 from utils.save_results import save_optimization_results
+
 
 
 pr = cProfile.Profile()
@@ -41,6 +44,11 @@ goods = ['Dry', 'Chilled', 'Frozen']
 configurations_df = generate_vehicle_configurations(vehicle_types, goods)
 print_configurations(configurations_df, goods)
 
+# Time-related parameters
+avg_speed = 40  # km/h
+max_route_time = 10  # Maximum route time in hours
+service_time_per_customer = 10/60  # 10 minutes converted to hours
+
 # Step 3: Generate Clusters for Each Vehicle Configuration
 
 ## Heuristics to prune clustering
@@ -68,22 +76,13 @@ for _, customer in customers.iterrows():
 
 ## TODO: Acá empieza el clustering main loop
 
-clusters_list = []
-cluster_id = 1
-
-# El punto acá es generar clusters "buenos" para cada configuración. Cada "cluster-set"
-# es un set de clusters que cumplen con la restricción de capacidad de la configuración
-# y que incluye a todos los customers viables para esa configuración. Puede dejar customers afuera - los inviables.
-
-# For each configuration...
-for idx, config in configurations_df.iterrows():
+def process_configuration(config, customers, goods, depot, avg_speed, service_time_per_customer, max_route_time, feasible_customers):
     config_id = config['Config_ID']
-    # Only process customers that are feasible for this configuration
-    # This is a pre-filtering step to reduce the number of customers to be clustered
-    # and to avoid clustering customers that cannot be served by the current configuration
-    # This is done before clustering to save computation time
-    # TODO: Revisar esta heurística porque no la entiendo bien.
-    # Traigo los customers que pueden ser servidos por esta configuración, "todos los customers viables"
+    clusters = []
+    MAX_SPLIT_DEPTH = 10  # Add this line to limit recursion
+    split_depth = 0       # Add this line to track depth
+    
+    # Get feasible customers for this configuration
     customers_subset = customers[
         customers['Customer_ID'].isin([
             cid for cid, configs in feasible_customers.items() 
@@ -92,69 +91,58 @@ for idx, config in configurations_df.iterrows():
     ].copy()
 
     if customers_subset.empty:
-        continue
+        return []
 
-    # Calculate total demand for the customers
+    # Calculate total demand
     total_demand = customers_subset[[f'{g}_Demand' for g in goods]].sum(axis=1)
     customers_subset['Total_Demand'] = total_demand
     
-    # Estimate the number of clusters needed
-    # TODO: esto es una especie de assumption sobre truck load
-    # TODO: revisar si esto es correcto
-    total_demand_sum = total_demand.sum()  # Sum up all customer demands
-    num_clusters = max(1, int(np.ceil(total_demand_sum / config['Capacity'])))
-    num_clusters = min(num_clusters, len(customers_subset))
+    # Use estimate_initial_clusters
+    num_clusters = estimate_initial_clusters(
+        customers_subset, 
+        config, 
+        depot, 
+        avg_speed, 
+        service_time_per_customer
+    )
 
-    # Generate initial clusters using MiniBatchKMeans
+    # Initial clustering
     coords = customers_subset[['Latitude', 'Longitude']]
     kmeans = MiniBatchKMeans(n_clusters=num_clusters, random_state=42, batch_size=10000)
     customers_subset['Cluster'] = kmeans.fit_predict(coords)
 
-    # This is the capacity constraint check for each cluster generated for this specific configuration...
-    # If a cluster exceeds capacity, it is split into smaller clusters.
-    # This is done iteratively until no cluster exceeds capacity or until a maximum number of splits is reached.
-    # no hay un max split. Agregar una linea como comentario pero creo que no es necesario porque no es un N tan grande.
-    # Al menos capacidad. Tal vez para tiempo sí....
-    # TODO: revisar esta heurística a ver qué implicancias tiene.
-    # TODO: potencialmente implementar otro algoritmo de capacitated clsutering que esté en una lib.
-    # For each cluster generated for this specific configuration...
-
-    # Initialize a list to hold clusters that need to be checked
+    # Process each initial cluster
     clusters_to_check = []
     for c in customers_subset['Cluster'].unique():
-        # Traigo todos los customers que pertenecen a este cluster
         mask = customers_subset['Cluster'] == c
-        cluster_data = customers_subset[mask]
-        clusters_to_check.append(cluster_data)
+        clusters_to_check.append((customers_subset[mask], 0))  # Add depth tracking
 
-    ## Ver el naming de clusters_to_check, porque es el subconjunto de customers de este cluster
-    # For each [{customers_in_cluster_1}, {customers_in_cluster_2}, ...]
+    cluster_id_base = int(str(config_id) + "000")
+    current_cluster_id = 0
+
     while clusters_to_check:
-        cluster_customers = clusters_to_check.pop()
+        cluster_customers, depth = clusters_to_check.pop()  # Unpack depth
         cluster_demand = cluster_customers['Total_Demand'].sum()
+        route_time = 1 + len(cluster_customers) * service_time_per_customer
 
-        if cluster_demand > config['Capacity']:
+        if (cluster_demand > config['Capacity'] or route_time > max_route_time) and depth < MAX_SPLIT_DEPTH:
             if len(cluster_customers) <= 1:
-                print(f"Warning: Customer {cluster_customers['Customer_ID'].iloc[0]} demand of {cluster_demand:.2f} exceeds vehicle capacity of {config['Capacity']}")
-                # Skip this customer instead of adding them to clusters_list
                 continue
             else:
-                # Split cluster further using MiniBatchKMeans
+                # Split cluster
                 coords = cluster_customers[['Latitude', 'Longitude']].to_numpy()
                 sub_kmeans = MiniBatchKMeans(n_clusters=2, random_state=42, batch_size=10000)
                 sub_labels = sub_kmeans.fit_predict(coords)
 
-                # Add sub-clusters back to the list to check
                 for label in [0, 1]:
                     sub_cluster = cluster_customers[sub_labels == label]
-                    if len(sub_cluster) > 0:  # Only add if sub-cluster is not empty
-                        # TODO: ahora entiendo mejor el naming de clusters_to_check
-                        # son los generados inicialmente más los splits que se van haciendo
-                        clusters_to_check.append(sub_cluster)
+                    if len(sub_cluster) > 0:
+                        clusters_to_check.append((sub_cluster, depth + 1))  # Increment depth
         else:
-            # Cluster is within capacity; add it to clusters_list
-            clusters_list.append({
-                'Cluster_ID': cluster_id,
+            # Add valid cluster
+            current_cluster_id += 1
+            clusters.append({
+                'Cluster_ID': cluster_id_base + current_cluster_id,
                 'Config_ID': config['Config_ID'],
                 'Customers': cluster_customers['Customer_ID'].tolist(),
                 'Total_Demand': {
@@ -162,12 +150,33 @@ for idx, config in configurations_df.iterrows():
                 },
                 'Centroid_Latitude': float(cluster_customers['Latitude'].mean()),
                 'Centroid_Longitude': float(cluster_customers['Longitude'].mean()),
-                'Goods_In_Config': [g for g in goods if config[g] == 1]
+                'Goods_In_Config': [g for g in goods if config[g] == 1],
+                'Route_Time': float(route_time)
             })
-            cluster_id += 1
+
+    return clusters
+
+# Parallel processing of configurations
+clusters_by_config = Parallel(n_jobs=-1)(
+    delayed(process_configuration)(
+        config,
+        customers,
+        goods,
+        depot,
+        avg_speed,
+        service_time_per_customer,
+        max_route_time,
+        feasible_customers
+    )
+    for _, config in configurations_df.iterrows()
+)
+
+# Combine all clusters
+clusters_list = []
+for config_clusters in clusters_by_config:
+    clusters_list.extend(config_clusters)
 
 # Create DataFrame of clusters
-# acá tengo todos los clusters generados para todas las configuraciones, con overlap de customers entre clusters-set de configuraciones
 clusters_df = pd.DataFrame(clusters_list)
 
 # Step 4: Build the Optimization Model
@@ -342,14 +351,17 @@ for idx, cluster in selected_clusters.iterrows():
     if 'Estimated_Distance' in cluster:
         print(f"  Distance:{cluster['Estimated_Distance']:>8,.2f} km")
 
+    print(f"  Route Time: {cluster['Route_Time']:>8,.2f} hours")
+
+
 
 # Print the profiling results
 pr.disable()
 s = io.StringIO()
 sortby = 'cumulative'  # You can also sort by 'time' or 'calls'
 ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-#ps.print_stats(20)  # Adjust the number to see more or fewer lines
-#print(s.getvalue())
+ps.print_stats(20)  # Adjust the number to see more or fewer lines
+print(s.getvalue())
 
 save_optimization_results(
     execution_time=end_time - start_time,
