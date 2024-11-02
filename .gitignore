@@ -24,6 +24,7 @@ mit-fleet-env/
 .idea/
 
 # Results
+results/*.xlsx
 
 # Etc
 Notes_Eric.txt
