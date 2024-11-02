@@ -10,6 +10,8 @@ from config_utils import generate_vehicle_configurations, print_configurations
 import cProfile
 import io
 import pstats
+from utils.save_results import save_optimization_results
+
 
 pr = cProfile.Profile()
 pr.enable()
@@ -348,3 +350,15 @@ sortby = 'cumulative'  # You can also sort by 'time' or 'calls'
 ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
 #ps.print_stats(20)  # Adjust the number to see more or fewer lines
 #print(s.getvalue())
+
+save_optimization_results(
+    execution_time=end_time - start_time,
+    solver_name='GUROBI',
+    solver_status=pulp.LpStatus[model.status],
+    configurations_df=configurations_df,
+    selected_clusters=selected_clusters,
+    total_fixed_cost=total_fixed_cost,
+    total_variable_cost=total_variable_cost,
+    vehicles_used=vehicles_used,
+    missing_customers=missing_customers
+)

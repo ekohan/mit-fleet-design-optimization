@@ -12,6 +12,9 @@ from joblib import Parallel, delayed
 from customer_data_loader import get_customer_demand
 from config_utils import generate_vehicle_configurations, print_configurations
 
+
+# TODO: DEPRECATED.
+
 pr = cProfile.Profile()
 pr.enable()
 
