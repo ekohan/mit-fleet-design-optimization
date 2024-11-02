@@ -7,7 +7,16 @@ from customer_data_loader import get_customer_demand
 from haversine import haversine
 import sys
 from config_utils import generate_vehicle_configurations, print_configurations
+import cProfile
+import io
+import pstats
 
+pr = cProfile.Profile()
+pr.enable()
+
+
+# TODO: hacer una version con flags que tome opcion profiling,
+# etc. Parece que hay algo llamado pandas profiling.
 
 # Step 1: Load Customer Data
 customers = get_customer_demand()
@@ -20,8 +29,8 @@ depot = {'Latitude': 4.7, 'Longitude': -74.1}
 
 vehicle_types = {
     'A': {'Capacity': 2000, 'Fixed_Cost': 100},
-#'B': {'Capacity': 3000, 'Fixed_Cost': 130},
- #   'C': {'Capacity': 4000, 'Fixed_Cost': 150}
+    'B': {'Capacity': 3000, 'Fixed_Cost': 130},
+    'C': {'Capacity': 4000, 'Fixed_Cost': 150}
 }
 
 variable_cost_per_km = 0.01  # Same for all vehicles
@@ -330,3 +339,12 @@ for idx, cluster in selected_clusters.iterrows():
     
     if 'Estimated_Distance' in cluster:
         print(f"  Distance:{cluster['Estimated_Distance']:>8,.2f} km")
+
+
+# Print the profiling results
+pr.disable()
+s = io.StringIO()
+sortby = 'cumulative'  # You can also sort by 'time' or 'calls'
+ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+#ps.print_stats(20)  # Adjust the number to see more or fewer lines
+#print(s.getvalue())
