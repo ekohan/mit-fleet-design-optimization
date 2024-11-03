@@ -14,4 +14,5 @@ def load_customer_demand():
     df_pivot = df_pivot.rename(columns={'Dry': 'Dry_Demand', 'Chilled': 'Chilled_Demand', 'Frozen': 'Frozen_Demand'})
     if (df_pivot[['Dry_Demand', 'Chilled_Demand', 'Frozen_Demand']] == 0).all(axis=1).any():
         df_pivot.loc[(df_pivot['Dry_Demand'] == 0) & (df_pivot['Chilled_Demand'] == 0) & (df_pivot['Frozen_Demand'] == 0), 'Dry_Demand'] = 1
+    
     return df_pivot
