@@ -3,10 +3,10 @@ import pandas as pd
 import pulp
 from sklearn.cluster import MiniBatchKMeans
 import time
-from customer_data_loader import get_customer_demand
+from utils.customer_data_loader import get_customer_demand
 from haversine import haversine
 import sys
-from config_utils import generate_vehicle_configurations, print_configurations
+from utils.config_utils import generate_vehicle_configurations, print_configurations
 import cProfile
 import io
 import pstats

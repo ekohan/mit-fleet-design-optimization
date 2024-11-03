@@ -3,11 +3,11 @@ import pandas as pd
 import pulp
 from sklearn.cluster import MiniBatchKMeans
 import time
-from customer_data_loader import get_customer_demand
+from utils.customer_data_loader import get_customer_demand
 from haversine import haversine
 import sys
-from config_utils import generate_vehicle_configurations, print_configurations
-from cluster_utils import calculate_cluster_time, estimate_initial_clusters
+from utils.config_utils import generate_vehicle_configurations, print_configurations
+from utils.cluster_utils import estimate_initial_clusters
 import cProfile
 import io
 import pstats
