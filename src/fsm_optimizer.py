@@ -18,6 +18,8 @@ from config import (
     VARIABLE_COST_PER_KM
 )
 
+from utils.logging import Colors, Symbols
+
 logger = logging.getLogger(__name__)
 
 def solve_fsm_problem(
@@ -192,6 +194,9 @@ def _validate_solution(
     """
     Validate that all customers are served in the solution.
     """
+    logger = logging.getLogger(__name__)
+    from utils.logging import Colors, Symbols
+
     all_customers_set = set(customers_df['Customer_ID'])
     served_customers = set()
     for _, cluster in selected_clusters.iterrows():
@@ -199,12 +204,24 @@ def _validate_solution(
 
     missing_customers = all_customers_set - served_customers
     if missing_customers:
-        print(f"\nWARNING: {len(missing_customers)} customers are not served:")
-        print(missing_customers)
+        logger.warning(
+            f"\n{Symbols.CROSS} {len(missing_customers)} customers are not served!"
+        )
+        
         # Print unserved customer demands
         unserved = customers_df[customers_df['Customer_ID'].isin(missing_customers)]
-        print("\nUnserved customer demands:")
-        print(unserved[['Customer_ID', 'Dry_Demand', 'Chilled_Demand', 'Frozen_Demand']])
+        logger.warning(
+            f"{Colors.YELLOW}→ Unserved Customers:{Colors.RESET}\n"
+            f"{Colors.GRAY}  Customer ID  Dry  Chilled  Frozen{Colors.RESET}"
+        )
+        
+        for _, customer in unserved.iterrows():
+            logger.warning(
+                f"{Colors.YELLOW}  {customer['Customer_ID']:>10}  "
+                f"{customer['Dry_Demand']:>3.0f}  "
+                f"{customer['Chilled_Demand']:>7.0f}  "
+                f"{customer['Frozen_Demand']:>6.0f}{Colors.RESET}"
+            )
         
     return missing_customers
 
@@ -213,35 +230,50 @@ def _print_solution_details(
     configurations_df: pd.DataFrame,
     solution_stats: Dict
 ) -> None:
-    """
-    Print summarized information about the solution.
-    """
+    """Print summarized information about the solution."""
+    logger = logging.getLogger(__name__)
+    from utils.logging import Colors, Symbols
+    
     # Warnings first (if any)
     if solution_stats.get('missing_customers'):
-        print("\n⚠️  WARNING: Some customers are not served!")
-        print(f"Number of unserved customers: {len(solution_stats['missing_customers'])}")
-        print("Run with enable_profiling=True to see detailed customer information")
+        logger.warning(
+            f"{Symbols.CROSS} Some customers are not served!\n"
+            f"{Colors.YELLOW}→ Unserved customers: {len(solution_stats['missing_customers'])}{Colors.RESET}"
+        )
     
     # Cost Summary
-    print("\nSolution Summary:")
-    print("-" * 50)
-    print(f"Total Cost:     ${(solution_stats['total_fixed_cost'] + solution_stats['total_variable_cost']):>10,.2f}")
-    print(f"Total Vehicles: {solution_stats['total_vehicles']}")
+    logger.info(f"\n{Symbols.CHART} Solution Summary")
+    logger.info("=" * 50)
+    logger.info(
+        f"{Colors.CYAN}Total Cost:     ${Colors.BOLD}"
+        f"{(solution_stats['total_fixed_cost'] + solution_stats['total_variable_cost']):>10,.2f}"
+        f"{Colors.RESET}"
+    )
+    logger.info(
+        f"{Colors.CYAN}Total Vehicles: {Colors.BOLD}"
+        f"{solution_stats['total_vehicles']}{Colors.RESET}"
+    )
 
     # Vehicle Usage Summary
-    print("\nVehicles by Type:")
-    print(solution_stats['vehicles_used'])
+    logger.info(f"\n{Symbols.TRUCK} Vehicles by Type")
+    for vehicle_type, count in solution_stats['vehicles_used'].items():
+        logger.info(
+            f"{Colors.BLUE}→ Type {vehicle_type}:{Colors.BOLD}"
+            f"{count:>4}{Colors.RESET}"
+        )
 
     # Calculate cluster statistics
     cluster_stats = selected_clusters.copy()
     
     # Customer statistics
     customers_per_cluster = cluster_stats['Customers'].apply(len)
-    print("\nCustomers per Cluster:")
-    print(f"  Min:    {customers_per_cluster.min():>4.0f}")
-    print(f"  Max:    {customers_per_cluster.max():>4.0f}")
-    print(f"  Avg:    {customers_per_cluster.mean():>4.1f}")
-    print(f"  Median: {customers_per_cluster.median():>4.1f}")
+    logger.info(f"\n{Symbols.PACKAGE} Customers per Cluster")
+    logger.info(
+        f"{Colors.MAGENTA}  Min:    {Colors.BOLD}{customers_per_cluster.min():>4.0f}{Colors.RESET}\n"
+        f"{Colors.MAGENTA}  Max:    {Colors.BOLD}{customers_per_cluster.max():>4.0f}{Colors.RESET}\n"
+        f"{Colors.MAGENTA}  Avg:    {Colors.BOLD}{customers_per_cluster.mean():>4.1f}{Colors.RESET}\n"
+        f"{Colors.MAGENTA}  Median: {Colors.BOLD}{customers_per_cluster.median():>4.1f}{Colors.RESET}"
+    )
 
     # Calculate truck load percentages
     load_percentages = []
@@ -249,7 +281,6 @@ def _print_solution_details(
         config = configurations_df[
             configurations_df['Config_ID'] == cluster['Config_ID']
         ].iloc[0]
-        # Calculate maximum load percentage across all goods
         max_load_pct = max(
             cluster['Total_Demand'][good] / config['Capacity'] * 100 
             for good in GOODS
@@ -257,16 +288,22 @@ def _print_solution_details(
         load_percentages.append(max_load_pct)
     
     load_percentages = pd.Series(load_percentages)
-    print("\nTruck Load Percentages:")
-    print(f"  Min:    {load_percentages.min():>4.1f}%")
-    print(f"  Max:    {load_percentages.max():>4.1f}%")
-    print(f"  Avg:    {load_percentages.mean():>4.1f}%")
-    print(f"  Median: {load_percentages.median():>4.1f}%")
+    logger.info(f"\n{Symbols.GEAR} Truck Load Percentages")
+    logger.info(
+        f"{Colors.CYAN}  Min:    {Colors.BOLD}{load_percentages.min():>4.1f}%{Colors.RESET}\n"
+        f"{Colors.CYAN}  Max:    {Colors.BOLD}{load_percentages.max():>4.1f}%{Colors.RESET}\n"
+        f"{Colors.CYAN}  Avg:    {Colors.BOLD}{load_percentages.mean():>4.1f}%{Colors.RESET}\n"
+        f"{Colors.CYAN}  Median: {Colors.BOLD}{load_percentages.median():>4.1f}%{Colors.RESET}"
+    )
 
     # Print warnings if any cluster exceeds capacity
     overloaded = load_percentages[load_percentages > 100]
     if not overloaded.empty:
-        print(f"\n⚠️  WARNING: {len(overloaded)} clusters exceed vehicle capacity")
+        logger.warning(
+            f"\n{Symbols.CROSS} {len(overloaded)} clusters exceed vehicle capacity!\n"
+            f"{Colors.YELLOW}→ Maximum overload: {Colors.BOLD}"
+            f"{overloaded.max():.1f}%{Colors.RESET}"
+        )
 
 def _calculate_solution_statistics(
     selected_clusters: pd.DataFrame,
