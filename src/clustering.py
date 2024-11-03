@@ -124,7 +124,7 @@ def process_configuration(
     )
 
     coords = customers_subset[['Latitude', 'Longitude']]
-    kmeans = MiniBatchKMeans(n_clusters=num_clusters, random_state=42, batch_size=10000)
+    kmeans = MiniBatchKMeans(n_clusters=num_clusters, random_state=42, batch_size=10000, n_init='auto')
     customers_subset['Cluster'] = kmeans.fit_predict(coords)
 
     # Process each initial cluster
@@ -145,7 +145,7 @@ def process_configuration(
             if len(cluster_customers) > 1:
                 # Split cluster
                 coords = cluster_customers[['Latitude', 'Longitude']].to_numpy()
-                sub_kmeans = MiniBatchKMeans(n_clusters=2, random_state=42, batch_size=10000)
+                sub_kmeans = MiniBatchKMeans(n_clusters=2, random_state=42, batch_size=10000, n_init='auto')
                 sub_labels = sub_kmeans.fit_predict(coords)
 
                 for label in [0, 1]:

@@ -7,7 +7,8 @@ from utils.data_processing import load_customer_demand
 from utils.config_utils import generate_vehicle_configurations
 from utils.save_results import save_optimization_results
 from clustering import generate_clusters_for_configurations
-from fsm_optimizer import solve_fsm_problem
+from fsm_optimizer_gurobipy import solve_fsm_problem
+
 from config import VEHICLE_TYPES, GOODS, DEPOT
 
 def main():
@@ -34,6 +35,12 @@ def main():
     configs_df = generate_vehicle_configurations(VEHICLE_TYPES, GOODS)
     progress.advance(f"Generated {Colors.BOLD}{len(configs_df)}{Colors.RESET} vehicle configurations")
 
+    # Add debug prints
+    print("\n=== Data Debug Info ===")
+    print("\nConfigurations DataFrame columns:", configs_df.columns.tolist())
+    print("\nFirst few rows of configurations:")
+    print(configs_df.head())   
+
     # Step 3: Generate clusters
     clusters_df = generate_clusters_for_configurations(
         customers=customers,
@@ -43,12 +50,17 @@ def main():
     )
     progress.advance(f"Created {Colors.BOLD}{len(clusters_df)}{Colors.RESET} clusters")
 
+    print("\n=== Data Debug Info ===")
+    print("\nClusters DataFrame columns:", clusters_df.columns.tolist())
+    print("\nFirst row of clusters:")
+    print(clusters_df.iloc[0])
+
     # Step 4: Solve optimization problem
     solution = solve_fsm_problem(
         clusters_df=clusters_df,
         configurations_df=configs_df,
         customers_df=customers,
-        verbose=True
+        verbose=False
     )
     progress.advance(
         f"Optimized fleet: {Colors.BOLD}${solution['total_fixed_cost'] + solution['total_variable_cost']:,.2f}{Colors.RESET} total cost"

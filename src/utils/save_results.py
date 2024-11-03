@@ -3,19 +3,20 @@ from datetime import datetime
 from pathlib import Path
 import inspect
 from config import *
+from typing import Set
+import os
 
 def save_optimization_results(
-    execution_time,
-    solver_name,
-    solver_status,
-    configurations_df,
-    selected_clusters,
-    total_fixed_cost,
-    total_variable_cost,
-    vehicles_used,
-    missing_customers,
-    filename=None
-):
+    execution_time: float,
+    solver_name: str,
+    solver_status: str,
+    configurations_df: pd.DataFrame,
+    selected_clusters: pd.DataFrame,
+    total_fixed_cost: float,
+    total_variable_cost: float,
+    vehicles_used: pd.Series,
+    missing_customers: Set
+) -> None:
     """
     Save optimization results to an Excel file with multiple sheets
     
@@ -43,16 +44,35 @@ def save_optimization_results(
         Custom filename for the Excel file
     """
     
-    # Create a timestamp for the filename if not provided
-    if filename is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_dir = Path(__file__).resolve().parent.parent.parent / 'results'
-        filename = results_dir / f"optimization_results_{timestamp}.xlsx"
+    # Initialize filename
+    filename = None
     
-    # Ensure results directory exists
-    results_dir = Path(filename).parent
-    results_dir.mkdir(parents=True, exist_ok=True)
-
+    # Create results directory if it doesn't exist
+    os.makedirs('results', exist_ok=True)
+    
+    # Generate timestamp for the filename
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    
+    # Save solution summary
+    summary = {
+        'Execution Time (s)': execution_time,
+        'Solver': solver_name,
+        'Status': solver_status,
+        'Total Fixed Cost': total_fixed_cost,
+        'Total Variable Cost': total_variable_cost,
+        'Total Cost': total_fixed_cost + total_variable_cost,
+        'Total Vehicles': len(selected_clusters),
+        'Unserved Customers': len(missing_customers)
+    }
+    
+    # Save to file
+    if filename is None:
+        filename = f'results/solution_{timestamp}'
+    
+    # Fix the empty Series warning by specifying dtype
+    if vehicles_used.empty:
+        vehicles_used = pd.Series(dtype='int64')  # or whatever dtype is appropriate
+    
     # Create Excel writer object
     with pd.ExcelWriter(filename, engine='openpyxl') as writer:
         try:
