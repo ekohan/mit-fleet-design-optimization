@@ -114,7 +114,7 @@ def process_configuration(
     customers_subset['Total_Demand'] = total_demand
     
     # Initial clustering
-    num_clusters = estimate_initial_clusters(
+    num_clusters = estimate_num_initial_clusters(
         customers_subset, 
         config, 
         depot, 
@@ -171,7 +171,7 @@ def process_configuration(
 
     return clusters
 
-def estimate_initial_clusters(
+def estimate_num_initial_clusters(
     customers: pd.DataFrame,
     config: pd.Series,
     depot: Dict[str, float],
@@ -180,7 +180,7 @@ def estimate_initial_clusters(
     goods: List[str]
 ) -> int:
     """
-    Estimate the initial number of clusters needed based on capacity and time constraints.
+    Estimate the number of initial clusters needed based on capacity and time constraints.
     
     Args:
         customers: DataFrame containing customer data

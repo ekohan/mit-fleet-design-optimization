@@ -29,3 +29,6 @@ GOODS = ['Dry', 'Chilled', 'Frozen']
 
 # Clustering parameters
 MAX_SPLIT_DEPTH = 10  # Maximum depth for recursive clustering  
+CLUSTERING_METHOD = 'MiniBatchKMeans' # Fixed for now
+CLUSTERING_DISTANCE = 'euclidean' # Fixed for now
+ROUTE_TIME_ESTIMATION = '1hr + SERVICE_TIME_PER_CUSTOMER * num_customers in cluster' # Fixed for now
