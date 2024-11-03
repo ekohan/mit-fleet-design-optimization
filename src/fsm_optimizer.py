@@ -24,7 +24,7 @@ def solve_fsm_problem(
     clusters_df: pd.DataFrame,
     configurations_df: pd.DataFrame,
     customers_df: pd.DataFrame,
-    enable_profiling: bool = False
+    verbose: bool = False
 ) -> Dict:
     """
     Solve the Fleet Size and Mix optimization problem.
@@ -33,7 +33,7 @@ def solve_fsm_problem(
         clusters_df: DataFrame containing generated clusters
         configurations_df: DataFrame containing vehicle configurations
         customers_df: DataFrame containing customer demands
-        enable_profiling: Whether to enable solver profiling
+        verbose: Whether to enable verbose output to screen
     
     Returns:
         Dictionary containing optimization results
@@ -42,13 +42,13 @@ def solve_fsm_problem(
     model, y_vars = _create_optimization_model(clusters_df, configurations_df)
     
     # Solve the model
-    solver = pulp.GUROBI_CMD(msg=1 if enable_profiling else 0)
+    solver = pulp.GUROBI_CMD(msg=1 if verbose else 0)
     
     start_time = time.time()
     model.solve(solver)
     end_time = time.time()
     
-    if enable_profiling:
+    if verbose:
         print(f"Optimization completed in {end_time - start_time:.2f} seconds.")
     
     # Check solution status
@@ -72,7 +72,7 @@ def solve_fsm_problem(
     )
     
     # Print detailed solution if profiling is enabled
-    if enable_profiling:
+    if verbose:
         _print_solution_details(
             selected_clusters,
             configurations_df,
@@ -95,7 +95,7 @@ def _create_optimization_model(
     """
     Create the optimization model with decision variables and constraints.
     """
-    model = pulp.LpProblem("Vehicle_Routing", pulp.LpMinimize)
+    model = pulp.LpProblem("FSM-MVC-CD", pulp.LpMinimize)
     
     # Create decision variables
     y_vars = {
@@ -214,49 +214,59 @@ def _print_solution_details(
     solution_stats: Dict
 ) -> None:
     """
-    Print detailed information about the solution.
+    Print summarized information about the solution.
     """
-    print("\nCost Breakdown:")
+    # Warnings first (if any)
+    if solution_stats.get('missing_customers'):
+        print("\n⚠️  WARNING: Some customers are not served!")
+        print(f"Number of unserved customers: {len(solution_stats['missing_customers'])}")
+        print("Run with enable_profiling=True to see detailed customer information")
+    
+    # Cost Summary
+    print("\nSolution Summary:")
     print("-" * 50)
-    print(f"Fixed Cost:     ${solution_stats['total_fixed_cost']:>10,.2f}")
-    print(f"Variable Cost:  ${solution_stats['total_variable_cost']:>10,.2f}")
     print(f"Total Cost:     ${(solution_stats['total_fixed_cost'] + solution_stats['total_variable_cost']):>10,.2f}")
+    print(f"Total Vehicles: {solution_stats['total_vehicles']}")
 
-    print("\nVehicles Used:")
+    # Vehicle Usage Summary
+    print("\nVehicles by Type:")
     print(solution_stats['vehicles_used'])
 
-    print("\nCluster Details:")
-    print("=" * 50)
-    for idx, cluster in selected_clusters.iterrows():
-        config_id = cluster['Config_ID']
-        config = configurations_df[
-            configurations_df['Config_ID'] == config_id
-        ].iloc[0]
-        vehicle_type = config['Vehicle_Type']
-        goods_carried = [g for g in GOODS if config[g] == 1]
-        
-        print(f"\nCluster {cluster['Cluster_ID']}")
-        print("-" * 25)
-        print(f"Configuration:")
-        print(f"  ID: {config_id}")    
-        print(f"  Vehicle Type: {vehicle_type}")
-        print(f"  Capacity: {config['Capacity']}")
-        print(f"  Fixed Cost: ${config['Fixed_Cost']}")
-        print(f"  Compartments: {', '.join(goods_carried)}")
-        
-        print("\nDemand:")
-        print(f"  Customers: {len(cluster['Customers'])}")
-        for good in GOODS:
-            demand = cluster['Total_Demand'][good]
-            print(f"  {good}:     {demand:>8,.2f}")
-            # Check if demand exceeds capacity
-            if demand > config['Capacity']:
-                print(f"    WARNING: Demand exceeds vehicle capacity of {config['Capacity']}")
-        
-        if 'Estimated_Distance' in cluster:
-            print(f"  Distance:{cluster['Estimated_Distance']:>8,.2f} km")
+    # Calculate cluster statistics
+    cluster_stats = selected_clusters.copy()
+    
+    # Customer statistics
+    customers_per_cluster = cluster_stats['Customers'].apply(len)
+    print("\nCustomers per Cluster:")
+    print(f"  Min:    {customers_per_cluster.min():>4.0f}")
+    print(f"  Max:    {customers_per_cluster.max():>4.0f}")
+    print(f"  Avg:    {customers_per_cluster.mean():>4.1f}")
+    print(f"  Median: {customers_per_cluster.median():>4.1f}")
 
-        print(f"  Route Time: {cluster['Route_Time']:>8,.2f} hours")
+    # Calculate truck load percentages
+    load_percentages = []
+    for _, cluster in cluster_stats.iterrows():
+        config = configurations_df[
+            configurations_df['Config_ID'] == cluster['Config_ID']
+        ].iloc[0]
+        # Calculate maximum load percentage across all goods
+        max_load_pct = max(
+            cluster['Total_Demand'][good] / config['Capacity'] * 100 
+            for good in GOODS
+        )
+        load_percentages.append(max_load_pct)
+    
+    load_percentages = pd.Series(load_percentages)
+    print("\nTruck Load Percentages:")
+    print(f"  Min:    {load_percentages.min():>4.1f}%")
+    print(f"  Max:    {load_percentages.max():>4.1f}%")
+    print(f"  Avg:    {load_percentages.mean():>4.1f}%")
+    print(f"  Median: {load_percentages.median():>4.1f}%")
+
+    # Print warnings if any cluster exceeds capacity
+    overloaded = load_percentages[load_percentages > 100]
+    if not overloaded.empty:
+        print(f"\n⚠️  WARNING: {len(overloaded)} clusters exceed vehicle capacity")
 
 def _calculate_solution_statistics(
     selected_clusters: pd.DataFrame,
