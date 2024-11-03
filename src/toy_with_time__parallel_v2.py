@@ -3,7 +3,7 @@ import pandas as pd
 import pulp
 from sklearn.cluster import MiniBatchKMeans
 import time
-from utils.customer_data_loader import get_customer_demand
+from utils.data_processing import load_customer_demand
 from haversine import haversine
 import sys
 from utils.config_utils import generate_vehicle_configurations, print_configurations
@@ -24,7 +24,7 @@ pr.enable()
 # etc. Parece que hay algo llamado pandas profiling.
 
 # Step 1: Load Customer Data
-customers = get_customer_demand()
+customers = load_customer_demand()
 num_customers = customers['Customer_ID'].nunique()
 
 # Depot location
