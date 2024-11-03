@@ -21,7 +21,7 @@ def main():
     # Step 2: Generate vehicle configurations
     logger.info("Generating vehicle configurations...")
     configs_df = generate_vehicle_configurations(VEHICLE_TYPES, GOODS)
-    print_configurations(configs_df, GOODS)
+    # print_configurations(configs_df, GOODS)
 
     # Step 3: Generate clusters
     logger.info("Generating clusters...")
@@ -34,11 +34,12 @@ def main():
 
     # Step 4: Solve optimization problem
     logger.info("Solving optimization problem...")
+    # TODO: revisar lo del profiling
     solution = solve_fsm_problem(
         clusters_df=clusters_df,
         configurations_df=configs_df,
         customers_df=customers,
-        enable_profiling=True
+        verbose=True
     )
 
     # Step 5: Save results
