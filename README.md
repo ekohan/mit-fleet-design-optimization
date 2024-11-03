@@ -34,7 +34,17 @@ mit-fleet-design-optimization/
 - `forecasts/`: Contains demand forecasting models and results
 - `raw/`: Original, unmodified data files
 - `sales_2023_avg_daily_demand.csv`: Processed customer demand data
+- `export_avg_daily_demand.sql`: SQL query to generate daily demand averages
+- `sales_2023_create_data.sql`: SQL script to create and populate the sales database
 - `import.py`: Creates and populates a SQLite database (opperar.db) with sales data from 2023-01 to 2023-09
+
+The data directory contains utilities to process raw sales data into formats suitable for the optimization algorithm:
+1. The SQLite database (opperar.db) stores the raw sales transactions
+2. SQL scripts are provided to export different views of the data:
+   - Daily demand averages by customer and product type
+   - Geographic clustering analysis
+   - Seasonal patterns
+3. The exported CSV files serve as input for the main optimization algorithm
 
 ### Source Directory (src/)
 - `main.py`: Principal execution script that runs the complete optimization pipeline
@@ -54,6 +64,12 @@ mit-fleet-design-optimization/
 ```bash
 ./init.sh
 ```
+
+This script will:
+- Create a Python virtual environment
+- Install required dependencies
+- Create and populate the SQLite database with sales data from 2023
+- Generate initial customer demand data files
 
 2. Activate the Python environment:
 
