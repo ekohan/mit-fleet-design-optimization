@@ -3,14 +3,27 @@ import pandas as pd
 import pulp
 from sklearn.cluster import MiniBatchKMeans
 import time
-from customer_data_loader import get_customer_demand
+from utils.data_processing import load_customer_demand
 from haversine import haversine
 import sys
-from config_utils import generate_vehicle_configurations, print_configurations
+from utils.config_utils import generate_vehicle_configurations, print_configurations
 import cProfile
 import io
 import pstats
 from utils.save_results import save_optimization_results
+
+# Parameters are defined in config.py
+from config import (
+    VEHICLE_TYPES,
+    VARIABLE_COST_PER_KM,
+    AVG_SPEED,
+    MAX_ROUTE_TIME,
+    SERVICE_TIME_PER_CUSTOMER,
+    DEPOT,
+    GOODS,
+    MAX_SPLIT_DEPTH
+)
+
 
 
 pr = cProfile.Profile()
@@ -21,32 +34,21 @@ pr.enable()
 # etc. Parece que hay algo llamado pandas profiling.
 
 # Step 1: Load Customer Data
-customers = get_customer_demand()
+customers = load_customer_demand()
 num_customers = customers['Customer_ID'].nunique()
 
-# Depot location
-depot = {'Latitude': 4.7, 'Longitude': -74.1}
+# Step 2: Generate Vehicle Configurations for each vehicle type
 
-# Step 2: Define Vehicle Types and Configurations
 
-vehicle_types = {
-    'A': {'Capacity': 2000, 'Fixed_Cost': 100},
-    'B': {'Capacity': 3000, 'Fixed_Cost': 130},
-    'C': {'Capacity': 4000, 'Fixed_Cost': 150}
-}
-
-variable_cost_per_km = 0.01  # Same for all vehicles
-goods = ['Dry', 'Chilled', 'Frozen']
-
-configurations_df = generate_vehicle_configurations(vehicle_types, goods)
-print_configurations(configurations_df, goods)
+configurations_df = generate_vehicle_configurations(VEHICLE_TYPES, GOODS)
+print_configurations(configurations_df, GOODS)
 
 # Step 3: Generate Clusters for Each Vehicle Configuration
 
 ## Heuristics to prune clustering
 # Check if customer's demands can be served by this configuration
 def is_customer_feasible(customer, config):
-    for good in goods:
+    for good in GOODS:
         if customer[f'{good}_Demand'] > 0 and not config[good]:
             return False
         if customer[f'{good}_Demand'] > config['Capacity']:
@@ -95,7 +97,7 @@ for idx, config in configurations_df.iterrows():
         continue
 
     # Calculate total demand for the customers
-    total_demand = customers_subset[[f'{g}_Demand' for g in goods]].sum(axis=1)
+    total_demand = customers_subset[[f'{g}_Demand' for g in GOODS]].sum(axis=1)
     customers_subset['Total_Demand'] = total_demand
     
     # Estimate the number of clusters needed
@@ -158,11 +160,11 @@ for idx, config in configurations_df.iterrows():
                 'Config_ID': config['Config_ID'],
                 'Customers': cluster_customers['Customer_ID'].tolist(),
                 'Total_Demand': {
-                    g: float(cluster_customers[f'{g}_Demand'].sum()) for g in goods
+                    g: float(cluster_customers[f'{g}_Demand'].sum()) for g in GOODS
                 },
                 'Centroid_Latitude': float(cluster_customers['Latitude'].mean()),
                 'Centroid_Longitude': float(cluster_customers['Longitude'].mean()),
-                'Goods_In_Config': [g for g in goods if config[g] == 1]
+                'Goods_In_Config': [g for g in GOODS if config[g] == 1]
             })
             cluster_id += 1
 
@@ -194,9 +196,9 @@ for idx, cluster in clusters_df.iterrows():
     fixed_cost = config['Fixed_Cost']
     # Estimate distance (from depot to centroid and back)
     cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
-    depot_coord = (depot['Latitude'], depot['Longitude'])
+    depot_coord = (DEPOT['Latitude'], DEPOT['Longitude'])
     dist = 2 * distance(depot_coord, cluster_coord)  # Simplified estimation
-    variable_cost = dist * variable_cost_per_km
+    variable_cost = dist * VARIABLE_COST_PER_KM
     cluster_cost = fixed_cost + variable_cost
     total_cost += cluster_cost * y_vars[cluster['Cluster_ID']]
 
@@ -279,7 +281,7 @@ total_fixed_cost = selected_clusters.merge(
 # Calculate distances and variable cost for each cluster
 def calculate_cluster_distance(cluster):
     cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
-    depot_coord = (depot['Latitude'], depot['Longitude'])
+    depot_coord = (DEPOT['Latitude'], DEPOT['Longitude'])
     return 2 * haversine(depot_coord, cluster_coord)  # Round trip distance
 
 # Add estimated distances to selected_clusters
@@ -290,7 +292,7 @@ selected_clusters['Estimated_Distance'] = selected_clusters.apply(
 
 # Calculate total variable cost
 total_variable_cost = (
-    selected_clusters['Estimated_Distance'] * variable_cost_per_km
+    selected_clusters['Estimated_Distance'] * VARIABLE_COST_PER_KM
 ).sum()
 
 print("\nCost Breakdown:")
@@ -319,7 +321,7 @@ for idx, cluster in selected_clusters.iterrows():
         configurations_df['Config_ID'] == config_id
     ].iloc[0]
     vehicle_type = config['Vehicle_Type']
-    goods_carried = [g for g in goods if config[g] == 1]
+    goods_carried = [g for g in GOODS if config[g] == 1]
     
     print(f"\nCluster {cluster['Cluster_ID']}")
     print("-" * 25)
@@ -332,7 +334,7 @@ for idx, cluster in selected_clusters.iterrows():
     
     print("\nDemand:")
     print(f"  Customers: {len(cluster['Customers'])}")
-    for good in goods:
+    for good in GOODS:
         demand = cluster['Total_Demand'][good]
         print(f"  {good}:     {demand:>8,.2f}")
         # Check if demand exceeds capacity

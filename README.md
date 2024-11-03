@@ -15,14 +15,36 @@ mit-fleet-design-optimization/
 ├── notebooks/
 ├── src/
 │   ├── __init__.py
-│   ├── clustering_playground.py
-│   ├── column_generation_playground.py
-│   ├── toy_no_time_constraint.py
-│   └── toy_with_time__parallel.py
+│   ├── main.py           # Principal execution script
+│   ├── clustering.py     # Customer clustering implementation
+│   ├── fsm_optimizer.py  # Fleet Size and Mix optimization
+│   ├── utils/
+│   │   ├── config_utils.py
+│   │   ├── data_processing.py
+│   │   └── save_results.py
+│   └── config.py         # Configuration parameters
 ├── init.sh
 ├── requirements.txt
 └── README.md
 ```
+
+## Directory Structure Details
+
+### Data Directory
+- `forecasts/`: Contains demand forecasting models and results
+- `raw/`: Original, unmodified data files
+- `sales_2023_avg_daily_demand.csv`: Processed customer demand data
+- `import.py`: Creates and populates a SQLite database (opperar.db) with sales data from 2023-01 to 2023-09
+
+### Source Directory (src/)
+- `main.py`: Principal execution script that runs the complete optimization pipeline
+- `clustering.py`: Implements customer clustering algorithms with capacity and time constraints
+- `fsm_optimizer.py`: Fleet Size and Mix optimization using integer programming
+- `utils/`: Helper modules
+  - `config_utils.py`: Vehicle configuration generation and validation
+  - `data_processing.py`: Data loading and preprocessing functions
+  - `save_results.py`: Functions for saving and exporting results
+- `config.py`: Global configuration parameters (vehicle types, goods, depot location)
 
 ## Requirements
 
@@ -45,39 +67,48 @@ For Windows:
 mit-fleet-env\Scripts\activate
 ```
 
-## Directory Structure Details
+## Running the Optimization
 
-### Data Directory
-- `forecasts/`: Contains demand forecasting results and models (TODO)
-- `raw/`: Contains original, unmodified data files
-- `*.sql`: SQL scripts for data extraction and transformation
-- `*.csv`: Processed data files containing locations and demand
-- `import.py`: Creates and populates a sqlite DB called "opperar.db" with sales data from 2023-01 to 2023-09.
-
-### Source Directory (src/)
-- `clustering_playground.py`: Implementation of customer clustering algorithms. Capacitated k-means, k-medeoids, hierachical clustering. Generates an html map with the clusters and a CSV summarizing results.
-- `column_generation_playground.py`: Column generation optimization methods. We can do it...!
-- `toy_no_time_constraint.py`: Full basic model using capacity but no time constraints for the clusters.
-- `toy_with_time__parallel.py`: Enhanced model with parallel processing, incorporates time constraints.
-
-## Example Usage
-
-After activating the environment, you can run any of the optimization scripts. For example, to run the basic optimization without time constraints:
-
+To run the fleet optimization:
 ```bash
-python src/toy_no_time_constraint.py
+python src/main.py
 ```
 
 The script will:
-1. Load the data from `data/processed/sales_2023_avg_daily_demand.csv`
-2. Run the fleet optimization algorithm
-3. Output the results to the console
+1. Load customer demand data from a csv in the data directory.
+2. Generate vehicle configurations based on defined parameters
+3. Create customer clusters considering vehicle capacities and time constraints
+4. Solve the Fleet Size and Mix optimization problem
+5. Output detailed results including:
+   - Cost breakdown (fixed and variable costs)
+   - Vehicle allocation by type
+   - Cluster details with demands and distances
+   - Route time estimations
+   - Solution statistics
 
 ## Methodology
 
-1. Clustering
-2. Fleet Size and Mix Optimization
-3. Sensitivity Analysis
+The optimization pipeline follows these steps:
+
+1. Data Processing
+   - Load customer demand data
+   - Generate feasible vehicle configurations
+
+2. Clustering
+   - Group customers based on location and demand
+   - Consider vehicle capacities and time constraints
+   - Use parallel processing for efficiency
+
+3. Fleet Size and Mix Optimization
+   - Solve integer programming model
+   - Minimize total cost (fixed + variable)
+   - Ensure all customers are served
+   - Respect vehicle capacities
+
+4. Solution Validation and Results Export
+   - Validate cluster feasibility
+   - Calculate detailed costs
+   - Generate comprehensive reports
 
 ## License
 
