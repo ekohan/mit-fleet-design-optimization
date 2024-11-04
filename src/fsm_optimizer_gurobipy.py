@@ -14,6 +14,8 @@ from utils.cluster_utils import calculate_cluster_time
 
 logger = logging.getLogger(__name__)
 
+INFO_SYMBOL = "ℹ"  # Replace Symbols.INFO with a direct symbol
+
 def solve_fsm_problem(
     clusters_df: pd.DataFrame,
     configurations_df: pd.DataFrame,
@@ -160,13 +162,60 @@ def solve_fsm_problem(
         if model.status == GRB.OPTIMAL:
             # Get selected clusters with their vehicle assignments
             selected_indices = []
+            vehicle_assignments = {}
+            cluster_distances = {}
+            
             for k in K:
                 if sum(x[v, k].x for v in V_k[k]) > 0.5:
                     selected_indices.append(k)
+                    # Find which vehicle was assigned to this cluster
+                    for v in V_k[k]:
+                        if x[v, k].x > 0.5:
+                            vehicle_assignments[k] = v
+                            cluster_coord = (clusters_df.loc[k, 'Centroid_Latitude'], 
+                                          clusters_df.loc[k, 'Centroid_Longitude'])
+                            depot_coord = (parameters.depot['latitude'], 
+                                         parameters.depot['longitude'])
+                            cluster_distances[k] = 2 * haversine(depot_coord, cluster_coord)
             
-            # Create selected_clusters as a subset of the original clusters_df
-            selected_clusters = clusters_df.loc[selected_indices]
+            # Create selected_clusters DataFrame and preserve all columns
+            selected_clusters = clusters_df.loc[selected_indices].copy()
+            
+            if verbose:
+                print("\nDebug - Selected Clusters DataFrame columns:")
+                print(selected_clusters.columns.tolist())
+                print("\nFirst row sample:")
+                print(selected_clusters.iloc[0])
+            
+            # Add vehicle assignments and distances
+            selected_clusters['Vehicle_Type'] = selected_clusters.index.map(vehicle_assignments)
+            selected_clusters['Estimated_Distance'] = selected_clusters.index.map(cluster_distances)
+            
+            # Ensure Customers column is present and in the right format
+            if 'Customers' not in selected_clusters.columns:
+                logger.error("Missing 'Customers' column in clusters_df")
+                selected_clusters['Customers'] = [[]] * len(selected_clusters)
+            elif not isinstance(selected_clusters['Customers'].iloc[0], list):
+                selected_clusters['Customers'] = selected_clusters['Customers'].apply(lambda x: list(x) if isinstance(x, (list, tuple, set)) else [])
 
+            # Check if all customers are served
+            served_customers = set()
+            for _, cluster in selected_clusters.iterrows():
+                served_customers.update(str(c) for c in cluster['Customers'])
+            
+            total_customers = set(str(c) for c in N)
+            missing_customers = total_customers - served_customers
+            
+            if verbose:
+                print(f"\n{INFO_SYMBOL} Customer Coverage Analysis:")
+                print(f"  Total Customers: {len(total_customers)}")
+                print(f"  Served Customers: {len(served_customers)}")
+                print(f"  Missing Customers: {len(missing_customers)}")
+                if missing_customers:
+                    print(f"  First few missing: {list(missing_customers)[:5]}")
+                print(f"\n  Selected Clusters: {len(selected_indices)}")
+                print(f"  Average Customers per Cluster: {len(served_customers)/len(selected_indices):.1f}")
+            
             # Calculate vehicle usage
             vehicles_used = pd.Series({
                 v: sum(x[v, k].x for k in K if (v, k) in x.keys())
@@ -180,6 +229,9 @@ def solve_fsm_problem(
                               for v, k in x.keys())
             total_cost = fixed_cost + variable_cost
 
+            # Calculate average distance
+            avg_distance = selected_clusters['Estimated_Distance'].mean()
+
             return {
                 'solver_name': 'Gurobi',
                 'solver_status': 'Optimal',
@@ -187,11 +239,18 @@ def solve_fsm_problem(
                 'total_fixed_cost': fixed_cost,
                 'total_variable_cost': variable_cost,
                 'vehicles_used': vehicles_used,
-                'selected_clusters': selected_clusters,  # Now returns a proper DataFrame subset
-                'missing_customers': []
+                'selected_clusters': selected_clusters,
+                'missing_customers': list(missing_customers),  # Add missing customers to output
+                'avg_distance': avg_distance
             }
         else:
-            # For infeasible or error cases, return empty DataFrame for selected_clusters
+            # For infeasible or error cases, return empty DataFrame with correct columns
+            empty_df = pd.DataFrame(columns=[
+                'Cluster_ID', 'Config_ID', 'Customers', 'Total_Demand',
+                'Centroid_Latitude', 'Centroid_Longitude', 'Goods_In_Config',
+                'Route_Time', 'Vehicle_Type', 'Estimated_Distance'
+            ])
+            
             return {
                 'solver_name': 'Gurobi',
                 'solver_status': 'Infeasible',
@@ -199,13 +258,21 @@ def solve_fsm_problem(
                 'total_fixed_cost': 0,
                 'total_variable_cost': 0,
                 'vehicles_used': pd.Series(dtype='int64'),
-                'selected_clusters': pd.DataFrame(),  # Empty DataFrame instead of empty list
-                'missing_customers': [str(c) for c in N]  # Convert customer IDs to strings
+                'selected_clusters': empty_df,
+                'missing_customers': [str(c) for c in N]
             }
         
     except Exception as e:
         if verbose:
             print(f"Error during optimization: {str(e)}")
+        
+        # Create empty DataFrame with required columns
+        empty_df = pd.DataFrame(columns=[
+            'Cluster_ID', 'Config_ID', 'Customers', 'Total_Demand',
+            'Centroid_Latitude', 'Centroid_Longitude', 'Goods_In_Config',
+            'Route_Time', 'Vehicle_Type', 'Estimated_Distance'
+        ])
+        
         return {
             'solver_name': 'Gurobi',
             'solver_status': 'Error',
@@ -213,8 +280,8 @@ def solve_fsm_problem(
             'total_fixed_cost': 0,
             'total_variable_cost': 0,
             'vehicles_used': pd.Series(dtype='int64'),
-            'selected_clusters': pd.DataFrame(),  # Empty DataFrame instead of empty list
-            'missing_customers': [str(c) for c in N]  # Convert customer IDs to strings
+            'selected_clusters': empty_df,  # Use DataFrame with correct columns
+            'missing_customers': [str(c) for c in N]
         }
 def _is_compatible(vehicle_config: pd.Series, cluster: pd.Series) -> bool:
     """Check if vehicle configuration is compatible with cluster requirements."""
