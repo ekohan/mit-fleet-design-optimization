@@ -10,7 +10,7 @@ from clustering import generate_clusters_for_configurations
 from fsm_optimizer import solve_fsm_problem
 from config.parameters import Parameters
 
-def main(params: Parameters = None):
+def main(params: Parameters = None, verbose: bool = False):
     """Run the FSM optimization pipeline."""
     setup_logging()
     
@@ -52,7 +52,7 @@ def main(params: Parameters = None):
         configurations_df=configs_df,
         customers_df=customers,
         parameters=params,
-        verbose=True
+        verbose=verbose
     )
     progress.advance(
         f"Optimized fleet: {Colors.BOLD}${solution['total_fixed_cost'] + solution['total_variable_cost']:,.2f}{Colors.RESET} total cost"
