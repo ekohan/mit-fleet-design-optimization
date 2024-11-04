@@ -12,13 +12,8 @@ import pulp
 from haversine import haversine
 import sys
 
-from config import (
-    DEPOT,
-    GOODS,
-    VARIABLE_COST_PER_KM
-)
-
 from utils.logging import Colors, Symbols
+from config.parameters import Parameters
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +21,7 @@ def solve_fsm_problem(
     clusters_df: pd.DataFrame,
     configurations_df: pd.DataFrame,
     customers_df: pd.DataFrame,
+    parameters: Parameters,
     verbose: bool = False
 ) -> Dict:
     """
@@ -35,13 +31,14 @@ def solve_fsm_problem(
         clusters_df: DataFrame containing generated clusters
         configurations_df: DataFrame containing vehicle configurations
         customers_df: DataFrame containing customer demands
+        parameters: Parameters object containing optimization parameters
         verbose: Whether to enable verbose output to screen
     
     Returns:
         Dictionary containing optimization results
     """
     # Create optimization model and get variables
-    model, y_vars = _create_optimization_model(clusters_df, configurations_df)
+    model, y_vars = _create_optimization_model(clusters_df, configurations_df, parameters)
     
     # Solve the model
     solver = pulp.GUROBI_CMD(msg=1 if verbose else 0)
@@ -70,7 +67,8 @@ def solve_fsm_problem(
     # Calculate statistics
     solution_stats = _calculate_solution_statistics(
         selected_clusters,
-        configurations_df
+        configurations_df,
+        parameters
     )
     
     # Print detailed solution if profiling is enabled
@@ -78,7 +76,8 @@ def solve_fsm_problem(
         _print_solution_details(
             selected_clusters,
             configurations_df,
-            solution_stats
+            solution_stats,
+            parameters
         )
     
     return {
@@ -92,7 +91,8 @@ def solve_fsm_problem(
 
 def _create_optimization_model(
     clusters_df: pd.DataFrame,
-    configurations_df: pd.DataFrame
+    configurations_df: pd.DataFrame,
+    parameters: Parameters
 ) -> Tuple[pulp.LpProblem, Dict]:
     """
     Create the optimization model with decision variables and constraints.
@@ -112,6 +112,7 @@ def _create_optimization_model(
     total_cost = _build_objective_function(
         clusters_df,
         configurations_df,
+        parameters,
         y_vars
     )
     model += total_cost, "Total_Cost"
@@ -124,25 +125,27 @@ def _create_optimization_model(
 def _build_objective_function(
     clusters_df: pd.DataFrame,
     configurations_df: pd.DataFrame,
+    parameters: Parameters,
     y_vars: Dict
 ) -> pulp.LpAffineExpression:
-    """
-    Build the objective function for minimizing total cost.
-    """
+    """Build the objective function for the optimization model."""
     total_cost = 0
+    
+    depot_coord = (parameters.depot['latitude'], parameters.depot['longitude'])
+    
     for _, cluster in clusters_df.iterrows():
         config_id = cluster['Config_ID']
-        config = configurations_df[
-            configurations_df['Config_ID'] == config_id
-        ].iloc[0]
+        config = configurations_df[configurations_df['Config_ID'] == config_id].iloc[0]
         
-        # Calculate costs
+        # Calculate fixed cost component
         fixed_cost = config['Fixed_Cost']
-        cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
-        depot_coord = (DEPOT['Latitude'], DEPOT['Longitude'])
-        dist = 2 * haversine(depot_coord, cluster_coord)
-        variable_cost = dist * VARIABLE_COST_PER_KM
         
+        # Calculate variable cost component
+        cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
+        dist = 2 * haversine(depot_coord, cluster_coord)  # Round trip distance
+        variable_cost = dist * parameters.variable_cost_per_km
+        
+        # Add to total cost
         cluster_cost = fixed_cost + variable_cost
         total_cost += cluster_cost * y_vars[cluster['Cluster_ID']]
     
@@ -228,7 +231,8 @@ def _validate_solution(
 def _print_solution_details(
     selected_clusters: pd.DataFrame,
     configurations_df: pd.DataFrame,
-    solution_stats: Dict
+    solution_stats: Dict,
+    parameters: Parameters
 ) -> None:
     """Print summarized information about the solution."""
     logger = logging.getLogger(__name__)
@@ -283,7 +287,7 @@ def _print_solution_details(
         ].iloc[0]
         max_load_pct = max(
             cluster['Total_Demand'][good] / config['Capacity'] * 100 
-            for good in GOODS
+            for good in parameters.goods
         )
         load_percentages.append(max_load_pct)
     
@@ -307,7 +311,8 @@ def _print_solution_details(
 
 def _calculate_solution_statistics(
     selected_clusters: pd.DataFrame,
-    configurations_df: pd.DataFrame
+    configurations_df: pd.DataFrame,
+    parameters: Parameters
 ) -> Dict:
     """
     Calculate various statistics about the solution.
@@ -321,11 +326,12 @@ def _calculate_solution_statistics(
     # Calculate distances and variable costs
     selected_clusters = selected_clusters.copy()
     selected_clusters['Estimated_Distance'] = selected_clusters.apply(
-        _calculate_cluster_distance, axis=1
+        lambda x: _calculate_cluster_distance(x, parameters),
+        axis=1
     )
     
     total_variable_cost = (
-        selected_clusters['Estimated_Distance'] * VARIABLE_COST_PER_KM
+        selected_clusters['Estimated_Distance'] * parameters.variable_cost_per_km
     ).sum()
     
     # Calculate vehicles used by type
@@ -346,10 +352,10 @@ def _calculate_solution_statistics(
         'selected_clusters': selected_clusters  # Include updated clusters with distances
     }
 
-def _calculate_cluster_distance(cluster: pd.Series) -> float:
+def _calculate_cluster_distance(cluster: pd.Series, parameters: Parameters) -> float:
     """
     Calculate the round-trip distance for a cluster.
     """
     cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
-    depot_coord = (DEPOT['Latitude'], DEPOT['Longitude'])
+    depot_coord = (parameters.depot['latitude'], parameters.depot['longitude'])
     return 2 * haversine(depot_coord, cluster_coord) 

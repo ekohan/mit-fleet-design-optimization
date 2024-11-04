@@ -15,18 +15,12 @@ def generate_vehicle_configurations(vehicle_types, goods):
             compartment = dict(zip(goods, option))
             compartment['Vehicle_Type'] = vt_name
             compartment['Config_ID'] = config_id
+            compartment['Capacity'] = vt_info['capacity']
+            compartment['Fixed_Cost'] = vt_info['fixed_cost']
             compartment_configs.append(compartment)
             config_id += 1
 
-    configurations_df = pd.DataFrame(compartment_configs)
-    
-    # Merge with vehicle types to get capacities and costs
-    configurations_df = configurations_df.merge(
-        pd.DataFrame(vehicle_types).T.reset_index().rename(columns={'index': 'Vehicle_Type'}),
-        on='Vehicle_Type'
-    )
-    
-    return configurations_df
+    return pd.DataFrame(compartment_configs)
 
 def print_configurations(configurations_df, goods):
     """Print vehicle configurations in a formatted way"""

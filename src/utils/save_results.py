@@ -2,20 +2,21 @@ import pandas as pd
 from datetime import datetime
 from pathlib import Path
 import inspect
-from config import *
+from config.parameters import Parameters
 
 def save_optimization_results(
-    execution_time,
-    solver_name,
-    solver_status,
-    configurations_df,
-    selected_clusters,
-    total_fixed_cost,
-    total_variable_cost,
-    vehicles_used,
-    missing_customers,
-    filename=None
-):
+    execution_time: float,
+    solver_name: str,
+    solver_status: str,
+    configurations_df: pd.DataFrame,
+    selected_clusters: pd.DataFrame,
+    total_fixed_cost: float,
+    total_variable_cost: float,
+    vehicles_used: pd.Series,
+    missing_customers: set,
+    parameters: Parameters,
+    filename: str = None
+) -> None:
     """
     Save optimization results to an Excel file with multiple sheets
     
@@ -39,6 +40,8 @@ def save_optimization_results(
         Series containing count of vehicles used by type
     missing_customers : set
         Set of customer IDs that couldn't be served
+    parameters : Parameters
+        Parameters object containing relevant parameters
     filename : str, optional
         Custom filename for the Excel file
     """
@@ -68,7 +71,7 @@ def save_optimization_results(
                 ].iloc[0]
                 max_load_pct = max(
                     cluster['Total_Demand'][good] / config['Capacity'] * 100 
-                    for good in GOODS
+                    for good in parameters.goods
                 )
                 load_percentages.append(max_load_pct)
             load_percentages = pd.Series(load_percentages)
@@ -95,38 +98,24 @@ def save_optimization_results(
                 ('Truck Load % (Max)', f"{load_percentages.max():.1f}"),
                 ('Truck Load % (Avg)', f"{load_percentages.mean():.1f}"),
                 ('Truck Load % (Median)', f"{load_percentages.median():.1f}"),
-                ('---Parameters---', '')  # Separator
             ])
             
-            # Dynamically add all configuration parameters
-            import config
-            import inspect
+            summary_metrics.extend([
+                ('---Parameters---', ''),
+                ('Variable Cost per KM', parameters.variable_cost_per_km),
+                ('Average Speed', parameters.avg_speed),
+                ('Max Route Time', parameters.max_route_time),
+                ('Service Time per Customer', parameters.service_time),
+                ('Max Split Depth', parameters.clustering['max_depth']),
+                ('Clustering Method', parameters.clustering['method']),
+                ('Clustering Distance', parameters.clustering['distance']),
+            ])
             
-            # Get all uppercase variables from config module (these are our parameters)
-            config_params = {
-                name: value for name, value in inspect.getmembers(config)
-                if name.isupper()
-            }
-            
-            # Process each parameter type appropriately
-            for param_name, value in sorted(config_params.items()):
-                if param_name == 'VEHICLE_TYPES':
-                    # Handle vehicle types dictionary
-                    for v_type, specs in sorted(value.items()):
-                        for spec_name, spec_value in specs.items():
-                            metric_name = f'Vehicle {v_type} {spec_name}'
-                            summary_metrics.append((metric_name, spec_value))
-                elif param_name == 'DEPOT':
-                    # Handle depot dictionary
-                    for key, coord in value.items():
-                        metric_name = f'Depot {key}'
-                        summary_metrics.append((metric_name, coord))
-                elif isinstance(value, (list, tuple)):
-                    # Handle list parameters
-                    summary_metrics.append((param_name, ', '.join(map(str, value))))
-                else:
-                    # Handle simple parameters
-                    summary_metrics.append((param_name, value))
+            # Add vehicle types
+            for v_type, specs in parameters.vehicles.items():
+                for spec_name, value in specs.items():
+                    metric_name = f'Vehicle {v_type} {spec_name}'
+                    summary_metrics.append((metric_name, value))
             
             # Create and save summary DataFrame
             summary_df = pd.DataFrame(summary_metrics, columns=['Metric', 'Value'])

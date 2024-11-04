@@ -9,21 +9,14 @@ import numpy as np
 from sklearn.cluster import MiniBatchKMeans
 from joblib import Parallel, delayed
 from haversine import haversine
-
-from config import (
-    MAX_SPLIT_DEPTH,
-    SERVICE_TIME_PER_CUSTOMER,
-    MAX_ROUTE_TIME,
-    AVG_SPEED
-)
+from config.parameters import Parameters
 
 logger = logging.getLogger(__name__)
 
 def generate_clusters_for_configurations(
     customers: pd.DataFrame,
     configurations_df: pd.DataFrame,
-    goods: List[str],
-    depot: Dict[str, float]
+    params: Parameters,
 ) -> pd.DataFrame:
     """
     Generate clusters for each vehicle configuration in parallel.
@@ -31,8 +24,7 @@ def generate_clusters_for_configurations(
     Args:
         customers: DataFrame containing customer data
         configurations_df: DataFrame containing vehicle configurations
-        goods: List of goods types
-        depot: Dictionary containing depot coordinates
+        params: Parameters object containing vehicle configuration parameters
     
     Returns:
         DataFrame containing all generated clusters
@@ -41,21 +33,21 @@ def generate_clusters_for_configurations(
     feasible_customers = _generate_feasibility_mapping(
         customers, 
         configurations_df,
-        goods
+        params.goods
     )
     
     # Process configurations in parallel
     clusters_by_config = Parallel(n_jobs=-1)(
         delayed(process_configuration)(
-            config=config,
-            customers=customers,
-            goods=goods,
-            depot=depot,
-            avg_speed=AVG_SPEED,
-            service_time_per_customer=SERVICE_TIME_PER_CUSTOMER,
-            max_route_time=MAX_ROUTE_TIME,
-            feasible_customers=feasible_customers,
-            max_split_depth=MAX_SPLIT_DEPTH
+            config,
+            customers,
+            params.goods,
+            params.depot,
+            params.avg_speed,
+            params.service_time,
+            params.max_route_time,
+            feasible_customers,
+            params.clustering['max_depth']
         )
         for _, config in configurations_df.iterrows()
     )
@@ -73,7 +65,7 @@ def process_configuration(
     goods: List[str],
     depot: Dict[str, float],
     avg_speed: float,
-    service_time_per_customer: float,
+    service_time: float,
     max_route_time: float,
     feasible_customers: Dict,
     max_split_depth: int
@@ -87,7 +79,7 @@ def process_configuration(
         goods: List of goods types
         depot: Depot location
         avg_speed: Average vehicle speed
-        service_time_per_customer: Service time per customer
+        service_time: Service time per customer
         max_route_time: Maximum route time
         feasible_customers: Mapping of customers to feasible configurations
         max_split_depth: Maximum depth for cluster splitting
@@ -119,8 +111,9 @@ def process_configuration(
         config, 
         depot, 
         avg_speed, 
-        service_time_per_customer,
-        goods
+        service_time,
+        goods,
+        max_route_time
     )
 
     coords = customers_subset[['Latitude', 'Longitude']]
@@ -128,7 +121,7 @@ def process_configuration(
     customers_subset['Cluster'] = kmeans.fit_predict(coords)
 
     # Process each initial cluster
-    clusters_to_check: List[Tuple[pd.DataFrame, int]] = [
+    clusters_to_check = [
         (customers_subset[customers_subset['Cluster'] == c], 0)
         for c in customers_subset['Cluster'].unique()
     ]
@@ -139,7 +132,7 @@ def process_configuration(
     while clusters_to_check:
         cluster_customers, depth = clusters_to_check.pop()
         cluster_demand = cluster_customers['Total_Demand'].sum()
-        route_time = 1 + len(cluster_customers) * service_time_per_customer
+        route_time = 1 + len(cluster_customers) * service_time
 
         if (cluster_demand > config['Capacity'] or route_time > max_route_time) and depth < max_split_depth:
             if len(cluster_customers) > 1:
@@ -177,7 +170,8 @@ def estimate_num_initial_clusters(
     depot: Dict[str, float],
     avg_speed: float,
     service_time: float,
-    goods: List[str]
+    goods: List[str],
+    max_route_time: float
 ) -> int:
     """
     Estimate the number of initial clusters needed based on capacity and time constraints.
@@ -189,6 +183,7 @@ def estimate_num_initial_clusters(
         avg_speed: Average vehicle speed (km/h)
         service_time: Service time per customer (hours)
         goods: List of goods types
+        max_route_time: Maximum route time
     
     Returns:
         Estimated number of clusters needed
@@ -206,7 +201,7 @@ def estimate_num_initial_clusters(
     clusters_by_capacity = np.ceil(total_demand / config['Capacity'])
 
     # Calculate average distance from depot to customers
-    depot_coord = (depot['Latitude'], depot['Longitude'])
+    depot_coord = (depot['latitude'], depot['longitude'])
     avg_distance = np.mean([
         haversine(depot_coord, (lat, lon))
         for lat, lon in zip(customers['Latitude'], customers['Longitude'])
@@ -222,7 +217,7 @@ def estimate_num_initial_clusters(
     # Estimate clusters needed based on time
     clusters_by_time = np.ceil(
         avg_route_time * len(customers) / 
-        (MAX_ROUTE_TIME * avg_customers_per_cluster)
+        (max_route_time * avg_customers_per_cluster)
     )
 
     # Take the maximum of the two estimates
