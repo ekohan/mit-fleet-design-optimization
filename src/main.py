@@ -4,7 +4,7 @@ Main module for the vehicle routing optimization problem.
 import time
 from utils.logging import setup_logging, ProgressTracker, Colors
 from utils.data_processing import load_customer_demand
-from utils.config_utils import generate_vehicle_configurations
+from utils.vehicle_configurations import generate_vehicle_configurations
 from utils.save_results import save_optimization_results
 from clustering import generate_clusters_for_configurations
 from fsm_optimizer import solve_fsm_problem
