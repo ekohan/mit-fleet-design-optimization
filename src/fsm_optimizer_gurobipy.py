@@ -1,25 +1,16 @@
 """
-Fleet Size and Mix (FSM) Optimizer module.
-Handles the optimization model creation, solving, and solution validation
-for the vehicle routing problem with multiple compartments.
+Fleet Size and Mix (FSM) Optimizer using Gurobi.
+Implements the multi-compartment vehicle routing optimization model.
 """
 
-import logging
-import time
-from typing import Dict, Tuple, Set
-import pandas as pd
-from haversine import haversine
-import sys
 import gurobipy as gp
 from gurobipy import GRB
-
-from config import (
-    DEPOT,
-    GOODS,
-    VARIABLE_COST_PER_KM
-)
-
+import pandas as pd
+from typing import Dict, Tuple
+import logging
 from utils.logging import Colors, Symbols
+from config import DEPOT, VARIABLE_COST_PER_KM
+from haversine import haversine
 
 logger = logging.getLogger(__name__)
 
@@ -31,409 +22,267 @@ def solve_fsm_problem(
 ) -> Dict:
     """
     Solve the Fleet Size and Mix optimization problem.
-    
-    Args:
-        clusters_df: DataFrame containing generated clusters
-        configurations_df: DataFrame containing vehicle configurations
-        customers_df: DataFrame containing customer demands
-        verbose: Whether to enable verbose output to screen
-    
-    Returns:
-        Dictionary containing optimization results
+    configurations_df represents vehicle types, not individual vehicles.
+    Each type can be used multiple times.
     """
-   
-    # Create optimization model and get variables
-    model, y_vars = _create_optimization_model(
-        clusters_df, 
-        configurations_df,
-        customers_df
-    )
-    
-    # Set output level
-    if not verbose:
-        model.setParam('OutputFlag', 0)
-    
-    # Solve the model
-    start_time = time.time()
-    model.optimize()
-    end_time = time.time()
-    
-    if verbose:
-        print(f"Optimization completed in {end_time - start_time:.2f} seconds.")
-    
-    # Get solver status
-    status_map = {
-        GRB.OPTIMAL: 'Optimal',
-        GRB.INFEASIBLE: 'Infeasible',
-        GRB.UNBOUNDED: 'Unbounded',
-        GRB.INF_OR_UNBD: 'Infeasible or Unbounded',
-        GRB.TIME_LIMIT: 'Time Limit Reached'
-    }
-    
-    solver_status = status_map.get(model.status, f'Other Status: {model.status}')
-    
-    if model.status == GRB.OPTIMAL:
-        selected_clusters = _extract_solution(clusters_df, y_vars)
-        missing_customers = _validate_solution(
-            selected_clusters, 
-            customers_df,
-            configurations_df
-        )
+    try:
+        # Create optimization model
+        model = gp.Model("Fleet_Size_Mix")
         
-        # Calculate vehicles used by type
-        vehicles_used = (
-            selected_clusters
-            .merge(configurations_df[['Config_ID', 'Vehicle_Type']], on='Config_ID')
-            ['Vehicle_Type']
-            .value_counts()
-        )
+        # Sets
+        K = clusters_df.index.tolist()  # Set of clusters
+        V = configurations_df.index.tolist()  # Set of vehicle types
+        N = customers_df['Customer_ID'].tolist()  # Use actual Customer_ID instead of index
+        
+        if verbose:
+            print("\nSets Debug:")
+            print(f"Number of Clusters: {len(K)}")
+            print(f"Number of Vehicle Types: {len(V)}")
+            print(f"Number of Customers: {len(N)}")
+        
+        # Create K_i: clusters containing each customer
+        K_i = {}
+        for i in N:  # Use actual customer IDs
+            customer_str = str(i)
+            K_i[customer_str] = []
+            for k in K:
+                cluster_customers = [str(c) for c in clusters_df.loc[k, 'Customers']]
+                if customer_str in cluster_customers:
+                    K_i[customer_str].append(k)
+        
+        # Create V_k: vehicles that can serve each cluster
+        V_k = {}
+        for k in K:
+            V_k[k] = []
+            cluster_total_demand = sum(clusters_df.loc[k, 'Total_Demand'].values())
+            for v in V:
+                if (configurations_df.loc[v, 'Capacity'] >= cluster_total_demand and 
+                    _is_compatible(configurations_df.loc[v], clusters_df.loc[k])):
+                    V_k[k].append(v)
+        
+        # Debug vehicle compatibility (moved after V_k creation)
+        if verbose:
+            print("\nChecking vehicle compatibility:")
+            for k in K:
+                if not V_k[k]:
+                    print(f"⚠️ Cluster {k} has no compatible vehicles!")
+                    cluster = clusters_df.loc[k]
+                    print(f"  Total Demand: {cluster['Total_Demand']}")
+                    print(f"  Goods Required: {cluster['Goods_In_Config']}")
+                    print(f"  Number of customers: {len(cluster['Customers'])}")
+
+        # Debug customer assignments
+        if verbose:
+            print("\nChecking customer assignments:")
+            customers_without_options = []
+            for i in N:
+                if not K_i[str(i)]:
+                    customers_without_options.append(i)
+            if customers_without_options:
+                print(f"⚠️ Found {len(customers_without_options)} customers with no valid cluster options!")
+                print(f"First few: {customers_without_options[:5]}")
+
+        # Validate customer assignments
+        unassigned_customers = []
+        for i in N:  # Use actual customer IDs
+            if not K_i[str(i)]:
+                unassigned_customers.append(i)
+        
+        if unassigned_customers:
+            if verbose:
+                print("\n⚠️ Warning: Found unassigned customers!")
+                print(f"Number of unassigned customers: {len(unassigned_customers)}")
+                print(f"First few unassigned: {unassigned_customers[:5]}")
+                print("\nFirst cluster customers:", clusters_df.loc[0, 'Customers'])
+                print("First few customer IDs:", N[:5])  # Show actual customer IDs
+            raise ValueError(f"{len(unassigned_customers)} customers are not assigned to any cluster")
+        
+        if verbose:
+            print("\nCustomer-Cluster Assignment Stats:")
+            assignments_per_customer = [len(clusters) for clusters in K_i.values()]
+            print(f"Average clusters per customer: {sum(assignments_per_customer)/len(assignments_per_customer):.1f}")
+            print(f"Min clusters per customer: {min(assignments_per_customer)}")
+            print(f"Max clusters per customer: {max(assignments_per_customer)}")
         
         # Calculate costs
-        solution_stats = _calculate_solution_statistics(selected_clusters, configurations_df)
+        c_vk = {
+            (v, k): _calculate_cost(
+                configurations_df.loc[v],
+                clusters_df.loc[k]
+            )
+            for k in K
+            for v in V_k[k]
+        }
         
+        # Decision Variables: x[v,k] = 1 if vehicle type v serves cluster k
+        x = model.addVars(
+            [(v, k) for k in K for v in V_k[k]],
+            vtype=GRB.BINARY,
+            name="x"
+        )
+        
+        # Decision Variables: y[k] = 1 if cluster k is selected
+        y = model.addVars(K, vtype=GRB.BINARY, name="y")
+        
+        # Objective Function: Minimize total cost
+        model.setObjective(
+            gp.quicksum(
+                x[v, k] * c_vk[v, k]
+                for k in K
+                for v in V_k[k]
+            ),
+            GRB.MINIMIZE
+        )
+        
+        # Constraints
+        # 1. Each customer must be served exactly once
+        for i in N:
+            model.addConstr(
+                gp.quicksum(y[k] for k in K_i[str(i)]) == 1,
+                name=f"customer_allocation[{i}]"
+            )
+        
+        # 2. If cluster is selected, it must have exactly one vehicle
+        for k in K:
+            model.addConstr(
+                gp.quicksum(x[v, k] for v in V_k[k]) == y[k],
+                name=f"cluster_allocation[{k}]"
+            )
+        
+        # Solve the model
+        if not verbose:
+            model.setParam('OutputFlag', 0)
+        
+        model.optimize()
+        
+        if model.status == GRB.OPTIMAL:
+            # Get selected clusters with their vehicle assignments
+            selected_indices = []
+            for k in K:
+                if sum(x[v, k].x for v in V_k[k]) > 0.5:
+                    selected_indices.append(k)
+            
+            # Create selected_clusters as a subset of the original clusters_df
+            selected_clusters = clusters_df.loc[selected_indices]
+
+            # Calculate vehicle usage
+            vehicles_used = pd.Series({
+                v: sum(x[v, k].x for k in K if (v, k) in x.keys())
+                for v in V
+            }).astype(int)
+
+            # Calculate costs
+            fixed_cost = sum(configurations_df.loc[v, 'Fixed_Cost'] * x[v, k].x 
+                           for v, k in x.keys())
+            variable_cost = sum(_calculate_cost(configurations_df.loc[v], clusters_df.loc[k]) * x[v, k].x 
+                              for v, k in x.keys())
+            total_cost = fixed_cost + variable_cost
+
+            return {
+                'solver_name': 'Gurobi',
+                'solver_status': 'Optimal',
+                'total_cost': total_cost,
+                'total_fixed_cost': fixed_cost,
+                'total_variable_cost': variable_cost,
+                'vehicles_used': vehicles_used,
+                'selected_clusters': selected_clusters,  # Now returns a proper DataFrame subset
+                'missing_customers': []
+            }
+        else:
+            # For infeasible or error cases, return empty DataFrame for selected_clusters
+            return {
+                'solver_name': 'Gurobi',
+                'solver_status': 'Infeasible',
+                'total_cost': 0,
+                'total_fixed_cost': 0,
+                'total_variable_cost': 0,
+                'vehicles_used': pd.Series(dtype='int64'),
+                'selected_clusters': pd.DataFrame(),  # Empty DataFrame instead of empty list
+                'missing_customers': [str(c) for c in N]  # Convert customer IDs to strings
+            }
+        
+    except Exception as e:
+        if verbose:
+            print(f"Error during optimization: {str(e)}")
         return {
             'solver_name': 'Gurobi',
-            'solver_status': solver_status,
-            'selected_clusters': selected_clusters,
-            'total_fixed_cost': solution_stats['total_fixed_cost'],
-            'total_variable_cost': solution_stats['total_variable_cost'],
-            'vehicles_used': vehicles_used,  # Now this is a pandas Series
-            'missing_customers': missing_customers
+            'solver_status': 'Error',
+            'total_cost': 0,
+            'total_fixed_cost': 0,
+            'total_variable_cost': 0,
+            'vehicles_used': pd.Series(dtype='int64'),
+            'selected_clusters': pd.DataFrame(),  # Empty DataFrame instead of empty list
+            'missing_customers': [str(c) for c in N]  # Convert customer IDs to strings
         }
-    else:
-        raise Exception(f"Optimization failed with status: {solver_status}")
 
-def _create_optimization_model(
+def _is_compatible(vehicle_config: pd.Series, cluster: pd.Series) -> bool:
+    """Check if vehicle configuration is compatible with cluster requirements."""
+    # Check compartment compatibility
+    for compartment in cluster['Goods_In_Config']:
+        if not vehicle_config[compartment]:
+            return False
+    return True
+
+def _has_capacity(vehicle_config: pd.Series, cluster: pd.Series) -> bool:
+    """Check if vehicle has enough capacity for cluster total demand."""
+    # Sum up all demands in the cluster
+    total_cluster_demand = sum(cluster['Total_Demand'].values())
+    
+    # Check if vehicle capacity is sufficient
+    return vehicle_config['Capacity'] >= total_cluster_demand
+
+def _calculate_cost(vehicle: pd.Series, cluster: pd.Series) -> float:
+    """Calculate total cost (fixed + variable) for serving a cluster with a vehicle."""
+    # Calculate distance
+    cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
+    depot_coord = (DEPOT['Latitude'], DEPOT['Longitude'])
+    distance = 2 * haversine(depot_coord, cluster_coord)
+    
+    return vehicle['Fixed_Cost'] + (distance * VARIABLE_COST_PER_KM)
+
+def _calculate_solution_stats(
+    selected: list,
+    configurations_df: pd.DataFrame,
+    clusters_df: pd.DataFrame,
+    customers_df: pd.DataFrame
+) -> Dict:
+    """Calculate detailed statistics about the solution."""
+    # Implementation details...
+    pass
+
+def _validate_input_data(
     clusters_df: pd.DataFrame,
     configurations_df: pd.DataFrame,
     customers_df: pd.DataFrame
-) -> Tuple[gp.Model, Dict]:
-    """Create the optimization model with decision variables and constraints."""
-    # Create a new model
-    model = gp.Model("FSM-MVC-CD")
+) -> bool:
+    """Validate input data for feasibility."""
+    valid = True
     
-    # Calculate vehicle-cluster compatibility and costs
-    V_k = {}
-    cost_matrix = {}
-    
-    with open('results/compatibility_and_costs.txt', 'w') as f:
-        f.write("=== Vehicle-Cluster Compatibility and Costs ===\n\n")
-        
-        for _, v in configurations_df.iterrows():
-            for _, k in clusters_df.iterrows():
-                # Check compatibility
-                is_compatible = True
-                for good in k['Goods_In_Config']:
-                    if v[good] != 1:
-                        is_compatible = False
-                        break
-                
-                if is_compatible:
-                    total_demand = sum(k['Total_Demand'].values())
-                    if total_demand > v['Capacity']:
-                        is_compatible = False
-                
-                V_k[(v['Config_ID'], k['Cluster_ID'])] = 1 if is_compatible else 0
-                
-                # Calculate costs
-                fixed_cost = v['Fixed_Cost']
-                # Calculate distance-based variable cost
-                cluster_coord = (k['Centroid_Latitude'], k['Centroid_Longitude'])
-                depot_coord = (DEPOT['Latitude'], DEPOT['Longitude'])
-                dist = 2 * haversine(depot_coord, cluster_coord)  # Round trip distance
-                variable_cost = dist * VARIABLE_COST_PER_KM  # Use vehicle's variable cost rate
-                
-                total_cost = fixed_cost + variable_cost
-                cost_matrix[(v['Config_ID'], k['Cluster_ID'])] = total_cost
-                
-                # Write detailed information to file
-                f.write(f"\nVehicle Config {v['Config_ID']} - Cluster {k['Cluster_ID']}:\n")
-                f.write(f"Compatible: {is_compatible}\n")
-                f.write(f"Cluster needs: {k['Goods_In_Config']}\n")
-                f.write(f"Vehicle has: Dry={v['Dry']}, Chilled={v['Chilled']}, Frozen={v['Frozen']}\n")
-                f.write(f"Costs:\n")
-                f.write(f"  Fixed Cost: ${fixed_cost:,.2f}\n")
-                f.write(f"  Variable Cost: ${variable_cost:,.2f}\n")
-                f.write(f"  Total Cost: ${total_cost:,.2f}\n")
-                
-                if not is_compatible:
-                    f.write("Failed because: ")
-                    incompatibility_reasons = []
-                    for good in k['Goods_In_Config']:
-                        if v[good] != 1:
-                            incompatibility_reasons.append(f"Missing {good} compartment")
-                    if 'total_demand' in locals() and total_demand > v['Capacity']:
-                        incompatibility_reasons.append(f"Demand ({total_demand}) exceeds capacity ({v['Capacity']})")
-                    f.write(", ".join(incompatibility_reasons) + "\n")
-                f.write("-" * 50 + "\n")
-        
-        # Add cost matrix summary at the end
-        f.write("\n\n=== Cost Matrix Summary ===\n")
-        f.write("\nConfig_ID, Cluster_ID, Cost\n")
-        for (config_id, cluster_id), cost in sorted(cost_matrix.items()):
-            f.write(f"{config_id}, {cluster_id}, ${cost:,.2f}\n")
-
-    # Create decision variables only for compatible vehicle-cluster pairs
-    y_vars = {}
-    for (config_id, cluster_id), is_compatible in V_k.items():
-        if is_compatible == 1:
-            y_vars[(config_id, cluster_id)] = model.addVar(
-                vtype=GRB.BINARY,
-                name=f"y_{config_id}_{cluster_id}",
-                obj=cost_matrix[(config_id, cluster_id)]  # Set cost coefficient directly
-            )
-    
-    # Set objective function (minimizing total cost)
-    model.setObjective(
-        gp.quicksum(
-            y_vars[key] * cost_matrix[key]
-            for key in y_vars.keys()
-        ),
-        GRB.MINIMIZE
-    )
-    
-    # Add constraints
-    _add_customer_coverage_constraints(
-        model, 
-        clusters_df, 
-        customers_df, 
-        y_vars, 
-        V_k, 
-        configurations_df
-    )
-    _add_vehicle_allocation_constraints(
-        model, 
-        clusters_df, 
-        configurations_df, 
-        y_vars, 
-        V_k
-    )
-    
-    return model, y_vars
-
-def _add_customer_coverage_constraints(
-    model: gp.Model,
-    clusters_df: pd.DataFrame,
-    customers_df: pd.DataFrame,
-    assign_vars: Dict,
-    V_k: Dict,
-    configurations_df: pd.DataFrame
-) -> None:
-    """Add constraints ensuring each customer is visited at least once."""
-    
-    for _, customer in customers_df.iterrows():
-        customer_id = customer['Customer_ID']
-        
-        # Sum over all compatible vehicle-cluster pairs that can serve this customer
-        model.addConstr(
-            gp.quicksum(
-                assign_vars[v['Config_ID'], k['Cluster_ID']]
-                for _, k in clusters_df.iterrows()
-                if customer_id in k['Customers']  # Check if cluster can serve this customer
-                for _, v in configurations_df.iterrows()
-                if V_k[(v['Config_ID'], k['Cluster_ID'])] == 1  # Check if vehicle-cluster pair is compatible
-            ) >= 1,  # Changed to >= 1 to match original logic
-            name=f"Customer_{customer_id}_Visited_Once"
-        )
-
-def _add_vehicle_allocation_constraints(
-    model: gp.Model,
-    clusters_df: pd.DataFrame,
-    configurations_df: pd.DataFrame,
-    assign_vars: Dict,
-    V_k: Dict
-) -> None:
-    """Add constraints ensuring each cluster is served by at most one vehicle."""
-    
+    # Check vehicle capacities vs cluster demands
     for _, cluster in clusters_df.iterrows():
-        cluster_id = cluster['Cluster_ID']
-        
-        # Sum over all compatible vehicles that can serve this cluster
-        model.addConstr(
-            gp.quicksum(
-                assign_vars[v['Config_ID'], cluster_id]
-                for _, v in configurations_df.iterrows()
-                if V_k[(v['Config_ID'], cluster_id)] == 1  # Only consider compatible vehicles
-            ) <= 1,  # At most one vehicle per cluster
-            name=f"Cluster_{cluster_id}_Served"
-        )
-
-def _extract_solution(
-    clusters_df: pd.DataFrame,
-    y_vars: Dict[Tuple[int, int], gp.Var]
-) -> pd.DataFrame:
-    """Extract the selected clusters from the optimization solution."""
-    return clusters_df[
-        clusters_df['Cluster_ID'].isin([
-            cid for cid, var in y_vars.items() 
-            if var.X > 0.5
-        ])
-    ]
-
-def _validate_solution(
-    selected_clusters: pd.DataFrame,
-    customers_df: pd.DataFrame,
-    configurations_df: pd.DataFrame
-) -> Set:
-    """
-    Validate that all customers are served in the solution.
-    """
-    logger = logging.getLogger(__name__)
-    from utils.logging import Colors, Symbols
-
-    all_customers_set = set(customers_df['Customer_ID'])
-    served_customers = set()
-    for _, cluster in selected_clusters.iterrows():
-        served_customers.update(cluster['Customers'])
-
-    missing_customers = all_customers_set - served_customers
-    if missing_customers:
-        logger.warning(
-            f"\n{Symbols.CROSS} {len(missing_customers)} customers are not served!"
-        )
-        
-        # Print unserved customer demands
-        unserved = customers_df[customers_df['Customer_ID'].isin(missing_customers)]
-        logger.warning(
-            f"{Colors.YELLOW}→ Unserved Customers:{Colors.RESET}\n"
-            f"{Colors.GRAY}  Customer ID  Dry  Chilled  Frozen{Colors.RESET}"
-        )
-        
-        for _, customer in unserved.iterrows():
-            logger.warning(
-                f"{Colors.YELLOW}  {customer['Customer_ID']:>10}  "
-                f"{customer['Dry_Demand']:>3.0f}  "
-                f"{customer['Chilled_Demand']:>7.0f}  "
-                f"{customer['Frozen_Demand']:>6.0f}{Colors.RESET}"
+        max_demand = max(cluster['Total_Demand'].values())
+        if max_demand > configurations_df['Capacity'].max():
+            logger.error(
+                f"Cluster {cluster['Cluster_ID']} has demand {max_demand} > "
+                f"max vehicle capacity {configurations_df['Capacity'].max()}"
             )
-        
-    return missing_customers
-
-def _print_solution_details(
-    selected_clusters: pd.DataFrame,
-    configurations_df: pd.DataFrame,
-    solution_stats: Dict
-) -> None:
-    """Print summarized information about the solution."""
-    logger = logging.getLogger(__name__)
-    from utils.logging import Colors, Symbols
+            valid = False
     
-    # Warnings first (if any)
-    if solution_stats.get('missing_customers'):
-        logger.warning(
-            f"{Symbols.CROSS} Some customers are not served!\n"
-            f"{Colors.YELLOW}→ Unserved customers: {len(solution_stats['missing_customers'])}{Colors.RESET}"
+    # Check compartment availability
+    required_compartments = set()
+    for _, cluster in clusters_df.iterrows():
+        required_compartments.update(cluster['Goods_In_Config'])
+    
+    available_compartments = set()
+    for _, vehicle in configurations_df.iterrows():
+        available_compartments.update(
+            good for good in ['Dry', 'Chilled', 'Frozen'] 
+            if vehicle[good]
         )
     
-    # Cost Summary
-    logger.info(f"\n{Symbols.CHART} Solution Summary")
-    logger.info("=" * 50)
-    logger.info(
-        f"{Colors.CYAN}Total Cost:     ${Colors.BOLD}"
-        f"{(solution_stats['total_fixed_cost'] + solution_stats['total_variable_cost']):>10,.2f}"
-        f"{Colors.RESET}"
-    )
-    logger.info(
-        f"{Colors.CYAN}Total Vehicles: {Colors.BOLD}"
-        f"{solution_stats['total_vehicles']}{Colors.RESET}"
-    )
-
-    # Vehicle Usage Summary
-    logger.info(f"\n{Symbols.TRUCK} Vehicles by Type")
-    for vehicle_type, count in solution_stats['vehicles_used'].items():
-        logger.info(
-            f"{Colors.BLUE}→ Type {vehicle_type}:{Colors.BOLD}"
-            f"{count:>4}{Colors.RESET}"
-        )
-
-    # Calculate cluster statistics
-    cluster_stats = selected_clusters.copy()
+    missing_compartments = required_compartments - available_compartments
+    if missing_compartments:
+        logger.error(f"No vehicles available with compartments: {missing_compartments}")
+        valid = False
     
-    # Customer statistics
-    customers_per_cluster = cluster_stats['Customers'].apply(len)
-    logger.info(f"\n{Symbols.PACKAGE} Customers per Cluster")
-    logger.info(
-        f"{Colors.MAGENTA}  Min:    {Colors.BOLD}{customers_per_cluster.min():>4.0f}{Colors.RESET}\n"
-        f"{Colors.MAGENTA}  Max:    {Colors.BOLD}{customers_per_cluster.max():>4.0f}{Colors.RESET}\n"
-        f"{Colors.MAGENTA}  Avg:    {Colors.BOLD}{customers_per_cluster.mean():>4.1f}{Colors.RESET}\n"
-        f"{Colors.MAGENTA}  Median: {Colors.BOLD}{customers_per_cluster.median():>4.1f}{Colors.RESET}"
-    )
-
-    # Calculate truck load percentages
-    load_percentages = []
-    for _, cluster in cluster_stats.iterrows():
-        config = configurations_df[
-            configurations_df['Config_ID'] == cluster['Config_ID']
-        ].iloc[0]
-        max_load_pct = max(
-            cluster['Total_Demand'][good] / config['Capacity'] * 100 
-            for good in GOODS
-        )
-        load_percentages.append(max_load_pct)
-    
-    load_percentages = pd.Series(load_percentages)
-    logger.info(f"\n{Symbols.GEAR} Truck Load Percentages")
-    logger.info(
-        f"{Colors.CYAN}  Min:    {Colors.BOLD}{load_percentages.min():>4.1f}%{Colors.RESET}\n"
-        f"{Colors.CYAN}  Max:    {Colors.BOLD}{load_percentages.max():>4.1f}%{Colors.RESET}\n"
-        f"{Colors.CYAN}  Avg:    {Colors.BOLD}{load_percentages.mean():>4.1f}%{Colors.RESET}\n"
-        f"{Colors.CYAN}  Median: {Colors.BOLD}{load_percentages.median():>4.1f}%{Colors.RESET}"
-    )
-
-    # Print warnings if any cluster exceeds capacity
-    overloaded = load_percentages[load_percentages > 100]
-    if not overloaded.empty:
-        logger.warning(
-            f"\n{Symbols.CROSS} {len(overloaded)} clusters exceed vehicle capacity!\n"
-            f"{Colors.YELLOW}→ Maximum overload: {Colors.BOLD}"
-            f"{overloaded.max():.1f}%{Colors.RESET}"
-        )
-
-def _calculate_solution_statistics(
-    selected_clusters: pd.DataFrame,
-    configurations_df: pd.DataFrame
-) -> Dict:
-    """
-    Calculate various statistics about the solution.
-    """
-    # Calculate fixed costs
-    total_fixed_cost = selected_clusters.merge(
-        configurations_df[["Config_ID", "Fixed_Cost"]], 
-        on="Config_ID"
-    )["Fixed_Cost"].sum()
-    
-    # Calculate distances and variable costs
-    selected_clusters = selected_clusters.copy()
-    selected_clusters['Estimated_Distance'] = selected_clusters.apply(
-        _calculate_cluster_distance, axis=1
-    )
-    
-    total_variable_cost = (
-        selected_clusters['Estimated_Distance'] * VARIABLE_COST_PER_KM
-    ).sum()
-    
-    # Calculate vehicles used by type
-    vehicles_used = (
-        selected_clusters.merge(
-            configurations_df[["Config_ID", "Vehicle_Type"]], 
-            on="Config_ID"
-        )["Vehicle_Type"]
-        .value_counts()
-        .sort_index()
-    )
-    
-    return {
-        'total_fixed_cost': total_fixed_cost,
-        'total_variable_cost': total_variable_cost,
-        'vehicles_used': vehicles_used,
-        'total_vehicles': len(selected_clusters),
-        'selected_clusters': selected_clusters  # Include updated clusters with distances
-    }
-
-def _calculate_cluster_distance(cluster: pd.Series) -> float:
-    """
-    Calculate the round-trip distance for a cluster.
-    """
-    cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
-    depot_coord = (DEPOT['Latitude'], DEPOT['Longitude'])
-    return 2 * haversine(depot_coord, cluster_coord) 
+    return valid
