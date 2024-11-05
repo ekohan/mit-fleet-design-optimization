@@ -126,6 +126,8 @@ To run the fleet optimization pipeline:
 python src/main.py
 ```
 
+![Fleet Size and Mix Optimization Process](fsm.png)
+
 ## License
 
 This project is licensed under the MIT License.
