@@ -1,17 +1,18 @@
-SELECT
+select
     a.ClientID,
     a.Lat,
     a.Lon,
-    CAST(a.Kg as INTEGER) as 'Kg',
+    CAST(a.Kg AS INTEGER) as 'Kg',
     a.ProductType
 from (
     select
         ClientID,
         Lat,
         Lon,
-        round(sum(Kg)/9/30) as 'Kg', -- quick & dirty daily avg
+        round(sum(Kg)/30) as 'Kg', -- quick & dirty daily avg
         ProductType
     from sales_2023
+    where YearMonth = '2023.09'
     group by ClientID, ProductType
 ) a
 
