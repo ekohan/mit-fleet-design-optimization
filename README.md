@@ -1,28 +1,56 @@
 # MIT Fleet Design Optimization
 
-This project focuses on optimizing fleet design for a food distribution company using Multi-Compartment Vehicles (MCVs). The goal is to define the optimal fleet composition to serve customer demand efficiently while minimizing costs.
+The project implements a multi-step strategy to solve the Fleet Size and Mix (FSM) problem for Multi-Compartment Vehicles (MCVs). To test our solution appoach, we use case study data from a large food distribution company.
+
+## Methodology
+
+The optimization pipeline follows these steps:
+
+1. Data Processing
+   - Load customer demand data
+   - Generate feasible vehicle configurations
+   - Process geographic and demand constraints
+
+2. Clustering
+   - Group customers based on location and demand patterns
+   - Consider vehicle capacities and time constraints
+   - Use parallel processing for efficient cluster generation
+
+3. Fleet Size and Mix Optimization
+   - Minimize total cost (fixed + variable)
+   - Ensure all customers are served
+   - Respect vehicle and compartment capacities
+   - Determine optimal number and type of vehicles
+
+4. Solution Validation and Results Export
+   - Validate solution feasibility
+   - Generate comprehensive reports
 
 ## Project Structure
 
 ```
 mit-fleet-design-optimization/
 ├── data/
-│   ├── forecasts/
-│   ├── raw/
 │   ├── export_avg_daily_demand.sql
-│   ├── sales_2023_avg_daily_demand.csv
+│   ├── avg_daily_demand__2023_09.sql
+│   ├── import.py                      # Creates a DB with sales data
+│   ├── export_queries.py              # Generates csv files for each db query
 │   └── sales_2023_create_data.sql
-├── notebooks/
 ├── src/
-│   ├── __init__.py
-│   ├── main.py           # Principal execution script
-│   ├── clustering.py     # Customer clustering implementation
-│   ├── fsm_optimizer.py  # Fleet Size and Mix optimization
-│   ├── utils/
-│   │   ├── config_utils.py
-│   │   ├── data_processing.py
-│   │   └── save_results.py
-│   └── config.py         # Configuration parameters
+│   ├── main.py                     # Principal execution script
+│   ├── clustering.py               # Customer clustering implementation
+│   ├── fsm_optimizer.py            # Fleet Size and Mix optimization
+│   ├── clustering_playground.py    # Clustering experiments
+│   ├── column_generation_playground.py
+│   ├── config/
+│   │   └── default_config.yaml    # Default configuration parameters
+│   └── utils/
+│       ├── data_processing.py
+│       ├── logging.py
+│       ├── save_results.py
+│       └── vehicle_configurations.py
+├── results/                       # Optimization results storage
+├── tests/
 ├── init.sh
 ├── requirements.txt
 └── README.md
@@ -31,30 +59,38 @@ mit-fleet-design-optimization/
 ## Directory Structure Details
 
 ### Data Directory
-- `forecasts/`: Contains demand forecasting models and results
-- `raw/`: Original, unmodified data files
-- `sales_2023_avg_daily_demand.csv`: Processed customer demand data
-- `export_avg_daily_demand.sql`: SQL query to generate daily demand averages
-- `sales_2023_create_data.sql`: SQL script to create and populate the sales database
-- `import.py`: Creates and populates a SQLite database (opperar.db) with sales data from 2023-01 to 2023-09
-
 The data directory contains utilities to process raw sales data into formats suitable for the optimization algorithm:
-1. The SQLite database (opperar.db) stores the raw sales transactions
-2. SQL scripts are provided to export different views of the data:
-   - Daily demand averages by customer and product type
-   - Geographic clustering analysis
-   - Seasonal patterns
-3. The exported CSV files serve as input for the main optimization algorithm
+
+- `export_queries.py`: A module that handles SQL query execution and CSV exports. 
+- `import.py`: Creates and populates a SQLite database (opperar.db) with sales data
+- `sales_2023_create_data.sql`: SQL script to create and populate the sales database
 
 ### Source Directory (src/)
 - `main.py`: Principal execution script that runs the complete optimization pipeline
 - `clustering.py`: Implements customer clustering algorithms with capacity and time constraints
 - `fsm_optimizer.py`: Fleet Size and Mix optimization using integer programming
-- `utils/`: Helper modules
-  - `config_utils.py`: Vehicle configuration generation and validation
-  - `data_processing.py`: Data loading and preprocessing functions
-  - `save_results.py`: Functions for saving and exporting results
-- `config.py`: Global configuration parameters (vehicle types, goods, depot location)
+- `clustering_playground.py`: Experimental clustering implementations
+- `column_generation_playground.py`: Column generation algorithm experiments
+- `config/`: Configuration files and parameters
+- `utils/`: Helper modules for data processing, logging, and result management
+
+### Results Directory
+The results directory stores the output of each optimization execution:
+- Excel files (.xlsx) containing:
+  - Solution summary
+  - Vehicle configurations
+  - Selected clusters
+  - Vehicle usage statistics
+  - Other considerations
+  - Execution details
+- JSON files for programmatic access to the results
+
+### Tests Directory
+Contains test files for the project modules
+
+### TODO
+- Implement demand forecasting functionality
+- Add forecasting models and results storage
 
 ## Requirements
 
@@ -85,46 +121,10 @@ mit-fleet-env\Scripts\activate
 
 ## Running the Optimization
 
-To run the fleet optimization:
+To run the fleet optimization pipeline:
 ```bash
 python src/main.py
 ```
-
-The script will:
-1. Load customer demand data from a csv in the data directory.
-2. Generate vehicle configurations based on defined parameters
-3. Create customer clusters considering vehicle capacities and time constraints
-4. Solve the Fleet Size and Mix optimization problem
-5. Output detailed results including:
-   - Cost breakdown (fixed and variable costs)
-   - Vehicle allocation by type
-   - Cluster details with demands and distances
-   - Route time estimations
-   - Solution statistics
-
-## Methodology
-
-The optimization pipeline follows these steps:
-
-1. Data Processing
-   - Load customer demand data
-   - Generate feasible vehicle configurations
-
-2. Clustering
-   - Group customers based on location and demand
-   - Consider vehicle capacities and time constraints
-   - Use parallel processing for efficiency
-
-3. Fleet Size and Mix Optimization
-   - Solve integer programming model
-   - Minimize total cost (fixed + variable)
-   - Ensure all customers are served
-   - Respect vehicle capacities
-
-4. Solution Validation and Results Export
-   - Validate cluster feasibility
-   - Calculate detailed costs
-   - Generate comprehensive reports
 
 ## License
 
