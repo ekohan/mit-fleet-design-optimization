@@ -35,3 +35,7 @@ clustering:
   method: MiniBatchKMeans 
   distance: 'euclidean' # Fixed for now
   route_time_estimation: '1hr + SERVICE_TIME_PER_CUSTOMER * num_customers in cluster' # Fixed for now
+
+
+# Math model
+model_type: 1 # 1 = "Eric's" and 2 = "Fabri's"

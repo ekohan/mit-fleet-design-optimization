@@ -37,8 +37,13 @@ def solve_fsm_problem(
     Returns:
         Dictionary containing optimization results
     """
-    # Create optimization model and get variables
-    model, y_vars = _create_optimization_model(clusters_df, configurations_df, parameters)
+    # Create optimization model and get variables based on model type
+    if parameters.model_type == 1:
+        model, y_vars = _create_model_1(clusters_df, configurations_df, parameters)
+    elif parameters.model_type == 2:
+        model, y_vars = _create_model_2(clusters_df, configurations_df, parameters)
+    else:
+        raise ValueError(f"Unknown model type: {parameters.model_type}")
     
     # Solve the model
     solver = pulp.GUROBI_CMD(msg=1 if verbose else 0)
@@ -88,6 +93,59 @@ def solve_fsm_problem(
         'execution_time': end_time - start_time,
         **solution_stats
     }
+
+def _create_model_1(
+    clusters_df: pd.DataFrame,
+    configurations_df: pd.DataFrame,
+    parameters: Parameters
+) -> Tuple[pulp.LpProblem, Dict]:
+    """
+    Create the original optimization model (Model 1).
+    """
+    # Current implementation of _create_optimization_model
+    return _create_optimization_model(clusters_df, configurations_df, parameters)
+
+def _create_model_2(
+    clusters_df: pd.DataFrame,
+    configurations_df: pd.DataFrame,
+    parameters: Parameters
+) -> Tuple[pulp.LpProblem, Dict]:
+    """
+    Create the alternative optimization model (Model 2).
+    
+    Args:
+        clusters_df: DataFrame containing generated clusters
+        configurations_df: DataFrame containing vehicle configurations
+        parameters: Parameters object containing optimization parameters
+    
+    Returns:
+        Tuple containing:
+        - pulp.LpProblem: The optimization model
+        - Dict: Dictionary of decision variables
+    """
+    # TODO: Create optimization model
+    model = pulp.LpProblem("FSM-MVC-CD-Model2", pulp.LpMinimize)
+    
+    # TODO: Create sets for clusters and vehicles
+    
+    # TODO: Create customer to cluster mapping (K_i)
+    
+    # TODO: Create vehicle to compatible clusters mapping (K_v)
+    # And cluster to compatible vehicles mapping (V_k)
+    
+    # TODO: Create decision variables
+    # - x_vk: Binary variable for vehicle v serving cluster k
+    # - y_k: Binary variable for cluster k being selected
+    
+    # TODO: Create objective function
+    # Minimize total cost of selected clusters and vehicle assignments
+    
+    # TODO: Add constraints
+    # 1. Each customer must be served by at least one selected cluster
+    # 2. Vehicle assignment constraints
+    # 3. Capacity constraints
+    
+    return model, None  # TODO: Return appropriate variables
 
 def _create_optimization_model(
     clusters_df: pd.DataFrame,
@@ -317,6 +375,39 @@ def _calculate_solution_statistics(
     """
     Calculate various statistics about the solution.
     """
+    # TODO: Remove debugging information
+    # Add debugging information
+    print("\nDEBUG: Checking cluster loads:")
+    print("-" * 50)
+    
+    for _, cluster in selected_clusters.iterrows():
+        config = configurations_df[
+            configurations_df['Config_ID'] == cluster['Config_ID']
+        ].iloc[0]
+        
+        print(f"\nCluster ID: {cluster['Cluster_ID']}")
+        print(f"Vehicle Config ID: {cluster['Config_ID']}")
+        print(f"Vehicle Capacity: {config['Capacity']}")
+        print("Demands by good type:")
+        
+        for good in parameters.goods:
+            if good in cluster['Total_Demand']:
+                load_pct = (cluster['Total_Demand'][good] / config['Capacity']) * 100
+                print(f"  {good}: {cluster['Total_Demand'][good]:.1f} "
+                      f"({load_pct:.1f}% of capacity)")
+        
+        max_load_pct = max(
+            cluster['Total_Demand'][good] / config['Capacity'] * 100 
+            for good in parameters.goods
+        )
+        print(f"Max Load %: {max_load_pct:.1f}%")
+        
+        if max_load_pct > 100:
+            print("WARNING: This cluster exceeds vehicle capacity!")
+            print("Customers in cluster:", cluster['Customers'])
+
+    # TODO: Remove debugging information
+    
     # Calculate fixed costs
     total_fixed_cost = selected_clusters.merge(
         configurations_df[["Config_ID", "Fixed_Cost"]], 
