@@ -31,7 +31,11 @@ goods:
 
 # Clustering Parameters
 clustering:
-  max_depth: 10
+  max_depth: 20
   method: MiniBatchKMeans 
   distance: 'euclidean' # Fixed for now
   route_time_estimation: '1hr + SERVICE_TIME_PER_CUSTOMER * num_customers in cluster' # Fixed for now
+
+
+# Math model
+model_type: 2 # 1 = "Eric's" and 2 = "Fabri's"

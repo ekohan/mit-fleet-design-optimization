@@ -14,6 +14,7 @@ class Parameters:
     depot: Dict
     goods: List[str]
     clustering: Dict
+    model_type: int
 
     @classmethod
     def from_yaml(cls, path: Path | str = None) -> 'Parameters':
