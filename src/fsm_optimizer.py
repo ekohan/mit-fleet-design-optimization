@@ -111,7 +111,8 @@ def _create_model_2(
     parameters: Parameters
 ) -> Tuple[pulp.LpProblem, Dict]:
     """
-    Create the optimization model (Model 2) aligning with the mathematical formulation.
+    Create the optimization model (Model 2) aligning with the mathematical formulation,
+    with penalization for lightly loaded trucks below a specified threshold.
     """
     import pulp
 
@@ -175,11 +176,24 @@ def _create_model_2(
         for v in V_k[k]:
             if v != 'NoVehicle':
                 config = configurations_df.loc[configurations_df['Config_ID'] == v].iloc[0]
-                c_vk[v, k] = _calculate_cluster_cost(
+                # Calculate the base cost
+                base_cost = _calculate_cluster_cost(
                     cluster=cluster,
                     config=config,
                     parameters=parameters
                 )
+
+                # Calculate load percentage
+                total_demand = sum(cluster['Total_Demand'][g] for g in parameters.goods)
+                capacity = config['Capacity']
+                load_percentage = total_demand / capacity
+
+                # Penalize if load percentage is less than threshold
+                if load_percentage < parameters.light_load_threshold:
+                    penalty_amount = parameters.light_load_penalty * (parameters.light_load_threshold - load_percentage)
+                    c_vk[v, k] = base_cost + penalty_amount
+                else:
+                    c_vk[v, k] = base_cost
             else:
                 c_vk[v, k] = 0  # Cost is zero for placeholder
 
@@ -206,7 +220,7 @@ def _create_model_2(
             pulp.lpSum(x_vars[v, k] for v in V_k[k]) == y_vars[k]
         ), f"Vehicle_Assignment_{k}"
 
-    # Ensure that clusters that cannot be served are not selected
+    # 3. Unserviceable Clusters Constraint
     for k in K:
         if 'NoVehicle' in V_k[k]:
             model += y_vars[k] == 0, f"Unserviceable_Cluster_{k}"
@@ -269,8 +283,22 @@ def _build_objective_function(
         dist = 2 * haversine(depot_coord, cluster_coord)  # Round trip distance
         variable_cost = dist * parameters.variable_cost_per_km
         
+        # Calculate base cost
+        base_cost = fixed_cost + variable_cost
+
+        # Calculate load percentage
+        total_demand = sum(cluster['Total_Demand'][g] for g in parameters.goods)
+        capacity = config['Capacity']
+        load_percentage = total_demand / capacity
+
+        # Penalize if load percentage is less than threshold
+        if load_percentage < parameters.light_load_threshold:
+            penalty_amount = parameters.light_load_penalty * (parameters.light_load_threshold - load_percentage)
+            cluster_cost = base_cost + penalty_amount
+        else:
+            cluster_cost = base_cost
+        
         # Add to total cost
-        cluster_cost = fixed_cost + variable_cost
         total_cost += cluster_cost * y_vars[cluster['Cluster_ID']]
     
     return total_cost
