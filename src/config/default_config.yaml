@@ -16,7 +16,7 @@ variable_cost_per_km: 0.01
 # Time Parameters
 avg_speed: 40  # km/h
 max_route_time: 10  # hours
-service_time: 10  # minutes per customer
+service_time: 20  # minutes per customer
 
 # Location
 depot:
