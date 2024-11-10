@@ -105,6 +105,13 @@ def process_configuration(
     total_demand = customers_subset[[f'{g}_Demand' for g in goods]].sum(axis=1)
     customers_subset['Total_Demand'] = total_demand
     
+    # Add small random noise to coordinates
+    # This is to avoid degeneracy in clustering as K-means doesn't like identical points
+    # and our customer data has many duplicates in terms of geo coords
+    epsilon = 1e-4  
+    customers_subset['Latitude'] += np.random.uniform(-epsilon, epsilon, size=len(customers_subset))
+    customers_subset['Longitude'] += np.random.uniform(-epsilon, epsilon, size=len(customers_subset))
+
     # Initial clustering
     num_clusters = estimate_num_initial_clusters(
         customers_subset, 

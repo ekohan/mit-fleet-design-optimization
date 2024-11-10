@@ -111,41 +111,107 @@ def _create_model_2(
     parameters: Parameters
 ) -> Tuple[pulp.LpProblem, Dict]:
     """
-    Create the alternative optimization model (Model 2).
-    
-    Args:
-        clusters_df: DataFrame containing generated clusters
-        configurations_df: DataFrame containing vehicle configurations
-        parameters: Parameters object containing optimization parameters
-    
-    Returns:
-        Tuple containing:
-        - pulp.LpProblem: The optimization model
-        - Dict: Dictionary of decision variables
+    Create the optimization model (Model 2) aligning with the mathematical formulation.
     """
-    # TODO: Create optimization model
-    model = pulp.LpProblem("FSM-MVC-CD-Model2", pulp.LpMinimize)
-    
-    # TODO: Create sets for clusters and vehicles
-    
-    # TODO: Create customer to cluster mapping (K_i)
-    
-    # TODO: Create vehicle to compatible clusters mapping (K_v)
-    # And cluster to compatible vehicles mapping (V_k)
-    
-    # TODO: Create decision variables
-    # - x_vk: Binary variable for vehicle v serving cluster k
-    # - y_k: Binary variable for cluster k being selected
-    
-    # TODO: Create objective function
-    # Minimize total cost of selected clusters and vehicle assignments
-    
-    # TODO: Add constraints
-    # 1. Each customer must be served by at least one selected cluster
-    # 2. Vehicle assignment constraints
-    # 3. Capacity constraints
-    
-    return model, None  # TODO: Return appropriate variables
+    import pulp
+
+    # Create the optimization model
+    model = pulp.LpProblem("FSM-MCV_Model2", pulp.LpMinimize)
+
+    # Sets
+    N = set(clusters_df['Customers'].explode().unique())  # Customers
+    K = set(clusters_df['Cluster_ID'])  # Clusters
+    V = set(configurations_df['Config_ID'])  # Vehicle configurations
+
+    # K_i: clusters containing customer i
+    K_i = {
+        i: set(clusters_df[clusters_df['Customers'].apply(lambda x: i in x)]['Cluster_ID'])
+        for i in N
+    }
+
+    # V_k: vehicle configurations that can serve cluster k
+    V_k = {}
+    for k in K:
+        V_k[k] = set()
+        cluster = clusters_df.loc[clusters_df['Cluster_ID'] == k].iloc[0]
+        cluster_goods_required = set(g for g in parameters.goods if cluster['Total_Demand'][g] > 0)
+        q_k = sum(cluster['Total_Demand'].values())
+
+        for _, config in configurations_df.iterrows():
+            v = config['Config_ID']
+            # Check capacity
+            if q_k > config['Capacity']:
+                continue  # Vehicle cannot serve this cluster
+
+            # Check product compatibility
+            compatible = all(
+                config[g] == 1 for g in cluster_goods_required
+            )
+
+            if compatible:
+                V_k[k].add(v)
+
+        # If V_k[k] is empty, handle accordingly
+        if not V_k[k]:
+            logger.warning(f"Cluster {k} cannot be served by any vehicle configuration.")
+            # Force y_k to 0 (cluster cannot be selected)
+            V_k[k].add('NoVehicle')  # Placeholder
+            x_vars['NoVehicle', k] = pulp.LpVariable(f"x_NoVehicle_{k}", cat='Binary')
+            model += x_vars['NoVehicle', k] == 0
+            c_vk['NoVehicle', k] = 0  # Cost is zero as it's not selected
+
+    # Decision Variables
+    x_vars = {}
+    y_vars = {}
+    for k in K:
+        y_vars[k] = pulp.LpVariable(f"y_{k}", cat='Binary')
+        for v in V_k[k]:
+            x_vars[v, k] = pulp.LpVariable(f"x_{v}_{k}", cat='Binary')
+
+    # Parameters
+    c_vk = {}
+    for k in K:
+        cluster = clusters_df.loc[clusters_df['Cluster_ID'] == k].iloc[0]
+        for v in V_k[k]:
+            if v != 'NoVehicle':
+                config = configurations_df.loc[configurations_df['Config_ID'] == v].iloc[0]
+                c_vk[v, k] = _calculate_cluster_cost(
+                    cluster=cluster,
+                    config=config,
+                    parameters=parameters
+                )
+            else:
+                c_vk[v, k] = 0  # Cost is zero for placeholder
+
+    # Objective Function
+    model += pulp.lpSum(
+        c_vk[v, k] * x_vars[v, k]
+        for k in K for v in V_k[k]
+    ), "Total_Cost"
+
+    # Constraints
+
+    # 1. Customer Allocation Constraint
+    for i in N:
+        model += pulp.lpSum(
+            x_vars[v, k]
+            for k in K_i[i]
+            for v in V_k[k]
+            if v != 'NoVehicle'
+        ) >= 1, f"Customer_Coverage_{i}"
+
+    # 2. Vehicle Configuration Assignment Constraint
+    for k in K:
+        model += (
+            pulp.lpSum(x_vars[v, k] for v in V_k[k]) == y_vars[k]
+        ), f"Vehicle_Assignment_{k}"
+
+    # Ensure that clusters that cannot be served are not selected
+    for k in K:
+        if 'NoVehicle' in V_k[k]:
+            model += y_vars[k] == 0, f"Unserviceable_Cluster_{k}"
+
+    return model, y_vars
 
 def _create_optimization_model(
     clusters_df: pd.DataFrame,
@@ -375,38 +441,6 @@ def _calculate_solution_statistics(
     """
     Calculate various statistics about the solution.
     """
-    # TODO: Remove debugging information
-    # Add debugging information
-    print("\nDEBUG: Checking cluster loads:")
-    print("-" * 50)
-    
-    for _, cluster in selected_clusters.iterrows():
-        config = configurations_df[
-            configurations_df['Config_ID'] == cluster['Config_ID']
-        ].iloc[0]
-        
-        print(f"\nCluster ID: {cluster['Cluster_ID']}")
-        print(f"Vehicle Config ID: {cluster['Config_ID']}")
-        print(f"Vehicle Capacity: {config['Capacity']}")
-        print("Demands by good type:")
-        
-        for good in parameters.goods:
-            if good in cluster['Total_Demand']:
-                load_pct = (cluster['Total_Demand'][good] / config['Capacity']) * 100
-                print(f"  {good}: {cluster['Total_Demand'][good]:.1f} "
-                      f"({load_pct:.1f}% of capacity)")
-        
-        max_load_pct = max(
-            cluster['Total_Demand'][good] / config['Capacity'] * 100 
-            for good in parameters.goods
-        )
-        print(f"Max Load %: {max_load_pct:.1f}%")
-        
-        if max_load_pct > 100:
-            print("WARNING: This cluster exceeds vehicle capacity!")
-            print("Customers in cluster:", cluster['Customers'])
-
-    # TODO: Remove debugging information
     
     # Calculate fixed costs
     total_fixed_cost = selected_clusters.merge(
@@ -450,3 +484,34 @@ def _calculate_cluster_distance(cluster: pd.Series, parameters: Parameters) -> f
     cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
     depot_coord = (parameters.depot['latitude'], parameters.depot['longitude'])
     return 2 * haversine(depot_coord, cluster_coord) 
+
+def _calculate_cluster_cost(
+    cluster: pd.Series,
+    config: pd.Series,
+    parameters: Parameters
+) -> float:
+    """
+    Calculate the total cost (fixed + variable) for serving a cluster with a vehicle configuration.
+
+    Args:
+        cluster: The cluster data as a Pandas Series.
+        config: The vehicle configuration data as a Pandas Series.
+        parameters: Parameters object containing optimization parameters.
+
+    Returns:
+        Total cost of serving the cluster with the given vehicle configuration.
+    """
+    from haversine import haversine
+
+    # Fixed cost from vehicle configuration
+    fixed_cost = config['Fixed_Cost']
+
+    # Variable cost based on distance
+    depot_coord = (parameters.depot['latitude'], parameters.depot['longitude'])
+    cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
+    distance = 2 * haversine(depot_coord, cluster_coord)  # Round trip distance
+
+    variable_cost = parameters.variable_cost_per_km * distance
+
+    total_cost = fixed_cost + variable_cost
+    return total_cost
