@@ -16,6 +16,8 @@ class Parameters:
     clustering: Dict
     model_type: int
     demand_file: str
+    light_load_penalty: float
+    light_load_threshold: float
 
     @classmethod
     def from_yaml(cls, path: Path | str = None) -> 'Parameters':
