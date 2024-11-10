@@ -37,7 +37,13 @@ clustering:
   route_time_estimation: '1hr + SERVICE_TIME_PER_CUSTOMER * num_customers in cluster' # Fixed for now
 
 # Data Files
-demand_file: "sales_2023_avg_daily_demand.csv" # See options in /data
+# See options in /data
+# sales_2023_high_demand_day
+# sales_2023_low_demand_day
+# sales_2023_uniform_visits_per_week
+# sales_2023_avg_daily_demand -- WARNING: visits every client that ordered in the 9-month period
+# sales_2023_09_avg_daily_demand -- WARNING: visits every client that ordered in September 2023
+demand_file: "sales_2023_uniform_visits_per_week.csv"
 
 # Math model
 model_type: 2 # 1 = "Eric's" and 2 = "Fabri's"
