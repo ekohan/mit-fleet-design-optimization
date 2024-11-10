@@ -31,7 +31,7 @@ def main(params: Parameters = None, verbose: bool = False):
     start_time = time.time()
 
     # Step 1: Load customer data
-    customers = load_customer_demand()
+    customers = load_customer_demand(params.demand_file)
     progress.advance(f"Loaded {Colors.BOLD}{len(customers)}{Colors.RESET} customers")
 
     # Step 2: Generate vehicle configurations

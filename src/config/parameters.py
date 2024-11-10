@@ -15,6 +15,7 @@ class Parameters:
     goods: List[str]
     clustering: Dict
     model_type: int
+    demand_file: str
 
     @classmethod
     def from_yaml(cls, path: Path | str = None) -> 'Parameters':

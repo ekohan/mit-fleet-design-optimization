@@ -1,13 +1,13 @@
 # Vehicle Types and Capacities
 vehicles:
   A:
-    capacity: 2000
+    capacity: 2700
     fixed_cost: 100
   B:
-    capacity: 3000
+    capacity: 3300
     fixed_cost: 130
   C:
-    capacity: 4000
+    capacity: 4500
     fixed_cost: 150
 
 # Cost Parameters
@@ -36,6 +36,14 @@ clustering:
   distance: 'euclidean' # Fixed for now
   route_time_estimation: '1hr + SERVICE_TIME_PER_CUSTOMER * num_customers in cluster' # Fixed for now
 
+# Data Files
+# See options in /data
+# sales_2023_high_demand_day
+# sales_2023_low_demand_day
+# sales_2023_uniform_visits_per_week
+# sales_2023_avg_daily_demand -- WARNING: visits every client that ordered in the 9-month period
+# sales_2023_09_avg_daily_demand -- WARNING: visits every client that ordered in September 2023
+demand_file: "sales_2023_uniform_visits_per_week.csv"
 
 # Math model
 model_type: 2 # 1 = "Eric's" and 2 = "Fabri's"

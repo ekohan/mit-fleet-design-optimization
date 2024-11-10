@@ -4,8 +4,8 @@ from pathlib import Path
 def data_dir():
     return Path(__file__).resolve().parent.parent.parent / "data"
 
-def load_customer_demand():
-    csv_file_path = data_dir() / "sales_2023_avg_daily_demand.csv"
+def load_customer_demand(demand_file: str):
+    csv_file_path = data_dir() / demand_file
     print(f"Loading customer demand from {csv_file_path}")
     
     # Read CSV with existing headers
