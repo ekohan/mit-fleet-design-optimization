@@ -68,6 +68,7 @@ def save_optimization_results(
         ('Truck Load % (Avg)', f"{load_percentages.mean():.1f}"),
         ('Truck Load % (Median)', f"{load_percentages.median():.1f}"),
         ('---Parameters---', ''),
+        ('Demand File', parameters.demand_file),
         ('Variable Cost per KM', parameters.variable_cost_per_km),
         ('Average Speed', parameters.avg_speed),
         ('Max Route Time', parameters.max_route_time),
@@ -112,7 +113,8 @@ def save_optimization_results(
             'Solver Status': solver_status,
             'Total Fixed Cost': total_fixed_cost,
             'Total Variable Cost': total_variable_cost,
-            'Total Cost': total_fixed_cost + total_variable_cost
+            'Total Cost': total_fixed_cost + total_variable_cost,
+            'Demand File': parameters.demand_file
         }
     }
 

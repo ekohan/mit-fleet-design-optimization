@@ -36,6 +36,8 @@ clustering:
   distance: 'euclidean' # Fixed for now
   route_time_estimation: '1hr + SERVICE_TIME_PER_CUSTOMER * num_customers in cluster' # Fixed for now
 
+# Data Files
+demand_file: "sales_2023_avg_daily_demand.csv" # See options in /data
 
 # Math model
 model_type: 2 # 1 = "Eric's" and 2 = "Fabri's"
