@@ -75,7 +75,9 @@ def save_optimization_results(
         ('Max Split Depth', parameters.clustering['max_depth']),
         ('Clustering Method', parameters.clustering['method']),
         ('Clustering Distance', parameters.clustering['distance']),
-    ])
+        ('Route Time Estimation', parameters.clustering['route_time_estimation']),
+        ('Model Formulation (# 1 = "Eric\'s" and 2 = "Fabri\'s")', parameters.model_type),
+        ])
     
     # Add vehicle types
     for v_type, specs in parameters.vehicles.items():
