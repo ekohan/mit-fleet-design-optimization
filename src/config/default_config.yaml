@@ -1,13 +1,13 @@
 # Vehicle Types and Capacities
 vehicles:
   A:
-    capacity: 2000
+    capacity: 2700
     fixed_cost: 100
   B:
-    capacity: 3000
+    capacity: 3300
     fixed_cost: 130
   C:
-    capacity: 4000
+    capacity: 4500
     fixed_cost: 150
 
 # Cost Parameters
