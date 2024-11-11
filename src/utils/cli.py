@@ -113,7 +113,7 @@ def get_parameter_overrides(args) -> Dict[str, Any]:
     overrides = {k: v for k, v in vars(args).items() if v is not None}
     
     # Remove non-parameter arguments
-    for key in ['config', 'verbose']:
+    for key in ['config', 'verbose', 'help_params']:
         overrides.pop(key, None)
         
     # Special handling for service time (convert minutes to hours)

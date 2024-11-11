@@ -16,9 +16,10 @@ def main():
     parser = parse_args()
     args = parser.parse_args()
     
-    # Check for help flag
+    # Check for help flag and exit if requested
     if args.help_params:
         print_parameter_help()
+        return
     
     setup_logging()
     params = load_parameters(args)
