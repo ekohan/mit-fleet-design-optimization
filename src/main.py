@@ -2,21 +2,26 @@
 Main module for the vehicle routing optimization problem.
 """
 import time
+from utils.cli import parse_args, load_parameters, print_parameter_help
 from utils.logging import setup_logging, ProgressTracker, Colors
 from utils.data_processing import load_customer_demand
 from utils.vehicle_configurations import generate_vehicle_configurations
 from utils.save_results import save_optimization_results
 from clustering import generate_clusters_for_configurations
 from fsm_optimizer import solve_fsm_problem
-from config.parameters import Parameters
 
-def main(params: Parameters = None, verbose: bool = False):
+def main():
     """Run the FSM optimization pipeline."""
-    setup_logging()
+    # Parse arguments and load parameters
+    parser = parse_args()
+    args = parser.parse_args()
     
-    # Load default parameters if none provided
-    if params is None:
-        params = Parameters.from_yaml()
+    # Check for help flag
+    if args.help_params:
+        print_parameter_help()
+    
+    setup_logging()
+    params = load_parameters(args)
     
     # Define optimization steps
     steps = [
@@ -52,7 +57,7 @@ def main(params: Parameters = None, verbose: bool = False):
         configurations_df=configs_df,
         customers_df=customers,
         parameters=params,
-        verbose=verbose
+        verbose=args.verbose
     )
     progress.advance(
         f"Optimized fleet: {Colors.BOLD}${solution['total_fixed_cost'] + solution['total_variable_cost']:,.2f}{Colors.RESET} total cost"
@@ -69,7 +74,8 @@ def main(params: Parameters = None, verbose: bool = False):
         total_variable_cost=solution['total_variable_cost'],
         vehicles_used=solution['vehicles_used'],
         missing_customers=solution['missing_customers'],
-        parameters=params
+        parameters=params,
+        format=params.format
     )
     progress.advance(f"Results saved {Colors.GRAY}(execution time: {time.time() - start_time:.1f}s){Colors.RESET}")
     progress.close()
