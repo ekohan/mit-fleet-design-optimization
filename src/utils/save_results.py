@@ -5,6 +5,11 @@ import inspect
 from config.parameters import Parameters
 import json
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import ast
+import folium
+from folium import plugins
 
 def save_optimization_results(
     execution_time: float,
@@ -20,7 +25,7 @@ def save_optimization_results(
     filename: str = None,
     format: str = 'excel'
 ) -> None:
-    """Save optimization results to a file (Excel or JSON)"""
+    """Save optimization results to a file (Excel or JSON) and create visualization"""
     
     # Create timestamp and filename if not provided
     if filename is None:
@@ -125,6 +130,11 @@ def save_optimization_results(
             _write_to_json(filename, data)
         else:
             _write_to_excel(filename, data)
+            
+        # Add visualization
+        depot_coords = (parameters.depot['latitude'], parameters.depot['longitude'])
+        visualize_clusters(selected_clusters, depot_coords, filename)
+            
     except Exception as e:
         print(f"Error saving results to {filename}: {str(e)}")
         raise
@@ -185,3 +195,75 @@ def _write_to_json(filename: str, data: dict) -> None:
     
     with open(filename, 'w') as f:
         json.dump(json_data, f, indent=2, cls=NumpyEncoder)
+
+def visualize_clusters(
+    selected_clusters: pd.DataFrame,
+    depot_coords: tuple,
+    filename: str
+) -> None:
+    """
+    Create and save an interactive map visualization of the clusters in Bogotá.
+    
+    Args:
+        selected_clusters: DataFrame containing cluster information
+        depot_coords: Tuple of (latitude, longitude) coordinates for the depot
+        filename: Base filename to save the plot (will append _clusters.html)
+    """
+    # Initialize the map centered on Bogotá
+    m = folium.Map(
+        location=[4.65, -74.1],  # Bogotá center
+        zoom_start=11,
+        tiles='CartoDB positron'
+    )
+    
+    # Create color palette for clusters
+    n_clusters = len(selected_clusters)
+    colors = sns.color_palette("husl", n_colors=n_clusters).as_hex()
+    
+    # Add depot marker
+    folium.Marker(
+        location=depot_coords,
+        icon=folium.Icon(color='red', icon='home', prefix='fa'),
+        popup='Depot'
+    ).add_to(m)
+    
+    # Plot each cluster
+    for idx, (_, cluster) in enumerate(selected_clusters.iterrows()):
+        color = colors[idx]
+        cluster_id = cluster['Cluster_ID']
+        config_id = cluster['Config_ID']
+        
+        # Calculate total demand in kg
+        total_demand = sum(cluster['Total_Demand'].values()) if isinstance(cluster['Total_Demand'], dict) else 0
+        if isinstance(cluster['Total_Demand'], str):
+            total_demand = sum(ast.literal_eval(cluster['Total_Demand']).values())
+        
+        # Get number of customers
+        num_customers = len(ast.literal_eval(cluster['Customers']) if isinstance(cluster['Customers'], str) else cluster['Customers'])
+        
+        # Prepare popup content
+        popup_content = f"""
+            <b>Cluster ID:</b> {cluster_id}<br>
+            <b>Config ID:</b> {config_id}<br>
+            <b>Customers:</b> {num_customers}<br>
+            <b>Route Time:</b> {cluster['Route_Time']:.2f} hrs<br>
+            <b>Total Demand:</b> {total_demand:,.0f} kg
+        """
+        
+        # Plot cluster centroid with larger circle
+        folium.CircleMarker(
+            location=(cluster['Centroid_Latitude'], cluster['Centroid_Longitude']),
+            radius=8,
+            color=color,
+            fill=True,
+            popup=folium.Popup(popup_content, max_width=300),
+            weight=2,
+            fill_opacity=0.7
+        ).add_to(m)
+    
+    # Add layer control
+    folium.LayerControl().add_to(m)
+    
+    # Save map
+    viz_filename = str(filename).rsplit('.', 1)[0] + '_clusters.html'
+    m.save(viz_filename)

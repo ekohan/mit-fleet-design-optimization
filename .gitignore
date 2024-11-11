@@ -26,6 +26,7 @@ mit-fleet-env/
 # Results
 results/*.xlsx
 results/*.json
+results/*.html
 
 # Etc
 Notes_Eric.txt
