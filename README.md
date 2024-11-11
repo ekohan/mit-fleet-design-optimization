@@ -50,6 +50,9 @@ mit-fleet-design-optimization/
 │       ├── save_results.py
 │       └── vehicle_configurations.py
 ├── results/                       # Optimization results storage
+│   ├── *.xlsx                 # Excel reports with detailed solution data
+│   ├── *.json                 # JSON format results (if enabled in config)
+│   └── *.html                 # Interactive cluster visualization maps
 ├── tests/
 ├── init.sh
 ├── requirements.txt
@@ -126,7 +129,84 @@ To run the fleet optimization pipeline:
 python src/main.py
 ```
 
+### Command Line Options
+The optimization can be customized using command line arguments:
+
+```bash
+# Use custom configuration
+python src/main.py --config my_config.yaml
+
+# Override specific parameters
+python src/main.py --avg-speed 45 --max-route-time 12 --service-time 15
+
+# Show detailed parameter help
+python src/main.py --help-params
+```
+
 ![Fleet Size and Mix Optimization Process](fsm.png)
+
+## Visualization & Results Analysis
+
+The optimization process generates several visualization and analysis outputs to help understand the solution:
+
+### Interactive Maps
+The solution generates interactive HTML maps using Folium that show:
+- Customer locations colored by cluster assignment
+- Depot location and service radius
+- Cluster centroids and boundaries
+- Vehicle type assignments
+- Hover information showing:
+  - Customer demands by product type
+  - Route timing estimates
+  - Vehicle capacity utilization
+
+### Solution Analysis
+Each optimization run produces detailed analysis in multiple formats:
+
+#### Excel Reports (.xlsx)
+Comprehensive solution details including:
+- **Summary Metrics**
+  - Total cost breakdown (fixed + variable)
+  - Fleet composition
+  - Service level metrics
+  - Capacity utilization rates
+- **Vehicle Analysis**
+  - Configuration details
+  - Usage statistics
+  - Cost per vehicle type
+- **Cluster Details**
+  - Customer assignments
+  - Demand aggregation
+  - Route timing
+  - Capacity constraints
+
+#### JSON Output (Optional)
+Machine-readable format containing:
+- Complete solution data
+- Performance metrics
+- Configuration parameters
+- Execution details
+
+### Accessing Results
+Results are stored in the `results/` directory:
+```
+results/
+├── *.xlsx                 # Excel reports with detailed solution data
+├── *.json                 # JSON format results (if enabled in config)
+└── *.html                 # Interactive cluster visualization maps
+```
+
+To view the interactive map, open the generated HTML file in a web browser.
+
+### Example Visualizations
+
+#### Cluster Map
+![Cluster Map](results_cluster_viz.png)
+*Interactive map showing customer clusters and vehicle assignments*
+
+#### Results Summary
+![Results Summary](results_xlsx.png)
+*Detailed breakdown of solution metrics and performance*
 
 ## License
 
