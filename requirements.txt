@@ -16,3 +16,5 @@ haversine
 joblib
 tqdm
 openpyxl
+seaborn
+folium
