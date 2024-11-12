@@ -102,8 +102,30 @@ def _create_model_1(
     """
     Create the original optimization model (Model 1).
     """
-    # Current implementation of _create_optimization_model
-    return _create_optimization_model(clusters_df, configurations_df, parameters)
+    model = pulp.LpProblem("FSM-MVC-CD", pulp.LpMinimize)
+    
+    # Create decision variables
+    y_vars = {
+        cluster['Cluster_ID']: pulp.LpVariable(
+            f"y_{cluster['Cluster_ID']}", 
+            cat='Binary'
+        )
+        for _, cluster in clusters_df.iterrows()
+    }
+    
+    # Objective Function
+    total_cost = _build_objective_function_1(
+        clusters_df,
+        configurations_df,
+        parameters,
+        y_vars
+    )
+    model += total_cost, "Total_Cost"
+    
+    # Add constraints
+    _add_customer_coverage_constraints_1(model, clusters_df, y_vars)
+    
+    return model, y_vars
 
 def _create_model_2(
     clusters_df: pd.DataFrame,
@@ -227,40 +249,8 @@ def _create_model_2(
 
     return model, y_vars
 
-def _create_optimization_model(
-    clusters_df: pd.DataFrame,
-    configurations_df: pd.DataFrame,
-    parameters: Parameters
-) -> Tuple[pulp.LpProblem, Dict]:
-    """
-    Create the optimization model with decision variables and constraints.
-    """
-    model = pulp.LpProblem("FSM-MVC-CD", pulp.LpMinimize)
-    
-    # Create decision variables
-    y_vars = {
-        cluster['Cluster_ID']: pulp.LpVariable(
-            f"y_{cluster['Cluster_ID']}", 
-            cat='Binary'
-        )
-        for _, cluster in clusters_df.iterrows()
-    }
-    
-    # Objective Function
-    total_cost = _build_objective_function(
-        clusters_df,
-        configurations_df,
-        parameters,
-        y_vars
-    )
-    model += total_cost, "Total_Cost"
-    
-    # Add constraints
-    _add_customer_coverage_constraints(model, clusters_df, y_vars)
-    
-    return model, y_vars
 
-def _build_objective_function(
+def _build_objective_function_1(
     clusters_df: pd.DataFrame,
     configurations_df: pd.DataFrame,
     parameters: Parameters,
@@ -269,8 +259,6 @@ def _build_objective_function(
     """Build the objective function for the optimization model."""
     total_cost = 0
     
-    depot_coord = (parameters.depot['latitude'], parameters.depot['longitude'])
-    
     for _, cluster in clusters_df.iterrows():
         config_id = cluster['Config_ID']
         config = configurations_df[configurations_df['Config_ID'] == config_id].iloc[0]
@@ -278,10 +266,9 @@ def _build_objective_function(
         # Calculate fixed cost component
         fixed_cost = config['Fixed_Cost']
         
-        # Calculate variable cost component
-        cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
-        dist = 2 * haversine(depot_coord, cluster_coord)  # Round trip distance
-        variable_cost = dist * parameters.variable_cost_per_km
+        # Calculate variable cost component based on route time
+        route_time = cluster['Route_Time']  # Already in hours
+        variable_cost = route_time * parameters.variable_cost_per_hour
         
         # Calculate base cost
         base_cost = fixed_cost + variable_cost
@@ -303,7 +290,7 @@ def _build_objective_function(
     
     return total_cost
 
-def _add_customer_coverage_constraints(
+def _add_customer_coverage_constraints_1(
     model: pulp.LpProblem,
     clusters_df: pd.DataFrame,
     y_vars: Dict
@@ -476,15 +463,11 @@ def _calculate_solution_statistics(
         on="Config_ID"
     )["Fixed_Cost"].sum()
     
-    # Calculate distances and variable costs
+    # Calculate variable costs based on route time
     selected_clusters = selected_clusters.copy()
-    selected_clusters['Estimated_Distance'] = selected_clusters.apply(
-        lambda x: _calculate_cluster_distance(x, parameters),
-        axis=1
-    )
     
     total_variable_cost = (
-        selected_clusters['Estimated_Distance'] * parameters.variable_cost_per_km
+        selected_clusters['Route_Time'] * parameters.variable_cost_per_hour
     ).sum()
     
     # Calculate vehicles used by type
@@ -529,17 +512,12 @@ def _calculate_cluster_cost(
     Returns:
         Total cost of serving the cluster with the given vehicle configuration.
     """
-    from haversine import haversine
-
     # Fixed cost from vehicle configuration
     fixed_cost = config['Fixed_Cost']
 
-    # Variable cost based on distance
-    depot_coord = (parameters.depot['latitude'], parameters.depot['longitude'])
-    cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
-    distance = 2 * haversine(depot_coord, cluster_coord)  # Round trip distance
-
-    variable_cost = parameters.variable_cost_per_km * distance
+    # Variable cost based on route time (in hours)
+    route_time = cluster['Route_Time']  # Already in hours
+    variable_cost = parameters.variable_cost_per_hour * route_time
 
     total_cost = fixed_cost + variable_cost
     return total_cost

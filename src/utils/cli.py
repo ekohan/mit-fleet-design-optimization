@@ -21,9 +21,19 @@ def print_parameter_help():
                            Example: --max-route-time 12
 
   --service-time FLOAT     Service time per customer in minutes
-                           Note: Automatically converted to hours
                            Default: Defined in config file
                            Example: --service-time 15
+
+  --route-time-estimation STR
+                           Method to estimate route times
+                           Options: 
+                             - Legacy (simple service time based)
+                             - Clarke-Wright (savings algorithm)
+                             - BHH (Beardwood-Halton-Hammersley)
+                             - CA (continuous approximation)
+                             - VRPSolver (detailed solver-based)
+                           Default: Legacy
+                           Example: --route-time-estimation BHH
 
 {Colors.YELLOW}Model Configuration:{Colors.RESET}
   --model-type {1,2}       Mathematical model formulation
@@ -104,6 +114,12 @@ def parse_args() -> ArgumentParser:
     parser.add_argument('--light-load-penalty', type=float, help='Penalty for light loads')
     parser.add_argument('--light-load-threshold', type=float, help='Threshold for light load penalty')
     parser.add_argument('--verbose', action='store_true', help='Enable verbose output')
+    parser.add_argument(
+        '--route-time-estimation',
+        type=str,
+        choices=['Legacy', 'Clarke-Wright', 'BHH', 'CA', 'VRPSolver'],
+        help='Method to estimate route times (Legacy, Clarke-Wright, BHH, CA, VRPSolver)'
+    )
     
     return parser
 
@@ -115,10 +131,6 @@ def get_parameter_overrides(args) -> Dict[str, Any]:
     # Remove non-parameter arguments
     for key in ['config', 'verbose', 'help_params']:
         overrides.pop(key, None)
-        
-    # Special handling for service time (convert minutes to hours)
-    if 'service_time' in overrides:
-        overrides['service_time'] = overrides['service_time'] / 60
         
     # Convert dashed args to underscores
     overrides = {k.replace('-', '_'): v for k, v in overrides.items()}
@@ -136,10 +148,16 @@ def load_parameters(args) -> Parameters:
     # Get overrides from command line
     overrides = get_parameter_overrides(args)
     
-    # Create new Parameters instance with overrides
+    # Handle nested parameters
+    if 'route_time_estimation' in overrides:
+        if not isinstance(params.clustering, dict):
+            params.clustering = {}
+        params.clustering['route_time_estimation'] = overrides.pop('route_time_estimation')
+    
+    # Create new Parameters instance with remaining overrides
     if overrides:
         data = params.__dict__.copy()
         data.update(overrides)
         params = Parameters(**data)
     
-    return params 
+    return params

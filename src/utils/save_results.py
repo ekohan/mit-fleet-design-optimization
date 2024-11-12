@@ -74,17 +74,17 @@ def save_optimization_results(
         ('Truck Load % (Median)', f"{load_percentages.median():.1f}"),
         ('---Parameters---', ''),
         ('Demand File', parameters.demand_file),
-        ('Variable Cost per KM', parameters.variable_cost_per_km),
+        ('Variable Cost per Hour', parameters.variable_cost_per_hour),
         ('Average Speed', parameters.avg_speed),
         ('Max Route Time', parameters.max_route_time),
         ('Service Time per Customer', parameters.service_time),
         ('Max Split Depth', parameters.clustering['max_depth']),
         ('Clustering Method', parameters.clustering['method']),
         ('Clustering Distance', parameters.clustering['distance']),
-        ('Route Time Estimation', parameters.clustering['route_time_estimation']),
+        ('Route Time Estimation Method', parameters.clustering['route_time_estimation']),
         ('Model Formulation (# 1 = "Eric\'s" and 2 = "Fabri\'s")', parameters.model_type),
         ('Light Load Penalty', parameters.light_load_penalty),
-        ('Light Load Threshold', parameters.light_load_threshold),
+        ('Light Load Threshold', parameters.light_load_threshold)
         ])
     
     # Add vehicle types

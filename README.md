@@ -143,6 +143,17 @@ python src/main.py --avg-speed 45 --max-route-time 12 --service-time 15
 python src/main.py --help-params
 ```
 
+## Route Time Estimation Methods
+
+The system supports multiple methods for estimating route times:
+
+1. **Legacy**: Simple estimation based on service time only
+2. **Clarke-Wright**: Based on savings algorithm
+3. **BHH**: Beardwood-Halton-Hammersley theorem approximation
+4. **CA**: Continuous approximation method
+5. **VRPSolver**: Detailed VRP solver-based estimation
+
+
 ![Fleet Size and Mix Optimization Process](fsm.png)
 
 ## Visualization & Results Analysis
