@@ -11,7 +11,7 @@ vehicles:
     fixed_cost: 150
 
 # Cost Parameters
-variable_cost_per_km: 0.01
+variable_cost_per_hour: 0.01
 
 # Time Parameters
 avg_speed: 40  # km/h

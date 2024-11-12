@@ -74,7 +74,7 @@ def save_optimization_results(
         ('Truck Load % (Median)', f"{load_percentages.median():.1f}"),
         ('---Parameters---', ''),
         ('Demand File', parameters.demand_file),
-        ('Variable Cost per KM', parameters.variable_cost_per_km),
+        ('Variable Cost per Hour', parameters.variable_cost_per_hour),
         ('Average Speed', parameters.avg_speed),
         ('Max Route Time', parameters.max_route_time),
         ('Service Time per Customer', parameters.service_time),

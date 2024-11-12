@@ -7,7 +7,7 @@ import yaml
 class Parameters:
     """Configuration parameters for the optimization"""
     vehicles: Dict
-    variable_cost_per_km: float
+    variable_cost_per_hour: float
     avg_speed: float
     max_route_time: float
     service_time: float
