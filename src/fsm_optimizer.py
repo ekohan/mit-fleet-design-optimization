@@ -102,8 +102,30 @@ def _create_model_1(
     """
     Create the original optimization model (Model 1).
     """
-    # Current implementation of _create_optimization_model
-    return _create_optimization_model(clusters_df, configurations_df, parameters)
+    model = pulp.LpProblem("FSM-MVC-CD", pulp.LpMinimize)
+    
+    # Create decision variables
+    y_vars = {
+        cluster['Cluster_ID']: pulp.LpVariable(
+            f"y_{cluster['Cluster_ID']}", 
+            cat='Binary'
+        )
+        for _, cluster in clusters_df.iterrows()
+    }
+    
+    # Objective Function
+    total_cost = _build_objective_function_1(
+        clusters_df,
+        configurations_df,
+        parameters,
+        y_vars
+    )
+    model += total_cost, "Total_Cost"
+    
+    # Add constraints
+    _add_customer_coverage_constraints_1(model, clusters_df, y_vars)
+    
+    return model, y_vars
 
 def _create_model_2(
     clusters_df: pd.DataFrame,
@@ -227,40 +249,8 @@ def _create_model_2(
 
     return model, y_vars
 
-def _create_optimization_model(
-    clusters_df: pd.DataFrame,
-    configurations_df: pd.DataFrame,
-    parameters: Parameters
-) -> Tuple[pulp.LpProblem, Dict]:
-    """
-    Create the optimization model with decision variables and constraints.
-    """
-    model = pulp.LpProblem("FSM-MVC-CD", pulp.LpMinimize)
-    
-    # Create decision variables
-    y_vars = {
-        cluster['Cluster_ID']: pulp.LpVariable(
-            f"y_{cluster['Cluster_ID']}", 
-            cat='Binary'
-        )
-        for _, cluster in clusters_df.iterrows()
-    }
-    
-    # Objective Function
-    total_cost = _build_objective_function(
-        clusters_df,
-        configurations_df,
-        parameters,
-        y_vars
-    )
-    model += total_cost, "Total_Cost"
-    
-    # Add constraints
-    _add_customer_coverage_constraints(model, clusters_df, y_vars)
-    
-    return model, y_vars
 
-def _build_objective_function(
+def _build_objective_function_1(
     clusters_df: pd.DataFrame,
     configurations_df: pd.DataFrame,
     parameters: Parameters,
@@ -303,7 +293,7 @@ def _build_objective_function(
     
     return total_cost
 
-def _add_customer_coverage_constraints(
+def _add_customer_coverage_constraints_1(
     model: pulp.LpProblem,
     clusters_df: pd.DataFrame,
     y_vars: Dict

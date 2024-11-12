@@ -10,6 +10,7 @@ from sklearn.cluster import MiniBatchKMeans
 from joblib import Parallel, delayed
 from haversine import haversine
 from config.parameters import Parameters
+from utils.route_time import estimate_route_time
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,8 @@ def generate_clusters_for_configurations(
             params.service_time,
             params.max_route_time,
             feasible_customers,
-            params.clustering['max_depth']
+            params.clustering['max_depth'],
+            params.clustering['route_time_estimation']
         )
         for _, config in configurations_df.iterrows()
     )
@@ -68,7 +70,8 @@ def process_configuration(
     service_time: float,
     max_route_time: float,
     feasible_customers: Dict,
-    max_split_depth: int
+    max_split_depth: int,
+    route_time_estimation: str
 ) -> List[Dict]:
     """
     Process a single vehicle configuration to generate feasible clusters.
@@ -79,10 +82,11 @@ def process_configuration(
         goods: List of goods types
         depot: Depot location
         avg_speed: Average vehicle speed
-        service_time: Service time per customer
-        max_route_time: Maximum route time
+        service_time: Service time per customer (minutes)
+        max_route_time: Maximum route time (hours)
         feasible_customers: Mapping of customers to feasible configurations
         max_split_depth: Maximum depth for cluster splitting
+        route_time_estimation: Route time estimation method
     
     Returns:
         List of cluster dictionaries
@@ -118,9 +122,10 @@ def process_configuration(
         config, 
         depot, 
         avg_speed, 
-        service_time,
+        service_time,  # in minutes
         goods,
-        max_route_time
+        max_route_time,  # in hours
+        route_time_estimation
     )
 
     coords = customers_subset[['Latitude', 'Longitude']]
@@ -139,7 +144,13 @@ def process_configuration(
     while clusters_to_check:
         cluster_customers, depth = clusters_to_check.pop()
         cluster_demand = cluster_customers['Total_Demand'].sum()
-        route_time = 1 + len(cluster_customers) * service_time
+        route_time = estimate_route_time(
+            cluster_customers=cluster_customers,
+            depot=depot,
+            service_time=service_time,
+            avg_speed=avg_speed,
+            method=route_time_estimation
+        )
 
         if (cluster_demand > config['Capacity'] or route_time > max_route_time) and depth < max_split_depth:
             if len(cluster_customers) > 1:
@@ -178,7 +189,8 @@ def estimate_num_initial_clusters(
     avg_speed: float,
     service_time: float,
     goods: List[str],
-    max_route_time: float
+    max_route_time: float,
+    route_time_estimation: str
 ) -> int:
     """
     Estimate the number of initial clusters needed based on capacity and time constraints.
@@ -188,9 +200,11 @@ def estimate_num_initial_clusters(
         config: Vehicle configuration
         depot: Depot location coordinates
         avg_speed: Average vehicle speed (km/h)
-        service_time: Service time per customer (hours)
+        service_time: Service time per customer (minutes)
         goods: List of goods types
-        max_route_time: Maximum route time
+        max_route_time: Maximum route time (hours)
+        route_time_estimation: Method to estimate route times 
+                             (Legacy, Clarke-Wright, BHH, CA, VRPSolver)
     
     Returns:
         Estimated number of clusters needed
@@ -214,11 +228,15 @@ def estimate_num_initial_clusters(
         for lat, lon in zip(customers['Latitude'], customers['Longitude'])
     ])
 
-    # Estimate time for an average route
+    # Estimate time for an average route using the same estimation method
     avg_customers_per_cluster = len(customers) / clusters_by_capacity
-    avg_route_time = (
-        2 * avg_distance / avg_speed +  # Round trip from depot
-        service_time * avg_customers_per_cluster  # Service time for customers
+    avg_cluster = customers.sample(n=min(int(avg_customers_per_cluster), len(customers)))
+    avg_route_time = estimate_route_time(
+        cluster_customers=avg_cluster,
+        depot=depot,
+        service_time=service_time,  # in minutes
+        avg_speed=avg_speed,
+        method=route_time_estimation
     )
 
     # Estimate clusters needed based on time

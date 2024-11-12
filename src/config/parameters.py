@@ -28,6 +28,4 @@ class Parameters:
         
         with open(path) as f:
             data = yaml.safe_load(f)
-            # Convert service time from minutes to hours
-            data['service_time'] = data['service_time'] / 60
             return cls(**data) 

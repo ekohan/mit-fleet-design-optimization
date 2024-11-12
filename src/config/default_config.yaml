@@ -33,8 +33,8 @@ goods:
 clustering:
   max_depth: 20
   method: MiniBatchKMeans 
-  distance: 'euclidean' # Fixed for now
-  route_time_estimation: '1hr + SERVICE_TIME_PER_CUSTOMER * num_customers in cluster' # Fixed for now
+  distance: 'euclidean'
+  route_time_estimation: 'Legacy'  # Options: Legacy, Clarke-Wright, BHH, CA, VRPSolver
 
 # Data Files
 # See options in /data
