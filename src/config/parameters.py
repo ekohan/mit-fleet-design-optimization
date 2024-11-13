@@ -14,7 +14,6 @@ class Parameters:
     depot: Dict
     goods: List[str]
     clustering: Dict
-    model_type: int
     demand_file: str
     light_load_penalty: float
     light_load_threshold: float

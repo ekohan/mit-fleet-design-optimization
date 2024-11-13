@@ -82,7 +82,6 @@ def save_optimization_results(
         ('Clustering Method', parameters.clustering['method']),
         ('Clustering Distance', parameters.clustering['distance']),
         ('Route Time Estimation Method', parameters.clustering['route_time_estimation']),
-        ('Model Formulation (# 1 = "Eric\'s" and 2 = "Fabri\'s")', parameters.model_type),
         ('Light Load Penalty', parameters.light_load_penalty),
         ('Light Load Threshold', parameters.light_load_threshold)
         ])
