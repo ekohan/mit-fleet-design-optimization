@@ -15,5 +15,6 @@ from (
     group by ClientID, ProductType
 ) a
 
-where a.Lat>0 and a.Lat<10 -- hack tofilter incomplete/dirty records
-and a.Kg >= 0;
+where a.Lat BETWEEN 4.3333 AND 4.9167
+AND a.Lon BETWEEN -74.3500 AND -73.9167 -- Bogota Metro Area bounding box
+and a.Kg >= 0; -- Has demand
