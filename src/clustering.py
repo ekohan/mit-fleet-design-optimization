@@ -78,7 +78,8 @@ def get_clustering_input(
     goods: List[str], 
     method: str,
     geo_weight: float,
-    demand_weight: float
+    demand_weight: float,
+    distance_metric: str = 'euclidean'
 ) -> np.ndarray:
     """Get appropriate input for clustering algorithm."""
     # Add small random noise to coordinates for all methods
@@ -89,8 +90,11 @@ def get_clustering_input(
     if method != 'agglomerative':
         return coords
     
-    # For agglomerative, compute composite distance
-    # Weight demands by product type importance
+    # For agglomerative clustering, we need to return a distance matrix
+    if distance_metric == 'euclidean':
+        return pairwise_distances(coords, metric='euclidean')
+    
+    # For composite distance
     demands = customers[[f'{g}_Demand' for g in goods]].fillna(0).values
     product_weights = {
         'Frozen': 0.5,    # Highest priority - temperature sensitive
@@ -173,7 +177,8 @@ def generate_clusters_for_configurations(
             params.clustering['method'],
             params.clustering['route_time_estimation'],
             params.clustering['geo_weight'],
-            params.clustering['demand_weight']
+            params.clustering['demand_weight'],
+            params.clustering['distance']
         )
         for _, config in configurations_df.iterrows()
     )
@@ -198,7 +203,8 @@ def process_configuration(
     clustering_method: str,
     route_time_estimation: str,
     geo_weight: float,
-    demand_weight: float
+    demand_weight: float,
+    distance_metric: str
 ) -> List[Dict]:
     """
     Process a single vehicle configuration to generate feasible clusters.
@@ -217,6 +223,7 @@ def process_configuration(
         route_time_estimation: Route time estimation method
         geo_weight: Geographical distance weight
         demand_weight: Demand distance weight
+        distance_metric: Distance metric for clustering
     
     Returns:
         List of cluster dictionaries
@@ -257,7 +264,8 @@ def process_configuration(
         goods, 
         clustering_method, 
         geo_weight,
-        demand_weight
+        demand_weight,
+        distance_metric
     )
     model = get_clustering_model(num_clusters, clustering_method)
     customers_subset['Cluster'] = model.fit_predict(data)
@@ -290,7 +298,8 @@ def process_configuration(
                     goods, 
                     clustering_method,
                     geo_weight,
-                    demand_weight
+                    demand_weight,
+                    distance_metric
                 )
                 # Split over-capacity clusters into two
                 model = get_clustering_model(2, clustering_method)
