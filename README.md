@@ -133,15 +133,37 @@ python src/main.py
 The optimization can be customized using command line arguments:
 
 ```bash
+# Show detailed parameter help
+python src/main.py --help-params
+
 # Use custom configuration
 python src/main.py --config my_config.yaml
 
 # Override specific parameters
 python src/main.py --avg-speed 45 --max-route-time 12 --service-time 15
 
-# Show detailed parameter help
-python src/main.py --help-params
+# Change clustering method and distance metric
+python src/main.py --clustering-method agglomerative --clustering-distance composite
 ```
+
+#### Core Parameters
+- `--avg-speed`: Average vehicle speed in km/h
+- `--max-route-time`: Maximum route time in hours
+- `--service-time`: Service time per customer in minutes
+- `--route-time-estimation`: Method to estimate route times (Legacy, Clarke-Wright, BHH, CA, VRPSolver)
+- `--light-load-penalty`: Penalty cost for light loads (0 to disable)
+- `--light-load-threshold`: Threshold for light load penalty (0.0 to 1.0)
+
+#### Clustering Options
+- `--clustering-method`: Algorithm choice (minibatch_kmeans, kmedoids, agglomerative)
+- `--clustering-distance`: Distance metric (euclidean, composite)
+- `--geo-weight`: Weight for geographical distance (0.0 to 1.0)
+- `--demand-weight`: Weight for demand distance (0.0 to 1.0)
+
+#### Input/Output
+- `--demand-file`: Name of the demand file to use (must be in data directory)
+- `--config`: Path to custom config file
+- `--verbose`: Enable verbose output
 
 ## Route Time Estimation Methods
 
@@ -149,7 +171,7 @@ The system supports multiple methods for estimating route times:
 
 1. **Legacy**: Simple estimation based on service time only
 2. **Clarke-Wright**: Based on savings algorithm
-3. **BHH**: Beardwood-Halton-Hammersley theorem approximation
+3. **BHH**: Beardwood-Halton-Hammersley theorem approximation (Default)
 4. **CA**: Continuous approximation method
 5. **VRPSolver**: Detailed VRP solver-based estimation
 
