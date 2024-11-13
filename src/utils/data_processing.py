@@ -30,14 +30,14 @@ def load_customer_demand(demand_file: str):
         'ProductType': 'Demand_Type'
     })
     
-    # Create pivot table
+    # Create pivot table and fill NaN values with 0
     df_pivot = df.pivot_table(
         index=['Customer_ID', 'Latitude', 'Longitude'],
         columns='Demand_Type',
         values='Units_Demand',
         fill_value=0,
         aggfunc='sum'
-    ).reset_index()
+    ).fillna(0).reset_index()
     
     df_pivot.columns.name = None
     df_pivot = df_pivot.rename(columns={

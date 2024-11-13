@@ -28,3 +28,15 @@ class Parameters:
         with open(path) as f:
             data = yaml.safe_load(f)
             return cls(**data) 
+
+    def __post_init__(self):
+        """Validate parameters after initialization"""
+        # Validate clustering weights sum to 1
+        geo_weight = self.clustering.get('geo_weight', 0.7)
+        demand_weight = self.clustering.get('demand_weight', 0.3)
+        
+        if abs(geo_weight + demand_weight - 1.0) > 1e-6:
+            raise ValueError(
+                f"Clustering weights must sum to 1.0. Got: "
+                f"geo_weight={geo_weight}, demand_weight={demand_weight}"
+            ) 

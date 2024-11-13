@@ -81,6 +81,8 @@ def save_optimization_results(
         ('Max Split Depth', parameters.clustering['max_depth']),
         ('Clustering Method', parameters.clustering['method']),
         ('Clustering Distance', parameters.clustering['distance']),
+        ('Geography Weight', parameters.clustering['geo_weight']),
+        ('Demand Weight', parameters.clustering['demand_weight']),
         ('Route Time Estimation Method', parameters.clustering['route_time_estimation']),
         ('Light Load Penalty', parameters.light_load_penalty),
         ('Light Load Threshold', parameters.light_load_threshold)
