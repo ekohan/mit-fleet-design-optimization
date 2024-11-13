@@ -32,7 +32,7 @@ def print_parameter_help():
                              - BHH (Beardwood-Halton-Hammersley)
                              - CA (continuous approximation)
                              - VRPSolver (detailed solver-based)
-                           Default: Legacy
+                           Default: BHH
                            Example: --route-time-estimation BHH
 
   --light-load-penalty FLOAT
@@ -46,6 +46,31 @@ def print_parameter_help():
                            Example: 0.2 means penalize loads below 20%
                            Default: 0.20
                            Example: --light-load-threshold 0.3
+
+{Colors.YELLOW}Clustering Options:{Colors.RESET}
+  --clustering-method STR  Method to cluster customers
+                           Options:
+                             - minibatch_kmeans (fast k-means variant)
+                             - kmedoids (k-medoids clustering)
+                             - agglomerative (hierarchical clustering)
+                           Default: minibatch_kmeans
+                           Example: --clustering-method agglomerative
+
+  --clustering-distance STR
+                           Distance metric for clustering
+                           Options:
+                             - euclidean (straight-line distance)
+                             - composite (geo + demand, agglomerative only)
+                           Default: euclidean
+                           Example: --clustering-distance composite
+
+  --geo-weight FLOAT      Weight for geographical distance (0.0 to 1.0)
+                           Default: 0.7
+                           Example: --geo-weight 0.8
+
+  --demand-weight FLOAT   Weight for demand distance (0.0 to 1.0)
+                           Default: 0.3
+                           Example: --demand-weight 0.2
 
 {Colors.YELLOW}Input/Output:{Colors.RESET}
   --demand-file STR        Name of the demand file to use
@@ -69,8 +94,8 @@ def print_parameter_help():
   # Override specific parameters
   python src/main.py --avg-speed 45 --max-route-time 12 --service-time 15
 
-  # Change model type and penalties
-  python src/main.py --model-type 2 --light-load-penalty 500 --light-load-threshold 0.3
+  # Change clustering method and distance metric
+  python src/main.py --clustering-method agglomerative --clustering-distance composite
 
   # Use different demand file with verbose output
   python src/main.py --demand-file sales_2023_high_demand_day.csv --verbose
@@ -107,6 +132,20 @@ def parse_args() -> ArgumentParser:
         choices=['Legacy', 'Clarke-Wright', 'BHH', 'CA', 'VRPSolver'],
         help='Method to estimate route times (Legacy, Clarke-Wright, BHH, CA, VRPSolver)'
     )
+    parser.add_argument(
+        '--clustering-method',
+        type=str,
+        choices=['minibatch_kmeans', 'kmedoids', 'agglomerative'],
+        help='Clustering algorithm to use'
+    )
+    parser.add_argument(
+        '--clustering-distance',
+        type=str,
+        choices=['euclidean', 'composite'],
+        help='Distance metric for clustering (composite only for agglomerative)'
+    )
+    parser.add_argument('--geo-weight', type=float, help='Weight for geographical distance (0.0 to 1.0)')
+    parser.add_argument('--demand-weight', type=float, help='Weight for demand distance (0.0 to 1.0)')
     
     return parser
 
@@ -135,11 +174,20 @@ def load_parameters(args) -> Parameters:
     # Get overrides from command line
     overrides = get_parameter_overrides(args)
     
-    # Handle nested parameters
-    if 'route_time_estimation' in overrides:
-        if not isinstance(params.clustering, dict):
-            params.clustering = {}
-        params.clustering['route_time_estimation'] = overrides.pop('route_time_estimation')
+    # Handle clustering parameters
+    if any(param in overrides for param in ['clustering_method', 'clustering_distance', 'geo_weight', 'demand_weight']):
+        clustering = params.clustering.copy()  # Preserve ALL existing clustering params
+        
+        if 'clustering_method' in overrides:
+            clustering['method'] = overrides.pop('clustering_method')
+        if 'clustering_distance' in overrides:
+            clustering['distance'] = overrides.pop('clustering_distance')
+        if 'geo_weight' in overrides:
+            clustering['geo_weight'] = overrides.pop('geo_weight')
+        if 'demand_weight' in overrides:
+            clustering['demand_weight'] = overrides.pop('demand_weight')
+            
+        overrides['clustering'] = clustering
     
     # Create new Parameters instance with remaining overrides
     if overrides:

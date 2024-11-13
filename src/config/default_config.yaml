@@ -32,9 +32,12 @@ goods:
 # Clustering Parameters
 clustering:
   max_depth: 20
-  method: MiniBatchKMeans 
-  distance: 'euclidean'
-  route_time_estimation: 'Legacy'  # Options: Legacy, Clarke-Wright, BHH, CA, VRPSolver
+  method: minibatch_kmeans  # Options: minibatch_kmeans, kmedoids, agglomerative
+  distance: euclidean  # Options: euclidean, composite (only for agglomerative)
+  geo_weight: 0.7    # Weight for geographical distance (composite-only)
+  demand_weight: 0.3  # Weight for demand distance (composite-only)
+  route_time_estimation: 'BHH'  # Options: Legacy, Clarke-Wright, BHH, CA, VRPSolver
+
 
 # Data Files
 # See options in /data
