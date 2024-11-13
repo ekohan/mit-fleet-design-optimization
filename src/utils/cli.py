@@ -12,7 +12,7 @@ def print_parameter_help():
 {Colors.CYAN}════════════════════════════════════════{Colors.RESET}
 
 {Colors.YELLOW}Core Parameters:{Colors.RESET}
-  --avg-speed FLOAT         Average vehicle speed in km/h
+  --avg-speed FLOAT        Average vehicle speed in km/h
                            Default: Defined in config file
                            Example: --avg-speed 45
 
@@ -34,13 +34,6 @@ def print_parameter_help():
                              - VRPSolver (detailed solver-based)
                            Default: Legacy
                            Example: --route-time-estimation BHH
-
-{Colors.YELLOW}Model Configuration:{Colors.RESET}
-  --model-type {1,2}       Mathematical model formulation
-                           1 = "Eric's formulation"
-                           2 = "Fabri's formulation"
-                           Default: 2
-                           Example: --model-type 1
 
   --light-load-penalty FLOAT
                            Penalty cost for light loads
@@ -105,12 +98,6 @@ def parse_args() -> ArgumentParser:
     parser.add_argument('--max-route-time', type=float, help='Maximum route time in hours')
     parser.add_argument('--service-time', type=float, help='Service time per customer in minutes')
     parser.add_argument('--demand-file', type=str, help='Name of the demand file to use')
-    parser.add_argument(
-        '--model-type',
-        type=int,
-        choices=[1, 2],
-        help='Model type (1="Eric\'s", 2="Fabri\'s")'
-    )
     parser.add_argument('--light-load-penalty', type=float, help='Penalty for light loads')
     parser.add_argument('--light-load-threshold', type=float, help='Threshold for light load penalty')
     parser.add_argument('--verbose', action='store_true', help='Enable verbose output')

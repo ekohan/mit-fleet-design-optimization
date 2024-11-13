@@ -37,13 +37,8 @@ def solve_fsm_problem(
     Returns:
         Dictionary containing optimization results
     """
-    # Create optimization model and get variables based on model type
-    if parameters.model_type == 1:
-        model, y_vars = _create_model_1(clusters_df, configurations_df, parameters)
-    elif parameters.model_type == 2:
-        model, y_vars = _create_model_2(clusters_df, configurations_df, parameters)
-    else:
-        raise ValueError(f"Unknown model type: {parameters.model_type}")
+    # Create optimization model
+    model, y_vars = _create_model(clusters_df, configurations_df, parameters)
     
     # Solve the model
     solver = pulp.GUROBI_CMD(msg=1 if verbose else 0)
@@ -94,40 +89,7 @@ def solve_fsm_problem(
         **solution_stats
     }
 
-def _create_model_1(
-    clusters_df: pd.DataFrame,
-    configurations_df: pd.DataFrame,
-    parameters: Parameters
-) -> Tuple[pulp.LpProblem, Dict]:
-    """
-    Create the original optimization model (Model 1).
-    """
-    model = pulp.LpProblem("FSM-MVC-CD", pulp.LpMinimize)
-    
-    # Create decision variables
-    y_vars = {
-        cluster['Cluster_ID']: pulp.LpVariable(
-            f"y_{cluster['Cluster_ID']}", 
-            cat='Binary'
-        )
-        for _, cluster in clusters_df.iterrows()
-    }
-    
-    # Objective Function
-    total_cost = _build_objective_function_1(
-        clusters_df,
-        configurations_df,
-        parameters,
-        y_vars
-    )
-    model += total_cost, "Total_Cost"
-    
-    # Add constraints
-    _add_customer_coverage_constraints_1(model, clusters_df, y_vars)
-    
-    return model, y_vars
-
-def _create_model_2(
+def _create_model(
     clusters_df: pd.DataFrame,
     configurations_df: pd.DataFrame,
     parameters: Parameters
@@ -248,71 +210,6 @@ def _create_model_2(
             model += y_vars[k] == 0, f"Unserviceable_Cluster_{k}"
 
     return model, y_vars
-
-
-def _build_objective_function_1(
-    clusters_df: pd.DataFrame,
-    configurations_df: pd.DataFrame,
-    parameters: Parameters,
-    y_vars: Dict
-) -> pulp.LpAffineExpression:
-    """Build the objective function for the optimization model."""
-    total_cost = 0
-    
-    for _, cluster in clusters_df.iterrows():
-        config_id = cluster['Config_ID']
-        config = configurations_df[configurations_df['Config_ID'] == config_id].iloc[0]
-        
-        # Calculate fixed cost component
-        fixed_cost = config['Fixed_Cost']
-        
-        # Calculate variable cost component based on route time
-        route_time = cluster['Route_Time']  # Already in hours
-        variable_cost = route_time * parameters.variable_cost_per_hour
-        
-        # Calculate base cost
-        base_cost = fixed_cost + variable_cost
-
-        # Calculate load percentage
-        total_demand = sum(cluster['Total_Demand'][g] for g in parameters.goods)
-        capacity = config['Capacity']
-        load_percentage = total_demand / capacity
-
-        # Penalize if load percentage is less than threshold
-        if load_percentage < parameters.light_load_threshold:
-            penalty_amount = parameters.light_load_penalty * (parameters.light_load_threshold - load_percentage)
-            cluster_cost = base_cost + penalty_amount
-        else:
-            cluster_cost = base_cost
-        
-        # Add to total cost
-        total_cost += cluster_cost * y_vars[cluster['Cluster_ID']]
-    
-    return total_cost
-
-def _add_customer_coverage_constraints_1(
-    model: pulp.LpProblem,
-    clusters_df: pd.DataFrame,
-    y_vars: Dict
-) -> None:
-    """
-    Add constraints ensuring each customer is served exactly once.
-    """
-    # Create customer to cluster mapping
-    customer_cluster_map = {}
-    for _, cluster in clusters_df.iterrows():
-        cluster_id = cluster['Cluster_ID']
-        for customer_id in cluster['Customers']:
-            if customer_id not in customer_cluster_map:
-                customer_cluster_map[customer_id] = []
-            customer_cluster_map[customer_id].append(cluster_id)
-    
-    # Add constraints
-    for customer_id, cluster_ids in customer_cluster_map.items():
-        model += (
-            pulp.lpSum([y_vars[cid] for cid in cluster_ids]) == 1,
-            f"Serve_Customer_{customer_id}"
-        )
 
 def _extract_solution(
     clusters_df: pd.DataFrame,
@@ -487,14 +384,6 @@ def _calculate_solution_statistics(
         'total_vehicles': len(selected_clusters),
         'selected_clusters': selected_clusters  # Include updated clusters with distances
     }
-
-def _calculate_cluster_distance(cluster: pd.Series, parameters: Parameters) -> float:
-    """
-    Calculate the round-trip distance for a cluster.
-    """
-    cluster_coord = (cluster['Centroid_Latitude'], cluster['Centroid_Longitude'])
-    depot_coord = (parameters.depot['latitude'], parameters.depot['longitude'])
-    return 2 * haversine(depot_coord, cluster_coord) 
 
 def _calculate_cluster_cost(
     cluster: pd.Series,
