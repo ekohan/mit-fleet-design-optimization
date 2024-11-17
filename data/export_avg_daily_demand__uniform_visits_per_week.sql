@@ -18,4 +18,4 @@ from (
 where a.Lat BETWEEN 4.3333 AND 4.9167
 AND a.Lon BETWEEN -74.3500 AND -73.9167 -- Bogota Metro Area bounding box
 and a.Kg >= 0 -- Has demand
-AND a.ClientID % 5 = 0; -- select approximately 20% of clients
+AND a.ClientID % 7 = 0; -- select approximately 15% of clients
