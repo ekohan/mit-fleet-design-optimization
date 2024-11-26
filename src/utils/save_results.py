@@ -154,7 +154,23 @@ def _write_to_excel(filename: str, data: dict) -> None:
         )
         
         # Sheet 3: Selected Clusters
-        data['cluster_details'].to_excel(
+        cluster_details = data['cluster_details'].copy()
+        
+        # Calculate Total Demand
+        cluster_details['Total Demand'] = cluster_details['Total_Demand'].apply(
+            lambda x: sum(ast.literal_eval(x).values()) if isinstance(x, str) else x
+        )
+        
+        # Calculate Capacity Utilization
+        cluster_details['Capacity Utilization'] = cluster_details.apply(
+            lambda row: row['Total Demand'] / data['configurations_df'].loc[
+                data['configurations_df']['Config_ID'] == row['Config_ID'], 'Capacity'
+            ].values[0] * 100,
+            axis=1
+        )
+        
+        # Save updated cluster details to Excel
+        cluster_details.to_excel(
             writer, sheet_name='Selected Clusters', index=False
         )
         

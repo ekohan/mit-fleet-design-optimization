@@ -50,6 +50,16 @@ def setup_logging():
     console.setFormatter(SimpleFormatter())
     logger.addHandler(console)
 
+    logging.basicConfig(
+        level=logging.DEBUG,  # Set to DEBUG to capture all messages
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),  # Output to console
+            # You can also add a file handler if you want to log to a file
+            logging.FileHandler('app.log')  # Log to a file named app.log
+        ]
+    )
+
 class ProgressTracker:
     """Simple progress tracking with tqdm."""
     def __init__(self, steps):

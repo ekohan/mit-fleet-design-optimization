@@ -58,6 +58,12 @@ def solve_fsm_problem(
 
     # Extract and validate solution
     selected_clusters = _extract_solution(clusters_df, y_vars)
+    
+    # Verbose output for selected clusters
+    if verbose:
+        print("Selected Clusters and their Vehicle Configurations:")
+        print(selected_clusters[['Cluster_ID', 'Config_ID', 'Total_Demand']])  # Adjust columns as needed
+
     missing_customers = _validate_solution(
         selected_clusters, 
         customers_df,
@@ -73,13 +79,25 @@ def solve_fsm_problem(
     
     # Print detailed solution if profiling is enabled
     if verbose:
-        _print_solution_details(
-            selected_clusters,
-            configurations_df,
-            solution_stats,
-            parameters
-        )
-    
+        print("\nSolver Results:")
+        print(f"Solver Status: {pulp.LpStatus[model.status]}")
+        print(f"Total Fixed Cost: ${solution_stats['total_fixed_cost']:,.2f}")
+        print(f"Total Variable Cost: ${solution_stats['total_variable_cost']:,.2f}")
+        print(f"Total Cost: ${solution_stats['total_fixed_cost'] + solution_stats['total_variable_cost']:,.2f}")
+        print(f"Total Vehicles Used: {solution_stats['total_vehicles']}")
+        print(f"Missing Customers: {len(missing_customers)}")
+        if missing_customers:
+            print(f"Unserved Customers: {', '.join(map(str, missing_customers))}")
+
+    # Create a DataFrame for decision variables
+    decision_vars = pd.DataFrame({
+        'Variable': [var.name for var in model.variables()],
+        'Value': [var.varValue for var in model.variables()]
+    })
+
+    # Save decision variables to a CSV file
+    decision_vars.to_csv('decision_variables.csv', index=False)
+
     return {
         'solver_status': pulp.LpStatus[model.status],
         'solver_name': 'GUROBI',
@@ -148,13 +166,14 @@ def _create_model(
     # Decision Variables
     x_vars = {}
     y_vars = {}
+    c_vk = pd.DataFrame(index=list(K), columns=list(V))  # Initialize c_vk as a DataFrame
+
     for k in K:
         y_vars[k] = pulp.LpVariable(f"y_{k}", cat='Binary')
         for v in V_k[k]:
             x_vars[v, k] = pulp.LpVariable(f"x_{v}_{k}", cat='Binary')
 
     # Parameters
-    c_vk = {}
     for k in K:
         cluster = clusters_df.loc[clusters_df['Cluster_ID'] == k].iloc[0]
         for v in V_k[k]:
@@ -175,15 +194,15 @@ def _create_model(
                 # Penalize if load percentage is less than threshold
                 if load_percentage < parameters.light_load_threshold:
                     penalty_amount = parameters.light_load_penalty * (parameters.light_load_threshold - load_percentage)
-                    c_vk[v, k] = base_cost + penalty_amount
+                    c_vk.at[k, v] = base_cost + penalty_amount
                 else:
-                    c_vk[v, k] = base_cost
+                    c_vk.at[k, v] = base_cost
             else:
-                c_vk[v, k] = 0  # Cost is zero for placeholder
+                c_vk.at[k, v] = 0  # Cost is zero for placeholder
 
     # Objective Function
     model += pulp.lpSum(
-        c_vk[v, k] * x_vars[v, k]
+        c_vk.at[k, v] * x_vars[v, k]
         for k in K for v in V_k[k]
     ), "Total_Cost"
 
@@ -208,6 +227,15 @@ def _create_model(
     for k in K:
         if 'NoVehicle' in V_k[k]:
             model += y_vars[k] == 0, f"Unserviceable_Cluster_{k}"
+
+    # Example of adding a diversity constraint
+    max_allowed_same_configurations = 99
+
+    for k in K:
+        model += pulp.lpSum(y_vars[k] for v in V_k[k]) <= max_allowed_same_configurations, f"Max_Same_Config_{k}"
+
+    # Export c_vk to a CSV file
+    c_vk.to_csv('cost_matrix.csv', index=True)  # Save the cost matrix to a CSV file
 
     return model, y_vars
 
@@ -392,21 +420,17 @@ def _calculate_cluster_cost(
 ) -> float:
     """
     Calculate the total cost (fixed + variable) for serving a cluster with a vehicle configuration.
-
-    Args:
-        cluster: The cluster data as a Pandas Series.
-        config: The vehicle configuration data as a Pandas Series.
-        parameters: Parameters object containing optimization parameters.
-
-    Returns:
-        Total cost of serving the cluster with the given vehicle configuration.
     """
     # Fixed cost from vehicle configuration
     fixed_cost = config['Fixed_Cost']
-
+    
     # Variable cost based on route time (in hours)
     route_time = cluster['Route_Time']  # Already in hours
     variable_cost = parameters.variable_cost_per_hour * route_time
 
     total_cost = fixed_cost + variable_cost
+    
+    # Debugging log
+    logger.debug(f"Cluster {cluster['Cluster_ID']} - Vehicle {config['Config_ID']}: Fixed Cost = {fixed_cost}, Variable Cost = {variable_cost}, Total Cost = {total_cost}")
+    
     return total_cost

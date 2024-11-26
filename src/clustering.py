@@ -125,10 +125,10 @@ def get_clustering_model(n_clusters: int, method: str):
     """Get clustering model based on method name."""
     # For small n_clusters, force KMeans which works with any size
     if n_clusters < 2:
-        return MiniBatchKMeans(n_clusters=1, random_state=42, batch_size=10000)
+        return MiniBatchKMeans(n_clusters=1, random_state=42, batch_size=10000, n_init=3)
         
     if method == 'minibatch_kmeans':
-        return MiniBatchKMeans(n_clusters=n_clusters, random_state=42, batch_size=10000)
+        return MiniBatchKMeans(n_clusters=n_clusters, random_state=42, batch_size=10000, n_init=3)
     elif method == 'kmedoids':
         return KMedoids(n_clusters=n_clusters, random_state=42)
     elif method == 'agglomerative':
