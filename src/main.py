@@ -61,7 +61,7 @@ def main():
         verbose=args.verbose
     )
     progress.advance(
-        f"Optimized fleet: {Colors.BOLD}${solution['total_fixed_cost'] + solution['total_variable_cost']:,.2f}{Colors.RESET} total cost"
+        f"Optimized fleet: {Colors.BOLD}${solution['total_fixed_cost'] + solution['total_variable_cost'] + solution['total_penalties']:,.2f}{Colors.RESET} total cost"
     )
 
     # Step 5: Save results
@@ -73,6 +73,7 @@ def main():
         selected_clusters=solution['selected_clusters'],
         total_fixed_cost=solution['total_fixed_cost'],
         total_variable_cost=solution['total_variable_cost'],
+        total_penalties=solution['total_penalties'],
         vehicles_used=solution['vehicles_used'],
         missing_customers=solution['missing_customers'],
         parameters=params,

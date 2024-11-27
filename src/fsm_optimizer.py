@@ -6,7 +6,7 @@ for the vehicle routing problem with multiple compartments.
 
 import logging
 import time
-from typing import Dict, Tuple, Set
+from typing import Dict, Tuple, Set, Any
 import pandas as pd
 import pulp
 from haversine import haversine
@@ -38,7 +38,7 @@ def solve_fsm_problem(
         Dictionary containing optimization results
     """
     # Create optimization model
-    model, y_vars = _create_model(clusters_df, configurations_df, parameters)
+    model, y_vars, x_vars = _create_model(clusters_df, configurations_df, parameters)
     
     # Solve the model
     solver = pulp.GUROBI_CMD(msg=1 if verbose else 0)
@@ -57,7 +57,7 @@ def solve_fsm_problem(
         sys.exit(1)
 
     # Extract and validate solution
-    selected_clusters = _extract_solution(clusters_df, y_vars)
+    selected_clusters = _extract_solution(clusters_df, y_vars, x_vars)
     missing_customers = _validate_solution(
         selected_clusters, 
         customers_df,
@@ -86,17 +86,26 @@ def solve_fsm_problem(
         'selected_clusters': selected_clusters,
         'missing_customers': missing_customers,
         'execution_time': end_time - start_time,
-        **solution_stats
+        'total_fixed_cost': solution_stats['total_fixed_cost'],
+        'total_variable_cost': solution_stats['total_variable_cost'],
+        'total_penalties': solution_stats['total_penalties'],
+        'vehicles_used': solution_stats['vehicles_used'],
+        'total_vehicles': solution_stats['total_vehicles']
     }
 
 def _create_model(
     clusters_df: pd.DataFrame,
     configurations_df: pd.DataFrame,
     parameters: Parameters
-) -> Tuple[pulp.LpProblem, Dict]:
+) -> Tuple[pulp.LpProblem, Dict[str, pulp.LpVariable], Dict[Tuple[str, Any], pulp.LpVariable]]:
     """
     Create the optimization model (Model 2) aligning with the mathematical formulation,
     with penalization for lightly loaded trucks below a specified threshold.
+
+    Returns:
+        model: The optimization model.
+        y_vars: A dictionary of cluster variables (y_k).
+        x_vars: A dictionary of vehicle assignment variables (x_vk).
     """
     import pulp
 
@@ -209,21 +218,33 @@ def _create_model(
         if 'NoVehicle' in V_k[k]:
             model += y_vars[k] == 0, f"Unserviceable_Cluster_{k}"
 
-    return model, y_vars
+    return model, y_vars, x_vars
 
 def _extract_solution(
     clusters_df: pd.DataFrame,
-    y_vars: Dict
+    y_vars: Dict,
+    x_vars: Dict
 ) -> pd.DataFrame:
     """
-    Extract the selected clusters from the optimization solution.
+    Extract the selected clusters and their assigned configurations from the optimization solution.
     """
-    return clusters_df[
-        clusters_df['Cluster_ID'].isin([
-            cid for cid, var in y_vars.items() 
-            if var.varValue and var.varValue > 0.5
-        ])
+    selected_cluster_ids = [
+        cid for cid, var in y_vars.items() 
+        if var.varValue and var.varValue > 0.5
     ]
+
+    cluster_config_map = {}
+    for (v, k), var in x_vars.items():
+        if var.varValue and var.varValue > 0.5 and k in selected_cluster_ids:
+            cluster_config_map[k] = v
+
+    selected_clusters = clusters_df[
+        clusters_df['Cluster_ID'].isin(selected_cluster_ids)
+    ].copy()
+
+    selected_clusters['Config_ID'] = selected_clusters['Cluster_ID'].map(cluster_config_map)
+
+    return selected_clusters
 
 def _validate_solution(
     selected_clusters: pd.DataFrame,
@@ -285,21 +306,29 @@ def _print_solution_details(
     logger.info(f"\n{Symbols.CHART} Solution Summary")
     logger.info("=" * 50)
     logger.info(
-        f"{Colors.CYAN}Total Cost:     ${Colors.BOLD}"
-        f"{(solution_stats['total_fixed_cost'] + solution_stats['total_variable_cost']):>10,.2f}"
-        f"{Colors.RESET}"
+        f"{Colors.CYAN}Total Fixed Cost:  ${Colors.BOLD}"
+        f"{solution_stats['total_fixed_cost']:>10,.2f}{Colors.RESET}"
     )
     logger.info(
-        f"{Colors.CYAN}Total Vehicles: {Colors.BOLD}"
-        f"{solution_stats['total_vehicles']}{Colors.RESET}"
+        f"{Colors.CYAN}Total Variable Cost:${Colors.BOLD}"
+        f"{solution_stats['total_variable_cost']:>10,.2f}{Colors.RESET}"
+    )
+    logger.info(
+        f"{Colors.CYAN}Total Penalties:    ${Colors.BOLD}"
+        f"{solution_stats['total_penalties']:>10,.2f}{Colors.RESET}"
+    )
+    logger.info(
+        f"{Colors.CYAN}Total Cost:         ${Colors.BOLD}"
+        f"{solution_stats['total_cost']:>10,.2f}{Colors.RESET}"
     )
 
     # Vehicle Usage Summary
     logger.info(f"\n{Symbols.TRUCK} Vehicles by Type")
-    for vehicle_type, count in solution_stats['vehicles_used'].items():
+    for vehicle_type in sorted(solution_stats['vehicles_used']):
+        vehicle_count = solution_stats['vehicles_used'][vehicle_type]
         logger.info(
             f"{Colors.BLUE}→ Type {vehicle_type}:{Colors.BOLD}"
-            f"{count:>4}{Colors.RESET}"
+            f"{vehicle_count:>4}{Colors.RESET}"
         )
 
     # Calculate cluster statistics
@@ -351,38 +380,53 @@ def _calculate_solution_statistics(
     parameters: Parameters
 ) -> Dict:
     """
-    Calculate various statistics about the solution.
+    Calculate various statistics about the solution, including light-load penalties.
     """
+    # Merge to get the fixed costs and vehicle types from configurations
+    selected_clusters = selected_clusters.merge(
+        configurations_df[["Config_ID", "Fixed_Cost", "Vehicle_Type", "Capacity"]], 
+        on="Config_ID"
+    )
     
     # Calculate fixed costs
-    total_fixed_cost = selected_clusters.merge(
-        configurations_df[["Config_ID", "Fixed_Cost"]], 
-        on="Config_ID"
-    )["Fixed_Cost"].sum()
+    total_fixed_cost = selected_clusters["Fixed_Cost"].sum()
     
-    # Calculate variable costs based on route time
-    selected_clusters = selected_clusters.copy()
-    
+    # Calculate variable costs based on route time using parameters
     total_variable_cost = (
         selected_clusters['Route_Time'] * parameters.variable_cost_per_hour
     ).sum()
     
+    # Calculate penalties for lightly loaded trucks
+    penalties = []
+    for _, cluster in selected_clusters.iterrows():
+        config = configurations_df[
+            configurations_df['Config_ID'] == cluster['Config_ID']
+        ].iloc[0]
+        total_demand = sum(cluster['Total_Demand'][g] for g in parameters.goods)
+        capacity = config['Capacity']
+        load_percentage = total_demand / capacity
+        
+        if load_percentage < parameters.light_load_threshold:
+            penalty_amount = parameters.light_load_penalty * (parameters.light_load_threshold - load_percentage)
+            penalties.append(penalty_amount)
+        else:
+            penalties.append(0)
+    
+    total_penalties = sum(penalties)
+    
+    # Total cost including penalties
+    total_cost = total_fixed_cost + total_variable_cost + total_penalties
+    
     # Calculate vehicles used by type
-    vehicles_used = (
-        selected_clusters.merge(
-            configurations_df[["Config_ID", "Vehicle_Type"]], 
-            on="Config_ID"
-        )["Vehicle_Type"]
-        .value_counts()
-        .sort_index()
-    )
+    vehicles_used = selected_clusters['Vehicle_Type'].value_counts().sort_index()
     
     return {
         'total_fixed_cost': total_fixed_cost,
         'total_variable_cost': total_variable_cost,
-        'vehicles_used': vehicles_used,
+        'total_penalties': total_penalties,
+        'total_cost': total_cost,
+        'vehicles_used': vehicles_used.to_dict(),
         'total_vehicles': len(selected_clusters),
-        'selected_clusters': selected_clusters  # Include updated clusters with distances
     }
 
 def _calculate_cluster_cost(

@@ -19,6 +19,7 @@ def save_optimization_results(
     selected_clusters: pd.DataFrame,
     total_fixed_cost: float,
     total_variable_cost: float,
+    total_penalties: float,
     vehicles_used: pd.Series,
     missing_customers: set,
     parameters: Parameters,
@@ -54,13 +55,17 @@ def save_optimization_results(
     
     # Prepare summary metrics
     summary_metrics = [
-        ('Total Cost ($)', f"{total_fixed_cost + total_variable_cost:,.2f}"),
+        ('Total Cost ($)', f"{total_fixed_cost + total_variable_cost + total_penalties:,.2f}"),
+        ('Fixed Cost ($)', f"{total_fixed_cost:,.2f}"),
+        ('Variable Cost ($)', f"{total_variable_cost:,.2f}"),
+        ('Light Load Penalties ($)', f"{total_penalties:,.2f}"),
         ('Total Vehicles', len(selected_clusters)),
     ]
     
-    for vehicle_type in sorted(vehicles_used.index):
+    for vehicle_type in sorted(vehicles_used.keys()):
+        vehicle_count = vehicles_used[vehicle_type]
         summary_metrics.append(
-            (f'Vehicles Type {vehicle_type}', vehicles_used[vehicle_type])
+            (f'Vehicles Type {vehicle_type}', vehicle_count)
         )
     
     summary_metrics.extend([
@@ -121,7 +126,8 @@ def save_optimization_results(
             'Solver Status': solver_status,
             'Total Fixed Cost': total_fixed_cost,
             'Total Variable Cost': total_variable_cost,
-            'Total Cost': total_fixed_cost + total_variable_cost,
+            'Light Load Penalties': total_penalties,
+            'Total Cost': total_fixed_cost + total_variable_cost + total_penalties,
             'Demand File': parameters.demand_file
         }
     }
@@ -159,8 +165,10 @@ def _write_to_excel(filename: str, data: dict) -> None:
         )
         
         # Sheet 4: Vehicle Usage
-        vehicles_df = pd.DataFrame(data['vehicles_used']).reset_index()
-        vehicles_df.columns = ['Vehicle Type', 'Count']
+        vehicles_df = pd.DataFrame(
+            [(k, v) for k, v in data['vehicles_used'].items()],
+            columns=['Vehicle Type', 'Count']
+        )
         vehicles_df.to_excel(writer, sheet_name='Vehicle Usage', index=False)
         
         # Sheet 5: Other Considerations
@@ -185,17 +193,23 @@ def _write_to_json(filename: str, data: dict) -> None:
                 return obj.tolist()
             return super().default(obj)
 
+    # Convert vehicles_used to list of dictionaries
+    vehicle_usage = [
+        {"vehicle_type": k, "count": v} 
+        for k, v in data['vehicles_used'].items()
+    ]
+
     json_data = {
         'Solution Summary': dict(data['summary_metrics']),
         'Configurations': data['configurations_df'].to_dict(orient='records'),
         'Selected Clusters': data['cluster_details'].to_dict(orient='records'),
-        'Vehicle Usage': pd.DataFrame(data['vehicles_used']).reset_index().to_dict(orient='records'),
+        'Vehicle Usage': vehicle_usage,
         'Other Considerations': data['other_considerations'],
         'Execution Details': data['execution_details']
     }
-    
+
     with open(filename, 'w') as f:
-        json.dump(json_data, f, indent=2, cls=NumpyEncoder)
+        json.dump(json_data, f, cls=NumpyEncoder, indent=2)
 
 def visualize_clusters(
     selected_clusters: pd.DataFrame,
