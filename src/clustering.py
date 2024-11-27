@@ -155,6 +155,12 @@ def generate_clusters_for_configurations(
     Returns:
         DataFrame containing all generated clusters
     """
+    # Add small random noise to coordinates once for all processing
+    epsilon = 1e-4
+    customers = customers.copy()
+    customers['Latitude'] += np.random.uniform(-epsilon, epsilon, size=len(customers))
+    customers['Longitude'] += np.random.uniform(-epsilon, epsilon, size=len(customers))
+    
     # Generate feasibility mapping
     feasible_customers = _generate_feasibility_mapping(
         customers, 
@@ -433,7 +439,7 @@ def estimate_num_initial_clusters(
     
     return num_clusters
 
-def compute_composite_distance(customers: pd.DataFrame) -> np.ndarray:
+def compute_composite_distance(customers: pd.DataFrame, geo_weight: float, demand_weight: float) -> np.ndarray:
     """Compute composite distance matrix combining geographical and demand distances"""
     # Compute geographical distance
     coords = customers[['Latitude', 'Longitude']].values
@@ -450,4 +456,4 @@ def compute_composite_distance(customers: pd.DataFrame) -> np.ndarray:
         demand_dist /= demand_dist.max()
     
     # Return weighted combination
-    return 0.7 * geo_dist + 0.3 * demand_dist
+    return geo_weight * geo_dist + demand_weight * demand_dist
