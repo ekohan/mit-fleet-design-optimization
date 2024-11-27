@@ -86,7 +86,11 @@ def solve_fsm_problem(
         'selected_clusters': selected_clusters,
         'missing_customers': missing_customers,
         'execution_time': end_time - start_time,
-        **solution_stats
+        'total_fixed_cost': solution_stats['total_fixed_cost'],
+        'total_variable_cost': solution_stats['total_variable_cost'],
+        'total_penalties': solution_stats['total_penalties'],
+        'vehicles_used': solution_stats['vehicles_used'],
+        'total_vehicles': solution_stats['total_vehicles']
     }
 
 def _create_model(
