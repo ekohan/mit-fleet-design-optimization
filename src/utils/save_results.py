@@ -58,9 +58,10 @@ def save_optimization_results(
         ('Total Vehicles', len(selected_clusters)),
     ]
     
-    for vehicle_type in sorted(vehicles_used.index):
+    for vehicle_type in sorted(vehicles_used.keys()):
+        vehicle_count = vehicles_used[vehicle_type]
         summary_metrics.append(
-            (f'Vehicles Type {vehicle_type}', vehicles_used[vehicle_type])
+            (f'Vehicles Type {vehicle_type}', vehicle_count)
         )
     
     summary_metrics.extend([
@@ -159,8 +160,10 @@ def _write_to_excel(filename: str, data: dict) -> None:
         )
         
         # Sheet 4: Vehicle Usage
-        vehicles_df = pd.DataFrame(data['vehicles_used']).reset_index()
-        vehicles_df.columns = ['Vehicle Type', 'Count']
+        vehicles_df = pd.DataFrame(
+            [(k, v) for k, v in data['vehicles_used'].items()],
+            columns=['Vehicle Type', 'Count']
+        )
         vehicles_df.to_excel(writer, sheet_name='Vehicle Usage', index=False)
         
         # Sheet 5: Other Considerations
