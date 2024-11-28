@@ -426,6 +426,8 @@ def estimate_num_initial_clusters(
     # Take the maximum of the two estimates
     num_clusters = int(max(clusters_by_capacity, clusters_by_time, 1))
     
+    num_clusters = 8
+
     logger.debug(
         f"Estimated clusters: {num_clusters} "
         f"(capacity: {clusters_by_capacity}, time: {clusters_by_time})"
