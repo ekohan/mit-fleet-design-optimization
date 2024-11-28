@@ -32,7 +32,7 @@ goods:
 # Clustering Parameters
 clustering:
   max_depth: 20
-  method: minibatch_kmeans  # Options: minibatch_kmeans, kmedoids, agglomerative
+  method: minibatch_kmeans  # Options: minibatch_kmeans, kmedoids, agglomerative, combine
   distance: euclidean  # Options: euclidean, composite (only for agglomerative)
   geo_weight: 1    # Weight for geographical distance (composite-only)
   demand_weight: 0  # Weight for demand distance (composite-only)

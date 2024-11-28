@@ -53,8 +53,9 @@ def print_parameter_help():
                              - minibatch_kmeans (fast k-means variant)
                              - kmedoids (k-medoids clustering)
                              - agglomerative (hierarchical clustering)
+                             - combine (use all methods in tandem for each config)
                            Default: minibatch_kmeans
-                           Example: --clustering-method agglomerative
+                           Example: --clustering-method combine
 
   --clustering-distance STR
                            Distance metric for clustering
@@ -135,7 +136,7 @@ def parse_args() -> ArgumentParser:
     parser.add_argument(
         '--clustering-method',
         type=str,
-        choices=['minibatch_kmeans', 'kmedoids', 'agglomerative'],
+        choices=['minibatch_kmeans', 'kmedoids', 'agglomerative', 'combine'],
         help='Clustering algorithm to use'
     )
     parser.add_argument(
