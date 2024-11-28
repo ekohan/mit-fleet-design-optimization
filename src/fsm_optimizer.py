@@ -38,7 +38,7 @@ def solve_fsm_problem(
         Dictionary containing optimization results
     """
     # Create optimization model
-    model, y_vars, x_vars = _create_model(clusters_df, configurations_df, parameters)
+    model, y_vars, x_vars, c_vk = _create_model(clusters_df, configurations_df, parameters)
     
     # Solve the model
     solver = pulp.GUROBI_CMD(msg=1 if verbose else 0)
@@ -64,11 +64,14 @@ def solve_fsm_problem(
         configurations_df
     )
     
-    # Calculate statistics
+    # Calculate statistics using the actual optimization costs
     solution_stats = _calculate_solution_statistics(
         selected_clusters,
         configurations_df,
-        parameters
+        parameters,
+        model,
+        x_vars,
+        c_vk  # Pass the cost dictionary
     )
     
     # Print detailed solution if profiling is enabled
@@ -97,7 +100,7 @@ def _create_model(
     clusters_df: pd.DataFrame,
     configurations_df: pd.DataFrame,
     parameters: Parameters
-) -> Tuple[pulp.LpProblem, Dict[str, pulp.LpVariable], Dict[Tuple[str, Any], pulp.LpVariable]]:
+) -> Tuple[pulp.LpProblem, Dict[str, pulp.LpVariable], Dict[Tuple[str, Any], pulp.LpVariable], Dict[Tuple[str, str], float]]:
     """
     Create the optimization model (Model 2) aligning with the mathematical formulation,
     with penalization for lightly loaded trucks below a specified threshold.
@@ -106,6 +109,7 @@ def _create_model(
         model: The optimization model.
         y_vars: A dictionary of cluster variables (y_k).
         x_vars: A dictionary of vehicle assignment variables (x_vk).
+        c_vk: A dictionary of vehicle configuration costs (c_vk).
     """
     import pulp
 
@@ -184,9 +188,17 @@ def _create_model(
                 # Penalize if load percentage is less than threshold
                 if load_percentage < parameters.light_load_threshold:
                     penalty_amount = parameters.light_load_penalty * (parameters.light_load_threshold - load_percentage)
+                    logger.debug(
+                        f"Applying penalty for cluster {k}, vehicle {v}: "
+                        f"Load Percentage = {load_percentage:.2f}, Penalty = {penalty_amount:.2f}"
+                    )
                     c_vk[v, k] = base_cost + penalty_amount
                 else:
                     c_vk[v, k] = base_cost
+                    logger.debug(
+                        f"No penalty for cluster {k}, vehicle {v}: "
+                        f"Load Percentage = {load_percentage:.2f}"
+                    )
             else:
                 c_vk[v, k] = 0  # Cost is zero for placeholder
 
@@ -198,14 +210,14 @@ def _create_model(
 
     # Constraints
 
-    # 1. Customer Allocation Constraint
+    # 1. Customer Allocation Constraint (Exact Assignment)
     for i in N:
         model += pulp.lpSum(
             x_vars[v, k]
             for k in K_i[i]
             for v in V_k[k]
             if v != 'NoVehicle'
-        ) >= 1, f"Customer_Coverage_{i}"
+        ) == 1, f"Customer_Coverage_{i}"
 
     # 2. Vehicle Configuration Assignment Constraint
     for k in K:
@@ -218,7 +230,7 @@ def _create_model(
         if 'NoVehicle' in V_k[k]:
             model += y_vars[k] == 0, f"Unserviceable_Cluster_{k}"
 
-    return model, y_vars, x_vars
+    return model, y_vars, x_vars, c_vk
 
 def _extract_solution(
     clusters_df: pd.DataFrame,
@@ -353,6 +365,7 @@ def _print_solution_details(
         max_load_pct = max(
             cluster['Total_Demand'][good] / config['Capacity'] * 100 
             for good in parameters.goods
+            if config[good] == 1
         )
         load_percentages.append(max_load_pct)
     
@@ -377,56 +390,47 @@ def _print_solution_details(
 def _calculate_solution_statistics(
     selected_clusters: pd.DataFrame,
     configurations_df: pd.DataFrame,
-    parameters: Parameters
+    parameters: Parameters,
+    model: pulp.LpProblem,
+    x_vars: Dict,
+    c_vk: Dict
 ) -> Dict:
-    """
-    Calculate various statistics about the solution, including light-load penalties.
-    """
-    # Merge to get the fixed costs and vehicle types from configurations
+    """Calculate solution statistics using the optimization results."""
+    # Get selected assignments and their actual costs from the optimization
+    selected_assignments = {
+        (v, k): c_vk[(v, k)] 
+        for (v, k), var in x_vars.items() 
+        if var.varValue == 1
+    }
+    
+    # Get vehicle statistics and fixed costs
     selected_clusters = selected_clusters.merge(
-        configurations_df[["Config_ID", "Fixed_Cost", "Vehicle_Type", "Capacity"]], 
+        configurations_df[["Config_ID", "Fixed_Cost", "Vehicle_Type"]], 
         on="Config_ID"
     )
     
-    # Calculate fixed costs
+    # Calculate base costs (without penalties)
     total_fixed_cost = selected_clusters["Fixed_Cost"].sum()
-    
-    # Calculate variable costs based on route time using parameters
     total_variable_cost = (
         selected_clusters['Route_Time'] * parameters.variable_cost_per_hour
     ).sum()
     
-    # Calculate penalties for lightly loaded trucks
-    penalties = []
-    for _, cluster in selected_clusters.iterrows():
-        config = configurations_df[
-            configurations_df['Config_ID'] == cluster['Config_ID']
-        ].iloc[0]
-        total_demand = sum(cluster['Total_Demand'][g] for g in parameters.goods)
-        capacity = config['Capacity']
-        load_percentage = total_demand / capacity
-        
-        if load_percentage < parameters.light_load_threshold:
-            penalty_amount = parameters.light_load_penalty * (parameters.light_load_threshold - load_percentage)
-            penalties.append(penalty_amount)
-        else:
-            penalties.append(0)
+    # Total cost is the sum of all selected assignment costs
+    total_cost = sum(selected_assignments.values())
     
-    total_penalties = sum(penalties)
+    # Penalties are the difference between total cost and base costs
+    total_penalties = total_cost - (total_fixed_cost + total_variable_cost)
     
-    # Total cost including penalties
-    total_cost = total_fixed_cost + total_variable_cost + total_penalties
-    
-    # Calculate vehicles used by type
-    vehicles_used = selected_clusters['Vehicle_Type'].value_counts().sort_index()
+    # Ensure penalties are non-negative
+    assert total_penalties >= 0, f"Total penalties are negative: {total_penalties}"
     
     return {
         'total_fixed_cost': total_fixed_cost,
         'total_variable_cost': total_variable_cost,
         'total_penalties': total_penalties,
         'total_cost': total_cost,
-        'vehicles_used': vehicles_used.to_dict(),
-        'total_vehicles': len(selected_clusters),
+        'vehicles_used': selected_clusters['Vehicle_Type'].value_counts().sort_index().to_dict(),
+        'total_vehicles': len(selected_clusters)
     }
 
 def _calculate_cluster_cost(

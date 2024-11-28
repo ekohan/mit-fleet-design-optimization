@@ -143,7 +143,10 @@ python src/main.py --config my_config.yaml
 python src/main.py --avg-speed 45 --max-route-time 12 --service-time 15
 
 # Change clustering method and distance metric
-python src/main.py --clustering-method agglomerative --clustering-distance composite
+python src/main.py --clustering-method agglomerative --clustering-distance composite --geo-weight 0.5 --demand-weight 0.5
+
+# Combine all clustering methods at once
+python src/main.py --clustering-method combine --verbose
 ```
 
 #### Core Parameters
@@ -155,10 +158,33 @@ python src/main.py --clustering-method agglomerative --clustering-distance compo
 - `--light-load-threshold`: Threshold for light load penalty (0.0 to 1.0)
 
 #### Clustering Options
-- `--clustering-method`: Algorithm choice (minibatch_kmeans, kmedoids, agglomerative)
+- `--clustering-method`: Algorithm choice (minibatch_kmeans, kmedoids, agglomerative, combine)
 - `--clustering-distance`: Distance metric (euclidean, composite)
 - `--geo-weight`: Weight for geographical distance (0.0 to 1.0)
 - `--demand-weight`: Weight for demand distance (0.0 to 1.0)
+
+## Clustering Methods
+
+The system supports several clustering methods to group customers efficiently:
+
+### Basic Methods
+- `minibatch_kmeans`: Fast K-means clustering based on geographical coordinates
+- `kmedoids`: K-medoids clustering that's more robust to outliers
+- `agglomerative`: Hierarchical clustering that can be customized to consider both geographical distance and demand similarity
+
+### Combine Method
+The `combine` method is a comprehensive approach that:
+1. Runs multiple clustering algorithms:
+   - MiniBatch K-means (geographical coordinates)
+   - K-medoids (geographical coordinates)
+   - Agglomerative clustering (with various weights for geographical distance and demand similarity)
+2. Evaluates each cluster's feasibility based on:
+   - Vehicle capacity constraints
+   - Maximum route time
+   - Product type compatibility
+3. Selects the best clusters across all methods to create a final solution
+
+This will generate and combine multiple clustering solutions to produce more robust results.
 
 #### Input/Output
 - `--demand-file`: Name of the demand file to use (must be in data directory)
