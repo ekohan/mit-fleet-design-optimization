@@ -47,6 +47,12 @@ def print_parameter_help():
                            Default: 0.20
                            Example: --light-load-threshold 0.3
 
+  --compartment-setup-cost FLOAT
+                           Cost per additional compartment beyond the first one
+                           Example: 50 means $50 extra for second compartment, $100 for third
+                           Default: 50
+                           Example: --compartment-setup-cost 75
+
 {Colors.YELLOW}Clustering Options:{Colors.RESET}
   --clustering-method STR  Method to cluster customers
                            Options:
@@ -82,6 +88,10 @@ def print_parameter_help():
   --config PATH            Path to custom config file
                            Default: src/config/default_config.yaml
                            Example: --config my_config.yaml
+
+  --format STR            Output format (excel or json)
+                           Default: excel
+                           Example: --format json
 
 {Colors.YELLOW}Other Options:{Colors.RESET}
   --verbose               Enable verbose output
@@ -126,6 +136,11 @@ def parse_args() -> ArgumentParser:
     parser.add_argument('--demand-file', type=str, help='Name of the demand file to use')
     parser.add_argument('--light-load-penalty', type=float, help='Penalty for light loads')
     parser.add_argument('--light-load-threshold', type=float, help='Threshold for light load penalty')
+    parser.add_argument(
+        '--compartment-setup-cost',
+        type=float,
+        help='Cost per additional compartment beyond the first one'
+    )
     parser.add_argument('--verbose', action='store_true', help='Enable verbose output')
     parser.add_argument(
         '--route-time-estimation',
@@ -147,6 +162,13 @@ def parse_args() -> ArgumentParser:
     )
     parser.add_argument('--geo-weight', type=float, help='Weight for geographical distance (0.0 to 1.0)')
     parser.add_argument('--demand-weight', type=float, help='Weight for demand distance (0.0 to 1.0)')
+    parser.add_argument(
+        '--format',
+        type=str,
+        choices=['excel', 'json'],
+        help='Output format (excel or json)',
+        default='excel'
+    )
     
     return parser
 

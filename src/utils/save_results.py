@@ -19,6 +19,8 @@ def save_optimization_results(
     selected_clusters: pd.DataFrame,
     total_fixed_cost: float,
     total_variable_cost: float,
+    total_light_load_penalties: float,
+    total_compartment_penalties: float,
     total_penalties: float,
     vehicles_used: pd.Series,
     missing_customers: set,
@@ -58,7 +60,9 @@ def save_optimization_results(
         ('Total Cost ($)', f"{total_fixed_cost + total_variable_cost + total_penalties:,.2f}"),
         ('Fixed Cost ($)', f"{total_fixed_cost:,.2f}"),
         ('Variable Cost ($)', f"{total_variable_cost:,.2f}"),
-        ('Light Load Penalties ($)', f"{total_penalties:,.2f}"),
+        ('Total Penalties ($)', f"{total_penalties:,.2f}"),
+        ('  Light Load Penalties ($)', f"{total_light_load_penalties:,.2f}"),
+        ('  Compartment Setup Penalties ($)', f"{total_compartment_penalties:,.2f}"),
         ('Total Vehicles', len(selected_clusters)),
     ]
     
@@ -90,7 +94,8 @@ def save_optimization_results(
         ('Demand Weight', parameters.clustering['demand_weight']),
         ('Route Time Estimation Method', parameters.clustering['route_time_estimation']),
         ('Light Load Penalty', parameters.light_load_penalty),
-        ('Light Load Threshold', parameters.light_load_threshold)
+        ('Light Load Threshold', parameters.light_load_threshold),
+        ('Compartment Setup Cost', parameters.compartment_setup_cost)
         ])
     
     # Add vehicle types
@@ -126,7 +131,9 @@ def save_optimization_results(
             'Solver Status': solver_status,
             'Total Fixed Cost': total_fixed_cost,
             'Total Variable Cost': total_variable_cost,
-            'Light Load Penalties': total_penalties,
+            'Total Penalties': total_penalties,
+            'Light Load Penalties': total_light_load_penalties,
+            'Compartment Setup Penalties': total_compartment_penalties,
             'Total Cost': total_fixed_cost + total_variable_cost + total_penalties,
             'Demand File': parameters.demand_file
         }

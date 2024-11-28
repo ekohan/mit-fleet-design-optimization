@@ -21,6 +21,7 @@ The optimization pipeline follows these steps:
    - Ensure all customers are served
    - Respect vehicle and compartment capacities
    - Determine optimal number and type of vehicles
+   - Apply compartment setup costs
 
 4. Solution Validation and Results Export
    - Validate solution feasibility
@@ -156,6 +157,7 @@ python src/main.py --clustering-method combine --verbose
 - `--route-time-estimation`: Method to estimate route times (Legacy, Clarke-Wright, BHH, CA, VRPSolver)
 - `--light-load-penalty`: Penalty cost for light loads (0 to disable)
 - `--light-load-threshold`: Threshold for light load penalty (0.0 to 1.0)
+- `--compartment-setup-cost`: Cost per additional compartment beyond the first one
 
 #### Clustering Options
 - `--clustering-method`: Algorithm choice (minibatch_kmeans, kmedoids, agglomerative, combine)
