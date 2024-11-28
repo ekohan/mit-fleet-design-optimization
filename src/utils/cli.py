@@ -89,6 +89,10 @@ def print_parameter_help():
                            Default: src/config/default_config.yaml
                            Example: --config my_config.yaml
 
+  --format STR            Output format (excel or json)
+                           Default: excel
+                           Example: --format json
+
 {Colors.YELLOW}Other Options:{Colors.RESET}
   --verbose               Enable verbose output
                            Default: False
@@ -158,6 +162,13 @@ def parse_args() -> ArgumentParser:
     )
     parser.add_argument('--geo-weight', type=float, help='Weight for geographical distance (0.0 to 1.0)')
     parser.add_argument('--demand-weight', type=float, help='Weight for demand distance (0.0 to 1.0)')
+    parser.add_argument(
+        '--format',
+        type=str,
+        choices=['excel', 'json'],
+        help='Output format (excel or json)',
+        default='excel'
+    )
     
     return parser
 

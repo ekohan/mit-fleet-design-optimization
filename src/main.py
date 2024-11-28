@@ -79,7 +79,7 @@ def main():
         vehicles_used=solution['vehicles_used'],
         missing_customers=solution['missing_customers'],
         parameters=params,
-        format=params.format
+        format=args.format
     )
     progress.advance(f"Results saved {Colors.GRAY}(execution time: {time.time() - start_time:.1f}s){Colors.RESET}")
     progress.close()
