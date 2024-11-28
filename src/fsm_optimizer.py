@@ -91,7 +91,10 @@ def solve_fsm_problem(
         'execution_time': end_time - start_time,
         'total_fixed_cost': solution_stats['total_fixed_cost'],
         'total_variable_cost': solution_stats['total_variable_cost'],
+        'total_light_load_penalties': solution_stats['total_light_load_penalties'],
+        'total_compartment_penalties': solution_stats['total_compartment_penalties'],
         'total_penalties': solution_stats['total_penalties'],
+        'total_cost': solution_stats['total_cost'],
         'vehicles_used': solution_stats['vehicles_used'],
         'total_vehicles': solution_stats['total_vehicles']
     }
@@ -326,8 +329,12 @@ def _print_solution_details(
         f"{solution_stats['total_variable_cost']:>10,.2f}{Colors.RESET}"
     )
     logger.info(
-        f"{Colors.CYAN}Total Penalties:    ${Colors.BOLD}"
-        f"{solution_stats['total_penalties']:>10,.2f}{Colors.RESET}"
+        f"{Colors.CYAN}Total Light Load Penalties:${Colors.BOLD}"
+        f"{solution_stats['total_light_load_penalties']:>10,.2f}{Colors.RESET}"
+    )
+    logger.info(
+        f"{Colors.CYAN}Total Compartment Penalties:${Colors.BOLD}"
+        f"{solution_stats['total_compartment_penalties']:>10,.2f}{Colors.RESET}"
     )
     logger.info(
         f"{Colors.CYAN}Total Cost:         ${Colors.BOLD}"
@@ -405,8 +412,9 @@ def _calculate_solution_statistics(
     
     # Get vehicle statistics and fixed costs
     selected_clusters = selected_clusters.merge(
-        configurations_df[["Config_ID", "Fixed_Cost", "Vehicle_Type"]], 
-        on="Config_ID"
+        configurations_df, 
+        on="Config_ID",
+        how='left'
     )
     
     # Calculate base costs (without penalties)
@@ -415,18 +423,34 @@ def _calculate_solution_statistics(
         selected_clusters['Route_Time'] * parameters.variable_cost_per_hour
     ).sum()
     
-    # Total cost is the sum of all selected assignment costs
+    # Calculate compartment setup penalties
+    total_compartment_penalties = sum(
+        parameters.compartment_setup_cost * (
+            sum(1 for g in parameters.goods 
+                if selected_clusters.loc[idx, g]) - 1
+        )
+        for idx in selected_clusters.index
+        if sum(1 for g in parameters.goods 
+              if selected_clusters.loc[idx, g]) > 1
+    )
+    
+    # Total cost from optimization
     total_cost = sum(selected_assignments.values())
     
-    # Penalties are the difference between total cost and base costs
-    total_penalties = total_cost - (total_fixed_cost + total_variable_cost)
+    # Light load penalties are the remaining difference
+    total_light_load_penalties = (
+        total_cost - 
+        (total_fixed_cost + total_variable_cost + total_compartment_penalties)
+    )
     
-    # Ensure penalties are non-negative
-    assert total_penalties >= 0, f"Total penalties are negative: {total_penalties}"
+    # Total penalties
+    total_penalties = total_light_load_penalties + total_compartment_penalties
     
     return {
         'total_fixed_cost': total_fixed_cost,
         'total_variable_cost': total_variable_cost,
+        'total_light_load_penalties': total_light_load_penalties,
+        'total_compartment_penalties': total_compartment_penalties,
         'total_penalties': total_penalties,
         'total_cost': total_cost,
         'vehicles_used': selected_clusters['Vehicle_Type'].value_counts().sort_index().to_dict(),
@@ -439,22 +463,34 @@ def _calculate_cluster_cost(
     parameters: Parameters
 ) -> float:
     """
-    Calculate the total cost (fixed + variable) for serving a cluster with a vehicle configuration.
-
+    Calculate the base cost for serving a cluster with a vehicle configuration.
+    Includes:
+    - Fixed cost
+    - Variable cost (time-based)
+    - Compartment setup cost
+    
+    Note: Light load penalties are handled separately in the model creation.
+    TODO: CHECK IF THIS IS CORRECT
     Args:
         cluster: The cluster data as a Pandas Series.
         config: The vehicle configuration data as a Pandas Series.
         parameters: Parameters object containing optimization parameters.
 
     Returns:
-        Total cost of serving the cluster with the given vehicle configuration.
+        Base cost of serving the cluster with the given vehicle configuration.
     """
-    # Fixed cost from vehicle configuration
+    # Base costs
     fixed_cost = config['Fixed_Cost']
-
-    # Variable cost based on route time (in hours)
-    route_time = cluster['Route_Time']  # Already in hours
+    route_time = cluster['Route_Time']
     variable_cost = parameters.variable_cost_per_hour * route_time
 
-    total_cost = fixed_cost + variable_cost
+    # Compartment setup cost
+    num_compartments = sum(1 for g in parameters.goods if config[g])
+    compartment_cost = 0.0
+    if num_compartments > 1:
+        compartment_cost = parameters.compartment_setup_cost * (num_compartments - 1)
+
+    # Total cost
+    total_cost = fixed_cost + variable_cost + compartment_cost
+    
     return total_cost

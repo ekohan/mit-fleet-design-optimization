@@ -17,6 +17,7 @@ class Parameters:
     demand_file: str
     light_load_penalty: float
     light_load_threshold: float
+    compartment_setup_cost: float
     format: str
 
     @classmethod

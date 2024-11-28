@@ -51,6 +51,7 @@ demand_file: "sales_2023_uniform_visits_per_week.csv"
 # Math model Parameters
 light_load_penalty: 1000  # Adjust penalty value as needed -- 0 == don't penalize
 light_load_threshold: 0.20  # Threshold for light load (e.g., 0.2 for 20%) -- when to penalize
+compartment_setup_cost: 100  # Cost per additional compartment beyond the first one
 
 # Results format
-format: 'excel' # Options are 'excel' or 'json'
+format: 'json' # Options are 'excel' or 'json'

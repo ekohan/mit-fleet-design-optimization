@@ -73,6 +73,8 @@ def main():
         selected_clusters=solution['selected_clusters'],
         total_fixed_cost=solution['total_fixed_cost'],
         total_variable_cost=solution['total_variable_cost'],
+        total_light_load_penalties=solution['total_light_load_penalties'],
+        total_compartment_penalties=solution['total_compartment_penalties'],
         total_penalties=solution['total_penalties'],
         vehicles_used=solution['vehicles_used'],
         missing_customers=solution['missing_customers'],
