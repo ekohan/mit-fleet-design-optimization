@@ -156,7 +156,12 @@ class VRPSolver:
         for good in self.params.goods:
             mask = self.customers[f'{good}_Demand'] > 0
             if mask.any():
-                product_customers = self.customers[mask].copy()
+                # Create a copy with only this product's demand
+                product_customers = self.customers.copy()
+                # Zero out other products' demands
+                for other_good in self.params.goods:
+                    if other_good != good:
+                        product_customers[f'{other_good}_Demand'] = 0
                 product_instances.append((good, product_customers))
         
         # Solve in parallel using existing solve method
@@ -193,7 +198,7 @@ class VRPSolver:
         )
         
         # Create stopping criterion
-        stop = MaxIterations(max_iterations=10000)
+        stop = MaxIterations(max_iterations=5000)
         
         # Solve and return best solution
         result = self.model.solve(

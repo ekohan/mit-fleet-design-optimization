@@ -72,20 +72,28 @@ def main():
         f"Loaded {Colors.BOLD}{len(customers)}{Colors.RESET} customers"
     )
     
-    # Step 2: Run VRP solver
+    # Step 2: Run VRP solver in parallel
     vrp_solver = VRPSolver(
         customers=customers,
         params=params,
         time_limit=args.time_limit
     )
-    solution = vrp_solver.solve(verbose=args.verbose)
+    solutions = vrp_solver.solve_parallel(verbose=args.verbose)
+    
+    # Calculate totals across all product solutions
+    total_cost = sum(sol.total_cost for sol in solutions.values())
+    total_vehicles = sum(sol.num_vehicles for sol in solutions.values())
+    
     progress.advance(
-        f"Completed VRP: {Colors.BOLD}${solution.total_cost:,.2f}{Colors.RESET} "
-        f"total cost, {Colors.BOLD}{solution.num_vehicles}{Colors.RESET} vehicles"
+        f"Completed VRP: {Colors.BOLD}${total_cost:,.2f}{Colors.RESET} "
+        f"total cost, {Colors.BOLD}{total_vehicles}{Colors.RESET} vehicles"
     )
     
-    # Print detailed results
-    print_solution_details(solution)
+    # Print detailed results for each product
+    for product, solution in solutions.items():
+        print(f"\n{Colors.BOLD}{product} Product Results:{Colors.RESET}")
+        print_solution_details(solution)
+    
     progress.close()
 
 if __name__ == "__main__":
