@@ -18,3 +18,5 @@ tqdm
 openpyxl
 seaborn
 folium
+pyvrp
+rich
