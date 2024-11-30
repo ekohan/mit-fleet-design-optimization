@@ -74,11 +74,6 @@ class VRPSolver:
                 )
                 distance_matrix[i,j] = distance_matrix[j,i] = dist
         
-        # Use largest vehicle capacity
-        max_capacity = max(
-            v['capacity'] for v in self.params.vehicles.values()
-        )
-        
         # Create depot and client objects
         depot = Depot(
             x=int(self.params.depot['latitude'] * 10000),  # Convert to integer coords
@@ -97,11 +92,11 @@ class VRPSolver:
         # Create vehicle type
         vehicle_type = VehicleType(
             num_available=len(self.customers),  # Upper bound
-            capacity=[max_capacity]  # Wrap in list for multi-dimensional support
+            capacity=[max(v['capacity'] for v in self.params.vehicles.values())]  # Wrap in list for multi-dimensional support
         )
         
         # Create problem data
-        data = ProblemData(
+        self.data = ProblemData(  # Store the data as instance variable
             clients=clients,
             depots=[depot],
             vehicle_types=[vehicle_type],
@@ -109,7 +104,7 @@ class VRPSolver:
             duration_matrices=[np.zeros_like(distance_matrix)]  # No duration constraints
         )
         
-        return Model.from_data(data)
+        return Model.from_data(self.data)
     
     def solve(self, verbose: bool = False) -> VRPSolution:
         """Solve the VRP instance."""
@@ -130,7 +125,7 @@ class VRPSolver:
         )
         
         # Create stopping criterion (e.g., max iterations)
-        stop = MaxIterations(max_iterations=10000)
+        stop = MaxIterations(max_iterations=1000)
         
         # Solve and return best solution
         result = self.model.solve(
@@ -139,7 +134,28 @@ class VRPSolver:
             display=verbose
         )
         
-        return result.best_solution
+        # Extract solution details
+        solution = result.best
+        
+        # Convert to our solution format
+        return VRPSolution(
+            total_cost=solution.distance_cost() + solution.duration_cost(),
+            total_distance=solution.distance(),
+            num_vehicles=len(solution.routes()),
+            routes=[list(route) for route in solution.routes()],
+            vehicle_loads=[
+                sum(self.data.clients()[i-1].delivery[0] for i in route if i > 0)  # Adjust index by -1 and skip depot
+                for route in solution.routes()
+            ],
+            execution_time=result.runtime,
+            solver_status="Optimal" if solution.is_feasible else "Infeasible",
+            customer_assignments={},  # TODO: Fill this from routes
+            route_sequences=[[str(i) for i in route] for route in solution.routes()],
+            vehicle_utilization=[
+                sum(self.data.clients()[i-1].delivery[0] for i in route if i > 0) / self.data.vehicle_types()[0].capacity[0]
+                for route in solution.routes()
+            ]
+        )
     
     def _print_solution(
         self,

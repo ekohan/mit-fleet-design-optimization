@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 import time
 import argparse
+import numpy as np
 
 # Add project root to path
 current_dir = Path(__file__).resolve().parent
@@ -14,7 +15,7 @@ sys.path.append(str(project_root))
 from src.config.parameters import Parameters
 from src.utils.logging import setup_logging, ProgressTracker, Colors, Symbols
 from src.utils.data_processing import load_customer_demand
-from src.benchmarking.vrp_solver import VRPSolver
+from src.benchmarking.vrp_solver import VRPSolver, VRPSolution
 
 def parse_benchmark_args():
     """Parse command line arguments for benchmarking."""
@@ -40,14 +41,13 @@ def parse_benchmark_args():
     )
     return parser.parse_args()
 
-def print_solution_details(solution):
-    """Print VRP solution details to screen."""
-    print(f"\n{Symbols.INFO} VRP Solution Summary:")
+def print_solution_details(solution: VRPSolution) -> None:
+    """Print solution details."""
+    print(f"\nℹ️ VRP Solution Summary:")  # Using emoji instead of Symbols.INFO
     print(f"{Colors.BLUE}→ Total Cost: ${Colors.BOLD}{solution.total_cost:,.2f}{Colors.RESET}")
     print(f"{Colors.BLUE}→ Total Distance: {Colors.BOLD}{solution.total_distance:.1f} km{Colors.RESET}")
     print(f"{Colors.BLUE}→ Vehicles Used: {Colors.BOLD}{solution.num_vehicles}{Colors.RESET}")
-    print(f"{Colors.BLUE}→ Avg Vehicle Utilization: {Colors.BOLD}{sum(solution.vehicle_utilization)/len(solution.vehicle_utilization)*100:.1f}%{Colors.RESET}")
-    print(f"{Colors.BLUE}→ Solution Status: {Colors.BOLD}{solution.solver_status}{Colors.RESET}")
+    print(f"{Colors.BLUE}→ Avg Vehicle Utilization: {Colors.BOLD}{np.mean(solution.vehicle_utilization)*100:.1f}%{Colors.RESET}")
     print(f"{Colors.BLUE}→ Execution Time: {Colors.BOLD}{solution.execution_time:.1f}s{Colors.RESET}")
 
 def main():
