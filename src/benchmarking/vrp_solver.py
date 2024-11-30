@@ -74,34 +74,37 @@ class VRPSolver:
                 )
                 distance_matrix[i,j] = distance_matrix[j,i] = dist
         
+        # Create vehicle type with realistic capacity
+        vehicle_type = VehicleType(
+            num_available=len(self.customers),  # Upper bound on number of vehicles
+            capacity=[min(v['capacity'] for v in self.params.vehicles.values())]  # Use smallest vehicle capacity
+        )
+        
         # Create depot and client objects
         depot = Depot(
-            x=int(self.params.depot['latitude'] * 10000),  # Convert to integer coords
+            x=int(self.params.depot['latitude'] * 10000),
             y=int(self.params.depot['longitude'] * 10000)
         )
         
         clients = [
             Client(
-                x=int(row['Latitude'] * 10000),  # Convert to integer coords
+                x=int(row['Latitude'] * 10000),
                 y=int(row['Longitude'] * 10000),
-                delivery=[int(total_demands.iloc[idx])]  # Use total demand for this customer
+                delivery=[int(total_demands.iloc[idx])],  # Use actual demand
+                service_time=self.params.service_time * 60  # Convert minutes to seconds
             )
             for idx, (_, row) in enumerate(self.customers.iterrows())
         ]
         
-        # Create vehicle type
-        vehicle_type = VehicleType(
-            num_available=len(self.customers),  # Upper bound
-            capacity=[max(v['capacity'] for v in self.params.vehicles.values())]  # Wrap in list for multi-dimensional support
-        )
-        
-        # Create problem data
-        self.data = ProblemData(  # Store the data as instance variable
+        # Create problem data with time windows and duration constraints
+        self.data = ProblemData(
             clients=clients,
             depots=[depot],
             vehicle_types=[vehicle_type],
             distance_matrices=[distance_matrix],
-            duration_matrices=[np.zeros_like(distance_matrix)]  # No duration constraints
+            duration_matrices=[distance_matrix / self.params.avg_speed],  # Convert distance to duration
+            release_times=[0],  # Start time
+            due_dates=[self.params.max_route_time * 3600]  # Convert hours to seconds
         )
         
         return Model.from_data(self.data)
