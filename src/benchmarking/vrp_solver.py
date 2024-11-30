@@ -203,7 +203,7 @@ class VRPSolver:
         # Solve and return best solution
         result = self.model.solve(
             stop=stop,
-            params=SolveParams(),
+            params=SolveParams(genetic=ga_params, population=pop_params),
             display=verbose
         )
         
