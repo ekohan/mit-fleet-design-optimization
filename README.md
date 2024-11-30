@@ -43,6 +43,9 @@ mit-fleet-design-optimization/
 │   ├── fsm_optimizer.py            # Fleet Size and Mix optimization
 │   ├── clustering_playground.py    # Clustering experiments
 │   ├── column_generation_playground.py
+│   ├── benchmarking/              # Benchmarking implementations
+│   │   ├── run_benchmark.py       # VRP benchmark runner
+│   │   └── vrp_solver.py          # Single-compartment VRP solver
 │   ├── config/
 │   │   └── default_config.yaml    # Default configuration parameters
 │   └── utils/
@@ -75,6 +78,9 @@ The data directory contains utilities to process raw sales data into formats sui
 - `fsm_optimizer.py`: Fleet Size and Mix optimization using integer programming
 - `clustering_playground.py`: Experimental clustering implementations
 - `column_generation_playground.py`: Column generation algorithm experiments
+- `benchmarking/`: Benchmarking implementations
+  - `run_benchmark.py`: VRP benchmark runner
+  - `vrp_solver.py`: Single-compartment VRP solver
 - `config/`: Configuration files and parameters
 - `utils/`: Helper modules for data processing, logging, and result management
 
@@ -203,8 +209,47 @@ The system supports multiple methods for estimating route times:
 4. **CA**: Continuous approximation method
 5. **VRPSolver**: Detailed VRP solver-based estimation
 
+## Benchmarking
 
-![Fleet Size and Mix Optimization Process](fsm.png)
+The benchmarking module evaluates the Multi-Compartment Vehicle (MCV) Fleet Size and Mix (FSM) model against a classic single-compartment Vehicle Routing Problem (VRP) to ensure a fair comparison of operational efficiencies.
+
+### VRP Benchmark
+
+The VRP benchmark feeds all customer data directly to the VRP solver without clustering, aligning with standard VRP practices. This approach:
+- Allows the VRP solver to optimize routes based on the entire customer dataset
+- Reflects the inherent efficiencies of single-compartment vehicles
+- Provides a fair baseline for comparing with the MCV approach
+
+### Running the Benchmark
+
+```bash
+python src/benchmarking/run_benchmark.py [options]
+
+# Options:
+--config PATH         # Custom config file path
+--time-limit SECONDS  # Solver time limit (default: 300)
+--verbose            # Enable detailed output
+```
+
+### Implementation Details
+
+The benchmark:
+1. Processes each product type (Frozen, Chilled, Dry) independently
+2. Uses parallel processing to solve product-specific VRPs efficiently
+3. Applies PyVRP solver with genetic algorithm optimization
+4. Considers vehicle capacities and route time constraints
+5. Provides detailed solution metrics:
+   - Total cost (fixed + variable)
+   - Total distance traveled
+   - Number of vehicles used
+   - Vehicle utilization rates
+   - Execution time
+
+### Purpose and Benefits
+- Ensures both models operate at the same optimization level
+- Highlights cost and efficiency benefits of MCVs vs. single-compartment vehicles
+- Evaluates computational performance as problem size increases
+- Provides quantitative data for solution quality assessment
 
 ## Visualization & Results Analysis
 
