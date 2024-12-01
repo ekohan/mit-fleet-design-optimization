@@ -7,7 +7,16 @@ from utils.logging import setup_logging, ProgressTracker, Colors
 from utils.data_processing import load_customer_demand
 from utils.vehicle_configurations import generate_vehicle_configurations
 from utils.save_results import save_optimization_results
-from clustering import generate_clusters_for_configurations
+import sys
+from pathlib import Path
+
+# Add project root to path
+current_dir = Path(__file__).resolve().parent
+project_root = current_dir.parent
+sys.path.append(str(project_root))
+
+# Now use absolute imports
+from src.clustering import generate_clusters_for_configurations
 from fsm_optimizer import solve_fsm_problem
 
 def main():

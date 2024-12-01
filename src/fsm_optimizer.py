@@ -12,8 +12,8 @@ import pulp
 from haversine import haversine
 import sys
 
-from utils.logging import Colors, Symbols
-from config.parameters import Parameters
+from src.utils.logging import Colors, Symbols
+from src.config.parameters import Parameters
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +270,7 @@ def _validate_solution(
     Validate that all customers are served in the solution.
     """
     logger = logging.getLogger(__name__)
-    from utils.logging import Colors, Symbols
+    from src.utils.logging import Colors, Symbols
 
     all_customers_set = set(customers_df['Customer_ID'])
     served_customers = set()
@@ -308,7 +308,7 @@ def _print_solution_details(
 ) -> None:
     """Print summarized information about the solution."""
     logger = logging.getLogger(__name__)
-    from utils.logging import Colors, Symbols
+    from src.utils.logging import Colors, Symbols
     
     # Warnings first (if any)
     if solution_stats.get('missing_customers'):

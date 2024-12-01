@@ -11,8 +11,8 @@ from sklearn.metrics import pairwise_distances
 from sklearn_extra.cluster import KMedoids
 from joblib import Parallel, delayed
 from haversine import haversine
-from config.parameters import Parameters
-from utils.route_time import estimate_route_time
+from src.config.parameters import Parameters
+from src.utils.route_time import estimate_route_time
 from scipy.spatial import distance
 from dataclasses import dataclass
 import re
