@@ -3,6 +3,7 @@ import pandas as pd
 from pathlib import Path
 import logging
 from typing import Dict, Optional
+import numpy as np
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -49,6 +50,19 @@ def execute_query_to_csv(
         
         # Additional data cleaning if needed
         df['Kg'] = pd.to_numeric(df['Kg'], errors='coerce').astype(int)
+        
+        # First group by ClientID to ensure same noise per client
+        client_noise = pd.DataFrame({
+            'ClientID': df['ClientID'].unique(),
+            'lat_noise': np.random.uniform(-1e-4, 1e-4, size=len(df['ClientID'].unique())),
+            'lon_noise': np.random.uniform(-1e-4, 1e-4, size=len(df['ClientID'].unique()))
+        })
+        
+        # Merge noise back to original dataframe
+        df = df.merge(client_noise, on='ClientID', how='left')
+        df['Lat'] += df['lat_noise']
+        df['Lon'] += df['lon_noise']
+        df = df.drop(['lat_noise', 'lon_noise'], axis=1)
         
         # Export to CSV
         df.to_csv(output_path, index=index)

@@ -170,12 +170,6 @@ def generate_clusters_for_configurations(
     Returns:
         DataFrame containing all generated clusters
     """
-    # Add small random noise to coordinates once for all processing
-    epsilon = 1e-4
-    customers = customers.copy()
-    customers['Latitude'] += np.random.uniform(-epsilon, epsilon, size=len(customers))
-    customers['Longitude'] += np.random.uniform(-epsilon, epsilon, size=len(customers))
-    
     # Generate feasibility mapping
     feasible_customers = _generate_feasibility_mapping(
         customers, 
