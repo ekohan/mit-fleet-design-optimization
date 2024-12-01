@@ -3,9 +3,10 @@ Module for generating clusters from customer data.
 """
 
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 import pandas as pd
 import numpy as np
+
 from sklearn.cluster import MiniBatchKMeans, AgglomerativeClustering
 from sklearn.metrics import pairwise_distances
 from sklearn_extra.cluster import KMedoids
@@ -163,37 +164,20 @@ def generate_clusters_for_configurations(
     configurations_df: pd.DataFrame,
     params: Parameters,
 ) -> pd.DataFrame:
-    """
-    Generate clusters for each vehicle configuration in parallel.
-    
-    Args:
-        customers: DataFrame containing customer data
-        configurations_df: DataFrame containing vehicle configurations
-        params: Parameters object containing vehicle configuration parameters
-    
-    Returns:
-        DataFrame containing all generated clusters
-    """
-    # Add small random noise to coordinates once for all processing
-    epsilon = 1e-4
-    customers = customers.copy()
-    customers['Latitude'] += np.random.uniform(-epsilon, epsilon, size=len(customers))
-    customers['Longitude'] += np.random.uniform(-epsilon, epsilon, size=len(customers))
-    
-    # Generate feasibility mapping
-    feasible_customers = _generate_feasibility_mapping(
-        customers, 
-        configurations_df,
-        params.goods
-    )
-    
-    # Add info logging with distinctive symbols
-    logger.info(f"🔍 Clustering method received: '{params.clustering['method']}'")
+    """Generate clusters for each vehicle configuration."""
+    logger.info(f"📍 Clustering method received: '{params.clustering['method']}'")
     
     if params.clustering['method'] == 'ostermeier':
         logger.info("🔄 Using Ostermeier MCVRP clustering method")
         all_clusters = []
         cluster_id_counter = 0
+        
+        # Generate feasibility mapping first
+        feasible_customers = _generate_feasibility_mapping(
+            customers=customers,
+            configurations_df=configurations_df,
+            goods=params.goods
+        )
         
         for _, config in configurations_df.iterrows():
             # Get feasible customers for this configuration
@@ -240,7 +224,7 @@ def generate_clusters_for_configurations(
                         
             except Exception as e:
                 logger.warning(f"⚠️ Could not generate clusters for configuration {config['Config_ID']}: {str(e)}")
-                continue
+                continue  # Skip this configuration and move to the next
         
         # Convert to DataFrame
         combined_clusters_df = pd.DataFrame(all_clusters)
@@ -252,74 +236,8 @@ def generate_clusters_for_configurations(
         logger.info(f"✓ Generated {len(combined_clusters_df)} clusters across {len(configurations_df)} configurations")
         return combined_clusters_df
         
-    elif params.clustering['method'] == 'combine':
-        logger.info("🔄 Using combine method")
-        methods = ['minibatch_kmeans', 'kmedoids']
-        
-        # Define weight combinations (geo_weight, demand_weight)
-        weight_combinations = [
-            (1.0, 0.0),
-            (0.8, 0.2),
-            (0.6, 0.4),
-            (0.4, 0.6),
-            (0.2, 0.8),
-            (0.0, 1.0)
-        ]
-        
-        for geo_w, demand_w in weight_combinations:
-            method_name = f'agglomerative_geo_{geo_w}_demand_{demand_w}'
-            methods.append(method_name)
     else:
-        logger.info(f"📍 Using single method: {params.clustering['method']}")
-        methods = [params.clustering['method']]
-
-    # Initialize a global cluster ID counter to ensure uniqueness
-    cluster_id_counter = 0
-
-    # Process configurations in parallel for each method
-    all_clusters = []
-    for method in methods:
-        clusters_by_config = Parallel(n_jobs=-1)(
-            delayed(process_configuration)(
-                config,
-                customers,
-                params.goods,
-                params.depot,
-                params.avg_speed,
-                params.service_time,
-                params.max_route_time,
-                feasible_customers,
-                params.clustering['max_depth'],
-                method,  # Using the current method
-                params.clustering['route_time_estimation'],
-                params.clustering['geo_weight'],
-                params.clustering['demand_weight'],
-                params.clustering['distance']
-            )
-            for _, config in configurations_df.iterrows()
-        )
-        
-        # Combine all clusters from this method with unique Cluster_IDs
-        for config_clusters in clusters_by_config:
-            for cluster in config_clusters:
-                # Assign unique Cluster_ID
-                cluster['Cluster_ID'] = cluster_id_counter
-                cluster_id_counter += 1
-                all_clusters.append(cluster)
-    
-    # Convert to DataFrame
-    combined_clusters_df = pd.DataFrame(all_clusters)
-    
-    # Remove duplicate clusters based on customer sets
-    combined_clusters_df['Customer_Set'] = combined_clusters_df['Customers'].apply(lambda x: frozenset(x))
-    combined_clusters_df = combined_clusters_df.drop_duplicates(subset=['Customer_Set']).drop(columns=['Customer_Set'])
-
-    # Validate cluster coverage
-    validate_cluster_coverage(combined_clusters_df, customers)
-
-    logger.info(f"{Symbols.CHECKMARK} Generated a total of {len(combined_clusters_df)} unique clusters using '{params.clustering['method']}' method.")
-
-    return combined_clusters_df
+        raise ValueError(f"Unknown clustering method: {params.clustering['method']}")
 
 def compute_demands(customers: pd.DataFrame, goods: List[str]) -> Dict[str, np.ndarray]:
     """Compute and cache demand calculations for customers."""
