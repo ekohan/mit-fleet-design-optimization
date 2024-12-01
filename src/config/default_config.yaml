@@ -14,7 +14,7 @@ vehicles:
 variable_cost_per_hour: 0.01
 
 # Time Parameters
-avg_speed: 40  # km/h
+avg_speed: 30  # km/h
 max_route_time: 10  # hours
 service_time: 20  # minutes per customer
 
