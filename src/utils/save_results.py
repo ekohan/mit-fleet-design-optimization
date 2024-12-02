@@ -111,6 +111,36 @@ def save_optimization_results(
         cluster_details['Customers'] = cluster_details['Customers'].apply(str)
     if 'Total_Demand' in cluster_details.columns:
         cluster_details['Total_Demand'] = cluster_details['Total_Demand'].apply(str)
+        
+        # Add demand and load percentages by product type
+        for cluster_idx, cluster in cluster_details.iterrows():
+            config = configurations_df[
+                configurations_df['Config_ID'] == cluster['Config_ID']
+            ].iloc[0]
+            
+            total_demand = ast.literal_eval(cluster['Total_Demand']) if isinstance(cluster['Total_Demand'], str) else cluster['Total_Demand']
+            total_demand_sum = sum(total_demand.values())
+            
+            # Calculate demand percentage for each product type first
+            for good in parameters.goods:
+                demand_column_name = f'Demand_{good}_pct'
+                cluster_details.at[cluster_idx, demand_column_name] = (
+                    total_demand[good] / total_demand_sum if total_demand_sum > 0 else 0
+                )
+            
+            # Then calculate load percentage for each product type
+            for good in parameters.goods:
+                load_column_name = f'Load_{good}_pct'
+                cluster_details.at[cluster_idx, load_column_name] = (
+                    total_demand[good] / config['Capacity']
+                )
+            
+            # Calculate empty percentage (as decimal)
+            max_load = max(
+                cluster_details.at[cluster_idx, f'Load_{good}_pct']
+                for good in parameters.goods
+            )
+            cluster_details.at[cluster_idx, 'Load_empty_pct'] = 1 - max_load
 
     # Prepare all data
     data = {
