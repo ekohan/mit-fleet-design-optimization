@@ -213,12 +213,6 @@ class VRPSolver:
         # Get routes
         routes = [list(route) for route in solution.routes()]
         
-        # Add small random noise to coordinates
-        epsilon = 1e-4
-        noisy_customers = self.customers.copy()
-        noisy_customers['Latitude'] += np.random.uniform(-epsilon, epsilon, size=len(noisy_customers))
-        noisy_customers['Longitude'] += np.random.uniform(-epsilon, epsilon, size=len(noisy_customers))
-        
         # Calculate route times and check feasibility
         feasible_routes = []
         route_times = []
@@ -226,7 +220,7 @@ class VRPSolver:
         client_to_customer = {}  # Map expanded client indices to original customer indices
         
         # Build mapping of expanded client indices to original customer indices
-        for cust_idx, row in noisy_customers.iterrows():
+        for cust_idx, row in self.customers.iterrows():
             for good in self.params.goods:
                 if row[f'{good}_Demand'] > 0:
                     client_to_customer[client_idx] = cust_idx
@@ -237,8 +231,8 @@ class VRPSolver:
                 # Get customers in this route (excluding depot)
                 route_customers = pd.DataFrame([
                     {
-                        'Latitude': noisy_customers.iloc[client_to_customer[i-1]]['Latitude'],
-                        'Longitude': noisy_customers.iloc[client_to_customer[i-1]]['Longitude']
+                        'Latitude': self.customers.iloc[client_to_customer[i-1]]['Latitude'],
+                        'Longitude': self.customers.iloc[client_to_customer[i-1]]['Longitude']
                     }
                     for i in route[1:]  # Skip depot (index 0)
                 ])
