@@ -293,10 +293,11 @@ def visualize_clusters(
         # Get number of customers
         num_customers = len(ast.literal_eval(cluster['Customers']) if isinstance(cluster['Customers'], str) else cluster['Customers'])
         
-        # Prepare popup content
+        # Prepare popup content with Method field
         popup_content = f"""
             <b>Cluster ID:</b> {cluster_id}<br>
             <b>Config ID:</b> {config_id}<br>
+            <b>Method:</b> {cluster['Method']}<br>
             <b>Customers:</b> {num_customers}<br>
             <b>Route Time:</b> {cluster['Route_Time']:.2f} hrs<br>
             <b>Total Demand:</b> {total_demand:,.0f} kg
