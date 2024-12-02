@@ -39,6 +39,7 @@ class Cluster:
     centroid_longitude: float
     goods_in_config: List[str]
     route_time: float
+    method: str = ''
 
     def to_dict(self) -> Dict:
         """Convert cluster to dictionary format."""
@@ -50,7 +51,8 @@ class Cluster:
             'Centroid_Latitude': self.centroid_latitude,
             'Centroid_Longitude': self.centroid_longitude,
             'Goods_In_Config': self.goods_in_config,
-            'Route_Time': self.route_time
+            'Route_Time': self.route_time,
+            'Method': self.method
         }
 
     @classmethod
@@ -63,7 +65,8 @@ class Cluster:
         depot: Dict[str, float],
         service_time: float,
         avg_speed: float,
-        route_time_estimation: str
+        route_time_estimation: str,
+        method: str = ''
     ) -> 'Cluster':
         """Create a cluster from customer data."""
         return cls(
@@ -80,7 +83,8 @@ class Cluster:
                 service_time=service_time,
                 avg_speed=avg_speed,
                 method=route_time_estimation
-            ))
+            )),
+            method=method
         )
 
 def get_clustering_input(
@@ -394,9 +398,13 @@ def process_configuration(
                 depot,
                 service_time,
                 avg_speed,
-                route_time_estimation
+                route_time_estimation,
+                clustering_method
             )
-            clusters.append(cluster.to_dict())
+            cluster_dict = cluster.to_dict()
+            # Add the clustering method to the cluster information
+            cluster_dict['Method'] = clustering_method
+            clusters.append(cluster_dict)
 
     logger.info(f"🔧 Clustering Method: {clustering_method} | geo_weight={adjusted_geo_weight}, demand_weight={adjusted_demand_weight}")
 
