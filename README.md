@@ -229,7 +229,26 @@ python src/benchmarking/run_benchmark.py [options]
 --config PATH         # Custom config file path
 --time-limit SECONDS  # Solver time limit (default: 300)
 --verbose            # Enable detailed output
+--benchmark_type     # Type of benchmark to run (SCV or MCV)
 ```
+
+The benchmark system provides two solution approaches to establish bounds:
+
+1. **Single Compartment Vehicle (SCV) - Upper Bound**
+   ```bash
+   python src/benchmarking/run_benchmark.py --benchmark_type single_compartment --verbose
+   ```
+   - Solves each product type independently with dedicated vehicles
+   - Provides an upper bound on fleet size and total cost
+   - Useful baseline for comparing against multi-compartment solutions
+
+2. **Multi Compartment Vehicle (MCV) - Lower Bound**
+   ```bash
+   python src/benchmarking/run_benchmark.py --benchmark_type multi_compartment --verbose
+   ```
+   - Aggregates all product demands into a single problem
+   - Assumes perfect compartment flexibility
+   - Provides theoretical lower bound on fleet size and cost
 
 ### Implementation Details
 

@@ -25,6 +25,8 @@ from src.benchmarking.benchmark_types import BenchmarkType
 class VRPSolution:
     """Results from VRP solver."""
     total_cost: float
+    fixed_cost: float
+    variable_cost: float
     total_distance: float
     num_vehicles: int
     routes: List[List[int]]
@@ -34,6 +36,8 @@ class VRPSolution:
     customer_assignments: Dict[str, int]  # customer_id -> route_id mapping
     route_sequences: List[List[str]]  # List of customer sequences per route
     vehicle_utilization: List[float]  # Capacity utilization per route
+    route_times: List[float]
+    route_distances: List[float]
 
 class VRPSolver:
     """Single-compartment VRP solver implementation."""
@@ -257,6 +261,8 @@ class VRPSolver:
         if not feasible_routes:
             return VRPSolution(
                 total_cost=float('inf'),
+                fixed_cost=0.0,
+                variable_cost=0.0,
                 total_distance=float('inf'),
                 num_vehicles=0,
                 routes=[],
@@ -265,15 +271,24 @@ class VRPSolver:
                 solver_status="Infeasible",
                 customer_assignments={},
                 route_sequences=[],
-                vehicle_utilization=[]
+                vehicle_utilization=[],
+                route_times=[],
+                route_distances=[]
             )
             
         # Use feasible_routes for solution
         routes = feasible_routes
         
+        # Calculate costs
+        fixed_cost = solution.fixed_vehicle_cost()
+        variable_cost = solution.duration_cost() + solution.distance_cost()
+        
         # Convert to our solution format
+        vehicle_type = self.data.vehicle_types()[0]  # Always use first vehicle type for single compartment
         return VRPSolution(
-            total_cost=solution.distance_cost() + solution.duration_cost(),
+            total_cost=fixed_cost + variable_cost,
+            fixed_cost=fixed_cost,
+            variable_cost=variable_cost,
             total_distance=solution.distance(),
             num_vehicles=len(routes),
             routes=routes,
@@ -282,13 +297,15 @@ class VRPSolver:
                 for route in routes
             ],
             execution_time=result.runtime,
-            solver_status="Optimal" if solution.is_feasible else "Infeasible",
+            solver_status="Optimal" if solution.is_feasible() else "Infeasible",
             customer_assignments={},  # TODO: Fill this from routes
             route_sequences=[[str(i) for i in route] for route in routes],
             vehicle_utilization=[
-                sum(self.data.clients()[i-1].delivery[0] for i in route if i > 0) / self.data.vehicle_types()[0].capacity[0]
+                sum(self.data.clients()[i-1].delivery[0] for i in route if i > 0) / vehicle_type.capacity[0]
                 for route in routes
-            ]
+            ],
+            route_times=route_times,
+            route_distances=[solution.distance() for _ in routes]
         )
     
     def _print_solution(
@@ -452,6 +469,8 @@ class VRPSolver:
         # Create multi-compartment solution
         mc_solution = VRPSolution(
             total_cost=base_solution.total_cost,
+            fixed_cost=base_solution.fixed_cost,
+            variable_cost=base_solution.variable_cost,
             total_distance=base_solution.total_distance,
             num_vehicles=base_solution.num_vehicles,
             routes=base_solution.routes,
@@ -460,7 +479,9 @@ class VRPSolver:
             solver_status=base_solution.solver_status,
             customer_assignments=customer_assignments,
             route_sequences=route_sequences,
-            vehicle_utilization=base_solution.vehicle_utilization
+            vehicle_utilization=base_solution.vehicle_utilization,
+            route_times=base_solution.route_times,
+            route_distances=base_solution.route_distances
         )
         
         # Store compartment configurations for later use
