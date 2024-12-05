@@ -1,7 +1,16 @@
 """
 Main module for the vehicle routing optimization problem.
 """
+import os
+import sys
 import time
+from pathlib import Path
+
+# Add project root to Python path
+project_root = str(Path(__file__).parent.parent)
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
 from utils.cli import parse_args, load_parameters, print_parameter_help
 from utils.logging import setup_logging, ProgressTracker, Colors
 from utils.data_processing import load_customer_demand
