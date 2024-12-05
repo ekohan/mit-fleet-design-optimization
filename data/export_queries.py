@@ -16,7 +16,9 @@ QUERY_MAPPING = {
 #    'export_avg_daily_demand__high_demand_day.sql': 'sales_2023_high_demand_day.csv',
 #    'export_avg_daily_demand__uniform_visits_per_week.sql': 'sales_2023_uniform_visits_per_week.csv',
 #    'export_avg_daily_demand__low_demand_day.sql': 'sales_2023_low_demand_day.csv',
-    'export_avg_day_2024_demand.sql': 'sales_2024_avg_day_demand.csv'
+    'export_avg_day_2024_demand.sql': 'sales_2024_avg_day_demand.csv',
+    'export_peak_day_2024_demand.sql': 'sales_2024_peak_day_demand.csv',
+    'export_slow_day_2024_demand.sql': 'sales_2024_slow_day_demand.csv'
 }
 
 def get_data_dir() -> Path:
