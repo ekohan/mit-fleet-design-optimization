@@ -16,6 +16,7 @@ from src.config.parameters import Parameters
 from src.utils.logging import setup_logging, ProgressTracker, Colors, Symbols
 from src.utils.data_processing import load_customer_demand
 from src.benchmarking.vrp_solver import VRPSolver, VRPSolution
+from src.benchmarking.benchmark_types import BenchmarkType
 
 def parse_benchmark_args():
     """Parse command line arguments for benchmarking."""
@@ -38,6 +39,13 @@ def parse_benchmark_args():
         '--verbose',
         action='store_true',
         help='Enable verbose output'
+    )
+    parser.add_argument(
+        '--benchmark-type',
+        type=str,
+        choices=['single_compartment', 'multi_compartment'],
+        default='single_compartment',
+        help='Type of benchmark to run'
     )
     return parser.parse_args()
 
@@ -72,13 +80,15 @@ def main():
         f"Loaded {Colors.BOLD}{len(customers)}{Colors.RESET} customers"
     )
     
-    # Step 2: Run VRP solver in parallel
+    # Step 2: Run VRP solver
+    benchmark_type = BenchmarkType(args.benchmark_type)
     vrp_solver = VRPSolver(
         customers=customers,
         params=params,
-        time_limit=args.time_limit
+        time_limit=args.time_limit,
+        benchmark_type=benchmark_type
     )
-    solutions = vrp_solver.solve_parallel(verbose=args.verbose)
+    solutions = vrp_solver.solve(verbose=args.verbose)
     
     # Calculate totals across all product solutions
     total_cost = sum(sol.total_cost for sol in solutions.values())
