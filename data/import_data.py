@@ -66,4 +66,7 @@ if __name__ == "__main__":
     parser.add_argument('--db', default='opperar.db', help='Path to SQLite database.')
     args = parser.parse_args()
     
-    import_data_to_unified_sales(Path(args.db)) 
+    # Get the script's directory relative to where it's being invoked
+    script_dir = Path('data')
+    db_path = script_dir / args.db
+    import_data_to_unified_sales(db_path) 
