@@ -2,7 +2,7 @@ import pandas as pd
 from datetime import datetime
 from pathlib import Path
 import inspect
-from config.parameters import Parameters
+from src.config.parameters import Parameters
 import json
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,6 +10,9 @@ import seaborn as sns
 import ast
 import folium
 from folium import plugins
+from typing import Dict
+from src.benchmarking.vrp_solver import VRPSolution
+from src.benchmarking.benchmark_types import BenchmarkType
 
 def save_optimization_results(
     execution_time: float,
@@ -26,7 +29,8 @@ def save_optimization_results(
     missing_customers: set,
     parameters: Parameters,
     filename: str = None,
-    format: str = 'excel'
+    format: str = 'excel',
+    is_benchmark: bool = False
 ) -> None:
     """Save optimization results to a file (Excel or JSON) and create visualization"""
     
@@ -42,17 +46,28 @@ def save_optimization_results(
     results_dir.mkdir(parents=True, exist_ok=True)
 
     # Calculate metrics and prepare data
-    customers_per_cluster = selected_clusters['Customers'].apply(len)
+    if 'Customers' in selected_clusters.columns:
+        customers_per_cluster = selected_clusters['Customers'].apply(len)
+    else:
+        # For benchmark results, use Num_Customers column
+        customers_per_cluster = selected_clusters['Num_Customers']
+    
+    # Calculate load percentages
     load_percentages = []
     for _, cluster in selected_clusters.iterrows():
-        config = configurations_df[
-            configurations_df['Config_ID'] == cluster['Config_ID']
-        ].iloc[0]
-        max_load_pct = max(
-            cluster['Total_Demand'][good] / config['Capacity'] * 100 
-            for good in parameters.goods
-        )
-        load_percentages.append(max_load_pct)
+        if 'Vehicle_Utilization' in cluster:
+            # For benchmark results
+            load_percentages.append(cluster['Vehicle_Utilization'] * 100)
+        else:
+            # For optimization results
+            config = configurations_df[
+                configurations_df['Config_ID'] == cluster['Config_ID']
+            ].iloc[0]
+            max_load_pct = max(
+                cluster['Total_Demand'][good] / config['Capacity'] * 100 
+                for good in parameters.goods
+            )
+            load_percentages.append(max_load_pct)
     load_percentages = pd.Series(load_percentages)
     
     # Prepare summary metrics
@@ -175,9 +190,10 @@ def save_optimization_results(
         else:
             _write_to_excel(filename, data)
             
-        # Add visualization
-        depot_coords = (parameters.depot['latitude'], parameters.depot['longitude'])
-        visualize_clusters(selected_clusters, depot_coords, filename)
+        # Only create visualization for optimization results
+        if not is_benchmark:
+            depot_coords = (parameters.depot['latitude'], parameters.depot['longitude'])
+            visualize_clusters(selected_clusters, depot_coords, filename)
             
     except Exception as e:
         print(f"Error saving results to {filename}: {str(e)}")
@@ -320,3 +336,119 @@ def visualize_clusters(
     # Save map
     viz_filename = str(filename).rsplit('.', 1)[0] + '_clusters.html'
     m.save(viz_filename)
+
+def save_benchmark_results(
+    solutions: Dict[str, VRPSolution],
+    parameters: Parameters,
+    benchmark_type: BenchmarkType,
+    filename: str = None,
+    format: str = 'excel'
+) -> None:
+    """Save VRP benchmark results in the same format as optimization results"""
+    
+    # Calculate total metrics across all solutions
+    total_cost = sum(sol.total_cost for sol in solutions.values())
+    execution_time = max(sol.execution_time for sol in solutions.values())
+    
+    # Create configurations DataFrame
+    configurations = []
+    for vt_name, vt_info in parameters.vehicles.items():
+        if benchmark_type == BenchmarkType.SINGLE_COMPARTMENT:
+            for product in parameters.goods:
+                configurations.append({
+                    'Config_ID': f"{product}_{vt_name}",
+                    'Vehicle_Type': vt_name,
+                    'Capacity': vt_info['capacity'],
+                    'Fixed_Cost': vt_info['fixed_cost'],
+                    'Dry': 1 if product == 'Dry' else 0,
+                    'Chilled': 1 if product == 'Chilled' else 0,
+                    'Frozen': 1 if product == 'Frozen' else 0
+                })
+        else:  # MULTI_COMPARTMENT
+            configurations.append({
+                'Config_ID': f"mcv_{vt_name}",
+                'Vehicle_Type': vt_name,
+                'Capacity': vt_info['capacity'],
+                'Fixed_Cost': vt_info['fixed_cost'],
+                'Dry': 1,
+                'Chilled': 1,
+                'Frozen': 1
+            })
+    
+    configurations_df = pd.DataFrame(configurations)
+    
+    # Create cluster details DataFrame from routes
+    cluster_details = []
+    for product, solution in solutions.items():
+        for route_idx, (route, utilization) in enumerate(zip(solution.routes, solution.vehicle_utilization)):
+            if route:  # Skip empty routes
+                vehicle_type = list(parameters.vehicles.keys())[int(utilization)]
+                config_id = (
+                    f"{product}_{vehicle_type}" if benchmark_type == BenchmarkType.SINGLE_COMPARTMENT 
+                    else f"mcv_{vehicle_type}"
+                )
+                
+                route_detail = {
+                    'Cluster_ID': f"{product}_route_{route_idx}",
+                    'Config_ID': config_id,
+                    'Num_Customers': len(route) - 1,  # Subtract depot
+                    'Route_Time': solution.route_times[route_idx],
+                    'Estimated_Distance': solution.route_distances[route_idx],
+                    'Vehicle_Utilization': solution.vehicle_utilization[route_idx]
+                }
+                
+                if benchmark_type == BenchmarkType.SINGLE_COMPARTMENT:
+                    # For single compartment, only one product has demand
+                    for good in parameters.goods:
+                        # Demand percentage is 100% for the product type, 0% for others
+                        route_detail[f'Demand_{good}_pct'] = 1.0 if good == product else 0.0
+                        # Load percentage is the vehicle utilization for the product type, 0% for others
+                        route_detail[f'Load_{good}_pct'] = solution.vehicle_loads[route_idx] / parameters.vehicles[vehicle_type]['capacity'] if good == product else 0.0
+                    
+                    # Calculate empty percentage
+                    route_detail['Load_empty_pct'] = 1.0 - route_detail[f'Load_{product}_pct']
+                
+                else:  # MULTI_COMPARTMENT
+                    if hasattr(solution, 'compartment_configurations'):
+                        config = solution.compartment_configurations[route_idx]
+                        total_load = sum(config.values())
+                        
+                        # Set demand percentages based on compartment configuration
+                        for good in parameters.goods:
+                            route_detail[f'Demand_{good}_pct'] = config.get(good, 0.0) / total_load if total_load > 0 else 0.0
+                            route_detail[f'Load_{good}_pct'] = config.get(good, 0.0)
+                        
+                        # Empty percentage is already calculated in the configuration
+                        route_detail['Load_empty_pct'] = 1.0 - total_load
+                
+                cluster_details.append(route_detail)
+    
+    cluster_details = pd.DataFrame(cluster_details)
+    
+    # Count vehicles used by type
+    vehicles_used = pd.Series({
+        vt_name: sum(1 for sol in solutions.values() 
+                    for util in sol.vehicle_utilization 
+                    if list(parameters.vehicles.keys())[int(util)] == vt_name)
+        for vt_name in parameters.vehicles.keys()
+    })
+    
+    # Call existing save function with data from solutions
+    save_optimization_results(
+        execution_time=execution_time,
+        solver_name='PyVRP',
+        solver_status='Optimal',
+        configurations_df=configurations_df,
+        selected_clusters=cluster_details,
+        total_fixed_cost=sum(sol.fixed_cost for sol in solutions.values()),
+        total_variable_cost=sum(sol.variable_cost for sol in solutions.values()),
+        total_light_load_penalties=0,
+        total_compartment_penalties=0,
+        total_penalties=0,
+        vehicles_used=vehicles_used,
+        missing_customers=set(),
+        parameters=parameters,
+        filename=filename,
+        format=format,
+        is_benchmark=True
+    )
