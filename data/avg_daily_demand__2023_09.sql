@@ -11,7 +11,7 @@ from (
         Lon,
         round(sum(Kg)/20) as 'Kg', -- quick & dirty daily avg, 20 working days in a month (September here)
         ProductType
-    from sales_2023
+    from sales
     where YearMonth = '2023.09'
     group by ClientID, ProductType
 ) a

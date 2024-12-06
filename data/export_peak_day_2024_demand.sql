@@ -5,7 +5,7 @@ SELECT
     Lon,
     CAST(SUM(Kg) as INTEGER) as Kg,
     ProductType
-FROM sales_2024
+FROM sales
 WHERE Lat BETWEEN 4.3333 AND 4.9167 
     AND Lon BETWEEN -74.3500 AND -73.9167  -- Bogota Metro Area bounding box
     AND Kg >= 100  -- Remove small demand

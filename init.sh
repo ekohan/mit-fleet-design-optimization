@@ -34,9 +34,9 @@ fi
 echo "Installing requirements..."
 pip install -r requirements.txt
 
-# Run the import script to create the database
-echo "Creating SQLite database..."
-python data/import.py
+# Create database and import sales data
+echo "Creating database and importing sales data..."
+python data/import_data.py
 
 # All done!
 echo "Project setup complete!"
