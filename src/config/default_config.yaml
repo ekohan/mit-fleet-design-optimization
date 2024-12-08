@@ -5,18 +5,18 @@ vehicles:
     fixed_cost: 100
   B:
     capacity: 3300
-    fixed_cost: 130
+    fixed_cost: 175
   C:
     capacity: 4500
-    fixed_cost: 150
+    fixed_cost: 225
 
 # Cost Parameters
-variable_cost_per_hour: 0.01
+variable_cost_per_hour: 10.00
 
 # Time Parameters
 avg_speed: 30  # km/h
 max_route_time: 10  # hours
-service_time: 20  # minutes per customer
+service_time: 25  # minutes per customer
 
 # Location
 depot:
@@ -46,11 +46,11 @@ clustering:
 # sales_2023_uniform_visits_per_week
 # sales_2023_avg_daily_demand -- WARNING: visits every client that ordered in the 9-month period
 # sales_2023_09_avg_daily_demand -- WARNING: visits every client that ordered in September 2023
-demand_file: "sales_2023_uniform_visits_per_week.csv"
+demand_file: "sales_2024_avg_day_demand.csv"
 
 # Math model Parameters
-light_load_penalty: 1000  # Adjust penalty value as needed -- 0 == don't penalize
+light_load_penalty: 0  # Adjust penalty value as needed -- 0 == don't penalize
 light_load_threshold: 0.20  # Threshold for light load (e.g., 0.2 for 20%) -- when to penalize
-compartment_setup_cost: 100  # Cost per additional compartment beyond the first one
+compartment_setup_cost: 50  # Cost per additional compartment beyond the first one
 
 format: 'excel'  # Output format (excel or json)
