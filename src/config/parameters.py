@@ -19,6 +19,7 @@ class Parameters:
     light_load_threshold: float
     compartment_setup_cost: float
     format: str
+    post_optimization: bool = True  # Default to True
 
     @classmethod
     def from_yaml(cls, path: Path | str = None) -> 'Parameters':

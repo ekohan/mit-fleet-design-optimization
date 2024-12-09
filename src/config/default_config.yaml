@@ -54,3 +54,4 @@ light_load_threshold: 0.20  # Threshold for light load (e.g., 0.2 for 20%) -- wh
 compartment_setup_cost: 50  # Cost per additional compartment beyond the first one
 
 format: 'excel'  # Output format (excel or json)
+post_optimization: true  # Enable post-optimization improvements

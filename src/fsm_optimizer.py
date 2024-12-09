@@ -64,40 +64,41 @@ def solve_fsm_problem(
         configurations_df
     )
     
+    # Add goods columns from configurations before calculating statistics
+    for good in parameters.goods:
+        selected_clusters[good] = selected_clusters['Config_ID'].map(
+            lambda x: configurations_df[configurations_df['Config_ID'] == x].iloc[0][good]
+        )
+
     # Calculate statistics using the actual optimization costs
-    solution_stats = _calculate_solution_statistics(
+    solution = _calculate_solution_statistics(
         selected_clusters,
         configurations_df,
         parameters,
         model,
         x_vars,
-        c_vk  # Pass the cost dictionary
+        c_vk
     )
     
-    # Print detailed solution if profiling is enabled
-    if verbose:
-        _print_solution_details(
-            selected_clusters,
+    # Add additional solution data
+    solution.update({
+        'selected_clusters': selected_clusters,
+        'missing_customers': missing_customers,
+        'solver_name': model.solver.name,
+        'solver_status': pulp.LpStatus[model.status]
+    })
+    
+    # Try to improve solution
+    if parameters.post_optimization:
+        from post_optimization import improve_solution
+        solution = improve_solution(
+            solution,
             configurations_df,
-            solution_stats,
+            customers_df,
             parameters
         )
     
-    return {
-        'solver_status': pulp.LpStatus[model.status],
-        'solver_name': 'GUROBI',
-        'selected_clusters': selected_clusters,
-        'missing_customers': missing_customers,
-        'execution_time': end_time - start_time,
-        'total_fixed_cost': solution_stats['total_fixed_cost'],
-        'total_variable_cost': solution_stats['total_variable_cost'],
-        'total_light_load_penalties': solution_stats['total_light_load_penalties'],
-        'total_compartment_penalties': solution_stats['total_compartment_penalties'],
-        'total_penalties': solution_stats['total_penalties'],
-        'total_cost': solution_stats['total_cost'],
-        'vehicles_used': solution_stats['vehicles_used'],
-        'total_vehicles': solution_stats['total_vehicles']
-    }
+    return solution
 
 def _create_model(
     clusters_df: pd.DataFrame,
@@ -105,14 +106,7 @@ def _create_model(
     parameters: Parameters
 ) -> Tuple[pulp.LpProblem, Dict[str, pulp.LpVariable], Dict[Tuple[str, Any], pulp.LpVariable], Dict[Tuple[str, str], float]]:
     """
-    Create the optimization model (Model 2) aligning with the mathematical formulation,
-    with penalization for lightly loaded trucks below a specified threshold.
-
-    Returns:
-        model: The optimization model.
-        y_vars: A dictionary of cluster variables (y_k).
-        x_vars: A dictionary of vehicle assignment variables (x_vk).
-        c_vk: A dictionary of vehicle configuration costs (c_vk).
+    Create the optimization model (Model 2) aligning with the mathematical formulation.
     """
     import pulp
 
@@ -123,6 +117,11 @@ def _create_model(
     N = set(clusters_df['Customers'].explode().unique())  # Customers
     K = set(clusters_df['Cluster_ID'])  # Clusters
     V = set(configurations_df['Config_ID'])  # Vehicle configurations
+
+    # Initialize decision variables dictionaries
+    x_vars = {}
+    y_vars = {}
+    c_vk = {}
 
     # K_i: clusters containing customer i
     K_i = {
@@ -161,16 +160,14 @@ def _create_model(
             model += x_vars['NoVehicle', k] == 0
             c_vk['NoVehicle', k] = 0  # Cost is zero as it's not selected
 
-    # Decision Variables
-    x_vars = {}
-    y_vars = {}
+    # Create remaining decision variables
     for k in K:
         y_vars[k] = pulp.LpVariable(f"y_{k}", cat='Binary')
         for v in V_k[k]:
-            x_vars[v, k] = pulp.LpVariable(f"x_{v}_{k}", cat='Binary')
+            if (v, k) not in x_vars:  # Only create if not already created
+                x_vars[v, k] = pulp.LpVariable(f"x_{v}_{k}", cat='Binary')
 
     # Parameters
-    c_vk = {}
     for k in K:
         cluster = clusters_df.loc[clusters_df['Cluster_ID'] == k].iloc[0]
         for v in V_k[k]:
@@ -240,9 +237,7 @@ def _extract_solution(
     y_vars: Dict,
     x_vars: Dict
 ) -> pd.DataFrame:
-    """
-    Extract the selected clusters and their assigned configurations from the optimization solution.
-    """
+    """Extract the selected clusters and their assigned configurations."""
     selected_cluster_ids = [
         cid for cid, var in y_vars.items() 
         if var.varValue and var.varValue > 0.5
@@ -253,10 +248,13 @@ def _extract_solution(
         if var.varValue and var.varValue > 0.5 and k in selected_cluster_ids:
             cluster_config_map[k] = v
 
+    # Get selected clusters with ALL columns from input DataFrame
+    # This preserves the goods columns that were set during merging
     selected_clusters = clusters_df[
         clusters_df['Cluster_ID'].isin(selected_cluster_ids)
     ].copy()
 
+    # Update Config_ID while keeping existing columns
     selected_clusters['Config_ID'] = selected_clusters['Cluster_ID'].map(cluster_config_map)
 
     return selected_clusters
@@ -403,12 +401,24 @@ def _calculate_solution_statistics(
     c_vk: Dict
 ) -> Dict:
     """Calculate solution statistics using the optimization results."""
+    
     # Get selected assignments and their actual costs from the optimization
     selected_assignments = {
         (v, k): c_vk[(v, k)] 
         for (v, k), var in x_vars.items() 
         if var.varValue == 1
     }
+    
+    # Calculate compartment penalties
+    total_compartment_penalties = sum(
+        parameters.compartment_setup_cost * (
+            sum(1 for g in parameters.goods 
+                if row[g] == 1) - 1
+        )
+        for _, row in selected_clusters.iterrows()
+        if sum(1 for g in parameters.goods 
+              if row[g] == 1) > 1
+    )
     
     # Get vehicle statistics and fixed costs
     selected_clusters = selected_clusters.merge(
@@ -422,17 +432,6 @@ def _calculate_solution_statistics(
     total_variable_cost = (
         selected_clusters['Route_Time'] * parameters.variable_cost_per_hour
     ).sum()
-    
-    # Calculate compartment setup penalties
-    total_compartment_penalties = sum(
-        parameters.compartment_setup_cost * (
-            sum(1 for g in parameters.goods 
-                if selected_clusters.loc[idx, g]) - 1
-        )
-        for idx in selected_clusters.index
-        if sum(1 for g in parameters.goods 
-              if selected_clusters.loc[idx, g]) > 1
-    )
     
     # Total cost from optimization
     total_cost = sum(selected_assignments.values())
