@@ -13,6 +13,10 @@ from folium import plugins
 from typing import Dict
 from src.benchmarking.vrp_solver import VRPSolution
 from src.benchmarking.benchmark_types import BenchmarkType
+import logging
+
+# Add logging to track load percentages
+logging.basicConfig(level=logging.DEBUG)
 
 def save_optimization_results(
     execution_time: float,
@@ -56,18 +60,16 @@ def save_optimization_results(
     load_percentages = []
     for _, cluster in selected_clusters.iterrows():
         if 'Vehicle_Utilization' in cluster:
-            # For benchmark results
-            load_percentages.append(cluster['Vehicle_Utilization'] * 100)
+            total_utilization = cluster['Vehicle_Utilization']
         else:
-            # For optimization results
-            config = configurations_df[
-                configurations_df['Config_ID'] == cluster['Config_ID']
-            ].iloc[0]
-            max_load_pct = max(
-                cluster['Total_Demand'][good] / config['Capacity'] * 100 
-                for good in parameters.goods
-            )
-            load_percentages.append(max_load_pct)
+            # For optimization results, calculate from Total_Demand
+            total_demand = ast.literal_eval(cluster['Total_Demand']) if isinstance(cluster['Total_Demand'], str) else cluster['Total_Demand']
+            config = configurations_df[configurations_df['Config_ID'] == cluster['Config_ID']].iloc[0]
+            total_utilization = (sum(total_demand.values()) / config['Capacity']) * 100
+        
+        load_percentages.append(total_utilization)
+        logging.debug(f"Cluster {cluster['Cluster_ID']}: Load Percentage = {total_utilization}")
+    
     load_percentages = pd.Series(load_percentages)
     
     # Prepare summary metrics
@@ -380,13 +382,18 @@ def save_benchmark_results(
     # Create cluster details DataFrame from routes
     cluster_details = []
     for product, solution in solutions.items():
-        for route_idx, (route, utilization) in enumerate(zip(solution.routes, solution.vehicle_utilization)):
+        for route_idx, route in enumerate(solution.routes):
             if route:  # Skip empty routes
-                vehicle_type = list(parameters.vehicles.keys())[int(utilization)]
+                # Get vehicle type index from the route's vehicle type
+                vehicle_type = list(parameters.vehicles.keys())[solution.vehicle_types[route_idx]]
                 config_id = (
                     f"{product}_{vehicle_type}" if benchmark_type == BenchmarkType.SINGLE_COMPARTMENT 
                     else f"mcv_{vehicle_type}"
                 )
+                
+                # Calculate actual utilization percentage
+                vehicle_capacity = parameters.vehicles[vehicle_type]['capacity']
+                utilization = solution.vehicle_loads[route_idx] / vehicle_capacity
                 
                 route_detail = {
                     'Cluster_ID': f"{product}_route_{route_idx}",
@@ -394,7 +401,7 @@ def save_benchmark_results(
                     'Num_Customers': len(route) - 1,  # Subtract depot
                     'Route_Time': solution.route_times[route_idx],
                     'Estimated_Distance': solution.route_distances[route_idx],
-                    'Vehicle_Utilization': solution.vehicle_utilization[route_idx]
+                    'Vehicle_Utilization': utilization
                 }
                 
                 if benchmark_type == BenchmarkType.SINGLE_COMPARTMENT:
@@ -403,10 +410,11 @@ def save_benchmark_results(
                         # Demand percentage is 100% for the product type, 0% for others
                         route_detail[f'Demand_{good}_pct'] = 1.0 if good == product else 0.0
                         # Load percentage is the vehicle utilization for the product type, 0% for others
-                        route_detail[f'Load_{good}_pct'] = solution.vehicle_loads[route_idx] / parameters.vehicles[vehicle_type]['capacity'] if good == product else 0.0
+                        route_detail[f'Load_{good}_pct'] = utilization if good == product else 0.0
                     
                     # Calculate empty percentage
-                    route_detail['Load_empty_pct'] = 1.0 - route_detail[f'Load_{product}_pct']
+                    route_detail['Load_empty_pct'] = 1.0 - utilization
+                    route_detail['Vehicle_Utilization'] = utilization
                 
                 else:  # MULTI_COMPARTMENT
                     if hasattr(solution, 'compartment_configurations'):
@@ -420,6 +428,8 @@ def save_benchmark_results(
                         
                         # Empty percentage is already calculated in the configuration
                         route_detail['Load_empty_pct'] = 1.0 - total_load
+                        route_detail['Vehicle_Utilization'] = total_load
+
                 
                 cluster_details.append(route_detail)
     
@@ -428,8 +438,8 @@ def save_benchmark_results(
     # Count vehicles used by type
     vehicles_used = pd.Series({
         vt_name: sum(1 for sol in solutions.values() 
-                    for util in sol.vehicle_utilization 
-                    if list(parameters.vehicles.keys())[int(util)] == vt_name)
+                    for vt_idx in sol.vehicle_types 
+                    if list(parameters.vehicles.keys())[vt_idx] == vt_name)
         for vt_name in parameters.vehicles.keys()
     })
     

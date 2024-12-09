@@ -21,6 +21,9 @@ from src.utils.logging import Colors, Symbols
 from src.utils.route_time import estimate_route_time
 from src.benchmarking.benchmark_types import BenchmarkType
 
+# Add logging to track utilization
+logging.basicConfig(level=logging.WARNING)
+
 @dataclass
 class VRPSolution:
     """Results from VRP solver."""
@@ -36,6 +39,7 @@ class VRPSolution:
     customer_assignments: Dict[str, int]  # customer_id -> route_id mapping
     route_sequences: List[List[str]]  # List of customer sequences per route
     vehicle_utilization: List[float]  # Capacity utilization per route
+    vehicle_types: List[int]  # Vehicle type index per route
     route_times: List[float]
     route_distances: List[float]
 
@@ -188,24 +192,24 @@ class VRPSolver:
     
     def solve_scv(self, verbose: bool = False) -> VRPSolution:
         """Solve the VRP instance."""
-        # Create genetic algorithm parameters
+        # Create genetic algorithm parameters with balanced values
         ga_params = GeneticAlgorithmParams(
-            repair_probability=0.8,
-            nb_iter_no_improvement=20000
+            repair_probability=0.9,
+            nb_iter_no_improvement=10000  # Increased from 2000
         )
         
-        # Create population parameters
+        # Create population parameters with larger population for better exploration
         pop_params = PopulationParams(
-            min_pop_size=25,
-            generation_size=40,
-            nb_elite=4,
-            nb_close=5,
+            min_pop_size=40,  # Increased from 25
+            generation_size=60,  # Increased from 40
+            nb_elite=6,  # Increased from 4
+            nb_close=8,  # Increased from 5
             lb_diversity=0.1,
-            ub_diversity=0.5
+            ub_diversity=0.6  # Increased from 0.5
         )
         
-        # Create stopping criterion
-        stop = MaxIterations(max_iterations=5000)
+        # Create stopping criterion with more iterations
+        stop = MaxIterations(max_iterations=5000)  # Increased from 2000
         
         # Solve and return best solution
         result = self.model.solve(
@@ -217,34 +221,53 @@ class VRPSolver:
         # Extract solution details
         solution = result.best
         
-        # Get routes
-        routes = [list(route) for route in solution.routes()]
+        # Get routes (keep as PyVRP Route objects)
+        routes = solution.routes()
         
         # Calculate route times and check feasibility
         feasible_routes = []
         route_times = []
-        client_idx = 0
-        client_to_customer = {}  # Map expanded client indices to original customer indices
-        
-        # Build mapping of expanded client indices to original customer indices
-        for cust_idx, row in self.customers.iterrows():
-            for good in self.params.goods:
-                if row[f'{good}_Demand'] > 0:
-                    client_to_customer[client_idx] = cust_idx
-                    client_idx += 1
-
         for route in routes:
             if len(route) > 1:  # Skip empty routes
-                # Get customers in this route (excluding depot)
+                # Get total demand for this route
+                total_demand = sum(
+                    self.data.clients()[client - 1].delivery[0] 
+                    for i in range(1, len(route)-1)  # Skip first (depot) and last (depot) indices
+                    if (client := route[i]) > 0  # Get client ID and check it's not depot
+                )
+                
+                # Get vehicle type and its capacity for this route
+                vehicle_type_idx = route.vehicle_type()
+                vehicle_type = self.data.vehicle_types()[vehicle_type_idx]
+                vehicle_capacity = vehicle_type.capacity[0]  # Single compartment
+                
+                # Calculate utilization percentage
+                utilization = (total_demand / vehicle_capacity) * 100
+                
+                if verbose:
+                    print(f"Route: {[route[i] for i in range(len(route))]}")  # Convert to list for printing
+                    print(f"Total demand: {total_demand}")
+                    print(f"Vehicle type: {vehicle_type_idx}")
+                    print(f"Vehicle capacity: {vehicle_capacity}")
+                    print(f"Utilization: {utilization:.1f}%")
+                
+                # Check capacity constraint
+                if utilization > 100:
+                    if verbose:
+                        print(f"Route exceeds vehicle capacity! Skipping...")
+                    continue
+                    
+                # Create DataFrame of route customers for time estimation
                 route_customers = pd.DataFrame([
                     {
-                        'Latitude': self.customers.iloc[client_to_customer[i-1]]['Latitude'],
-                        'Longitude': self.customers.iloc[client_to_customer[i-1]]['Longitude']
+                        'Latitude': self.data.clients()[client - 1].x / 10000,  # Convert back from integer coords
+                        'Longitude': self.data.clients()[client - 1].y / 10000
                     }
-                    for i in route[1:]  # Skip depot (index 0)
+                    for i in range(1, len(route)-1)  # Skip depot indices
+                    if (client := route[i]) > 0  # Get client ID and check it's not depot
                 ])
                 
-                # Calculate route time using BHH (returns minutes)
+                # Calculate route time
                 route_time = estimate_route_time(
                     cluster_customers=route_customers,
                     depot=self.params.depot,
@@ -253,9 +276,12 @@ class VRPSolver:
                     method='BHH'
                 )
                 
-                # Convert route_time from minutes to hours for comparison
-                if route_time / 60 <= self.params.max_route_time:  # Both in hours now
-                    feasible_routes.append(route)
+                if verbose:
+                    print(f"Route time: {route_time:.2f} hours")
+                    print(f"Max route time: {self.params.max_route_time} hours")
+                
+                if route_time <= self.params.max_route_time:
+                    feasible_routes.append([route[i] for i in range(len(route))])  # Convert to list for storage
                     route_times.append(route_time)
         
         if not feasible_routes:
@@ -272,6 +298,7 @@ class VRPSolver:
                 customer_assignments={},
                 route_sequences=[],
                 vehicle_utilization=[],
+                vehicle_types=[],
                 route_times=[],
                 route_distances=[]
             )
@@ -283,8 +310,38 @@ class VRPSolver:
         fixed_cost = solution.fixed_vehicle_cost()
         variable_cost = solution.duration_cost() + solution.distance_cost()
         
-        # Convert to our solution format
-        vehicle_type = self.data.vehicle_types()[0]  # Always use first vehicle type for single compartment
+        # Calculate vehicle utilization correctly for each route
+        vehicle_utilizations = []
+        vehicle_types = []
+        vehicle_loads = []
+        route_distances = []
+        
+        # Process routes before converting to lists
+        for route_idx, pyvrp_route in enumerate(solution.routes()):
+            if pyvrp_route.visits():  # Skip empty routes
+                vehicle_type_idx = pyvrp_route.vehicle_type()
+                vehicle_type = self.data.vehicle_types()[vehicle_type_idx]
+                vehicle_capacity = vehicle_type.capacity[0]
+
+                # Calculate total load for this route
+                load = sum(self.data.clients()[i-1].delivery[0] for i in pyvrp_route.visits())
+                
+                # Ensure load does not exceed capacity
+                if load > vehicle_capacity:
+                    logging.warning(f"Route {route_idx} exceeds vehicle capacity: {load}/{vehicle_capacity}")
+                    load = vehicle_capacity
+
+                vehicle_loads.append(load)
+                vehicle_utilizations.append((load / vehicle_capacity) * 100)  # Store as percentage
+                vehicle_types.append(vehicle_type_idx)  # Store the vehicle type index
+                route_distances.append(solution.distance())
+                
+                # Add logging to track utilization
+                logging.warning(f"Route {route_idx}: Load = {load}, Capacity = {vehicle_capacity}, Utilization = {load / vehicle_capacity}")
+        
+        # Now convert routes to lists for storage
+        routes = [[i for i in route] for route in solution.routes()]
+
         return VRPSolution(
             total_cost=fixed_cost + variable_cost,
             fixed_cost=fixed_cost,
@@ -292,20 +349,15 @@ class VRPSolver:
             total_distance=solution.distance(),
             num_vehicles=len(routes),
             routes=routes,
-            vehicle_loads=[
-                sum(self.data.clients()[i-1].delivery[0] for i in route if i > 0)
-                for route in routes
-            ],
+            vehicle_loads=vehicle_loads,
             execution_time=result.runtime,
             solver_status="Optimal" if solution.is_feasible() else "Infeasible",
             customer_assignments={},  # TODO: Fill this from routes
             route_sequences=[[str(i) for i in route] for route in routes],
-            vehicle_utilization=[
-                sum(self.data.clients()[i-1].delivery[0] for i in route if i > 0) / vehicle_type.capacity[0]
-                for route in routes
-            ],
+            vehicle_utilization=vehicle_utilizations,
+            vehicle_types=vehicle_types,
             route_times=route_times,
-            route_distances=[solution.distance() for _ in routes]
+            route_distances=route_distances
         )
     
     def _print_solution(
@@ -321,10 +373,22 @@ class VRPSolver:
     ) -> None:
         """Print solution details."""
         print(f"\nℹ️ VRP Solution Summary:")
+        
+        # Handle infeasible solutions
+        if total_cost == float('inf') or not routes:
+            print(f"{Colors.RED}→ Status: INFEASIBLE{Colors.RESET}")
+            print(f"{Colors.RED}→ No feasible solution found{Colors.RESET}")
+            print(f"{Colors.BLUE}→ Execution Time: {Colors.BOLD}{execution_time:.1f}s{Colors.RESET}")
+            return
+
+        # Print solution details for feasible solutions
         print(f"{Colors.BLUE}→ Total Cost: ${Colors.BOLD}{total_cost:,.2f}{Colors.RESET}")
         print(f"{Colors.BLUE}→ Total Distance: {Colors.BOLD}{total_distance:.1f} km{Colors.RESET}")
         print(f"{Colors.BLUE}→ Total Vehicles Used: {Colors.BOLD}{num_vehicles}{Colors.RESET}")
-        print(f"{Colors.BLUE}→ Avg Vehicle Utilization: {Colors.BOLD}{np.mean(utilization)*100:.1f}%{Colors.RESET}")
+        
+        # Only calculate utilization if we have valid routes
+        if utilization:
+            print(f"{Colors.BLUE}→ Avg Vehicle Utilization: {Colors.BOLD}{np.mean(utilization)*100:.1f}%{Colors.RESET}")
         print(f"{Colors.BLUE}→ Execution Time: {Colors.BOLD}{execution_time:.1f}s{Colors.RESET}")
 
         if benchmark_type == BenchmarkType.SINGLE_COMPARTMENT:
@@ -417,10 +481,7 @@ class VRPSolver:
         return compartments
 
     def solve_mcv(self, verbose: bool = False) -> Dict[str, VRPSolution]:
-        """
-        Solve multi-compartment VRP instance.
-        Returns a single solution with compartment configurations.
-        """
+        """Solve multi-compartment VRP instance."""
         # Prepare aggregated data
         mc_customers = self._prepare_multi_compartment_data()
         
@@ -435,58 +496,43 @@ class VRPSolver:
         # Get base solution
         base_solution = solver.solve_scv(verbose=verbose)
         
-        # Post-process routes to determine compartment configurations
-        route_configurations = []
-        customer_assignments = {}
-        route_sequences = []
+        # Filter valid routes and their indices
+        valid_indices = [i for i, r in enumerate(base_solution.routes) if r and len(r) > 2]
         
-        for route_idx, route in enumerate(base_solution.routes):
-            if not route:  # Skip empty routes
-                continue
-            
-            # Get customer IDs for this route (excluding depot)
-            route_customers = [
-                str(mc_customers.index[client_idx - 1])  # Adjust for 0-based indexing
-                for client_idx in route[1:]  # Skip depot
-            ]
-            
-            # Get vehicle type index from the solution
-            vehicle_type_idx = int(base_solution.vehicle_utilization[route_idx])  # Ensure it's an integer
-            
-            # Determine compartment configuration using original demands
+        # Calculate compartment configurations for valid routes
+        route_configurations = []
+        for idx in valid_indices:
+            route = base_solution.routes[idx]
+            route_customers = [str(mc_customers.index[client - 1]) for client in route[1:]]
             compartments = self._determine_compartment_configuration(
                 route_customers,
-                vehicle_type_idx
+                base_solution.vehicle_types[idx]
             )
             route_configurations.append(compartments)
-            
-            # Update customer assignments
-            for customer_id in route_customers:
-                customer_assignments[customer_id] = route_idx
-            
-            route_sequences.append(route_customers)
         
-        # Create multi-compartment solution
+        # Create filtered solution
         mc_solution = VRPSolution(
             total_cost=base_solution.total_cost,
             fixed_cost=base_solution.fixed_cost,
             variable_cost=base_solution.variable_cost,
             total_distance=base_solution.total_distance,
-            num_vehicles=base_solution.num_vehicles,
-            routes=base_solution.routes,
-            vehicle_loads=base_solution.vehicle_loads,
+            num_vehicles=len(valid_indices),
+            routes=[base_solution.routes[i] for i in valid_indices],
+            vehicle_loads=[base_solution.vehicle_loads[i] for i in valid_indices],
             execution_time=base_solution.execution_time,
             solver_status=base_solution.solver_status,
-            customer_assignments=customer_assignments,
-            route_sequences=route_sequences,
-            vehicle_utilization=base_solution.vehicle_utilization,
-            route_times=base_solution.route_times,
-            route_distances=base_solution.route_distances
+            customer_assignments={},  # Will be filled if needed
+            route_sequences=[[str(c) for c in base_solution.routes[i][1:]] for i in valid_indices],
+            vehicle_utilization=[base_solution.vehicle_utilization[i] for i in valid_indices],
+            vehicle_types=[base_solution.vehicle_types[i] for i in valid_indices],
+            route_times=base_solution.route_times,  # Keep all route times
+            route_distances=[base_solution.route_distances[i] for i in valid_indices]
         )
         
-        # Store compartment configurations for later use
+        # Store compartment configurations
         mc_solution.compartment_configurations = route_configurations
         
+        # Print solution if verbose
         if verbose:
             self._print_solution(
                 total_cost=mc_solution.total_cost,
@@ -499,13 +545,64 @@ class VRPSolver:
                 compartment_configs=route_configurations
             )
         
-        return {"multi_compartment": mc_solution}
+        return {'multi_compartment': mc_solution}
     
+    def _print_diagnostic_information(self, customers: pd.DataFrame) -> None:
+        """Print diagnostic information about the problem instance."""
+        print("\nCustomer Diagnostic Information:")
+        print(f"Total customers: {len(customers)}")
+        
+        # Demand information for each product type
+        for good in self.params.goods:
+            mask = customers[f'{good}_Demand'] > 0
+            demands = customers[f'{good}_Demand']
+            print(f"\n{good} demand statistics:")
+            print(f"Customers with demand: {mask.sum()}")
+            if mask.sum() > 0:
+                print(f"Min demand: {demands[demands > 0].min():.2f}")
+                print(f"Max demand: {demands.max():.2f}")
+                print(f"Mean demand: {demands[demands > 0].mean():.2f}")
+                print(f"Total demand: {demands.sum():.2f}")
+        
+        # Location spread
+        print("\nLocation spread:")
+        print(f"Latitude range: {customers['Latitude'].min():.4f} to {customers['Latitude'].max():.4f}")
+        print(f"Longitude range: {customers['Longitude'].min():.4f} to {customers['Longitude'].max():.4f}")
+        
+        # Distance to depot
+        depot_coords = (self.params.depot['latitude'], self.params.depot['longitude'])
+        distances = []
+        for _, row in customers.iterrows():
+            if any(row[f'{good}_Demand'] > 0 for good in self.params.goods):
+                dist = haversine((row['Latitude'], row['Longitude']), depot_coords)
+                distances.append(dist)
+        
+        if distances:
+            print("\nDistance to depot (km):")
+            print(f"Min distance: {min(distances):.2f}")
+            print(f"Max distance: {max(distances):.2f}")
+            print(f"Mean distance: {sum(distances)/len(distances):.2f}")
+        
+        # Vehicle information
+        print("\nVehicle Types Available:")
+        for vtype, vinfo in self.params.vehicles.items():
+            print(f"Type {vtype}:")
+            print(f"  Capacity: {vinfo['capacity']}")
+            print(f"  Fixed cost: {vinfo['fixed_cost']}")
+
+        print(f"\nMax route time: {self.params.max_route_time} hours")
+        print(f"Average speed: {self.params.avg_speed} km/h")
+        print(f"Service time: {self.params.service_time} minutes")
+        print("\nStarting solver...\n")
+
     def solve(self, verbose: bool = False) -> Dict[str, VRPSolution]:
         """
         Solve VRP instance based on benchmark type.
-        Returns solutions dictionary mapping product types to their solutions.
+        Returns solutions for all product types in parallel for single compartment case.
         """
+        if verbose:
+            self._print_diagnostic_information(self.customers)
+        
         if self.benchmark_type == BenchmarkType.SINGLE_COMPARTMENT:
             return self.solve_scv_parallel(verbose=verbose)
         elif self.benchmark_type == BenchmarkType.MULTI_COMPARTMENT:
