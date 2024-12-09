@@ -1,9 +1,9 @@
 from argparse import ArgumentParser, RawTextHelpFormatter
 from pathlib import Path
 from typing import Dict, Any
-from config.parameters import Parameters
+from src.config.parameters import Parameters
 import sys
-from utils.logging import Colors
+from src.utils.logging import Colors
 
 def print_parameter_help():
     """Display detailed help information about parameters"""

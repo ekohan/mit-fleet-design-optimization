@@ -48,6 +48,11 @@ def parse_benchmark_args():
         default='single_compartment',
         help='Type of benchmark to run'
     )
+    parser.add_argument(
+        '--info',
+        action='store_true',
+        help='Display detailed information about the benchmark tool'
+    )
     return parser.parse_args()
 
 def print_solution_details(solution: VRPSolution) -> None:
@@ -66,6 +71,28 @@ def print_solution_details(solution: VRPSolution) -> None:
 def main():
     """Run VRP benchmarking."""
     args = parse_benchmark_args()
+    
+    if args.info:
+        print(f"\n{Colors.BOLD}VRP Benchmark Tool{Colors.RESET}")
+        print(f"\n{Colors.BLUE}Description:{Colors.RESET}")
+        print("Evaluates Multi-Compartment Vehicle (MCV) Fleet Size and Mix (FSM)")
+        print("model against classic single-compartment Vehicle Routing Problem (VRP)")
+        print("solutions for comparative analysis.")
+        
+        print(f"\n{Colors.BLUE}Benchmark Types:{Colors.RESET}")
+        print(f"{Colors.CYAN}→ single_compartment:{Colors.RESET} Upper bound using dedicated vehicles per product")
+        print(f"{Colors.CYAN}→ multi_compartment:{Colors.RESET} Lower bound assuming perfect compartment flexibility")
+        
+        print(f"\n{Colors.BLUE}Key Features:{Colors.RESET}")
+        print("• Parallel processing for product-specific VRPs")
+        print("• PyVRP solver with genetic algorithm optimization")
+        print("• Detailed solution metrics and analysis")
+        print("• Support for standard CVRP benchmark instances")
+        
+        print(f"\n{Colors.BLUE}Example Usage:{Colors.RESET}")
+        print("python run_benchmark.py --benchmark-type single_compartment --time-limit 300")
+        return
+    
     setup_logging()
     
     # Load parameters

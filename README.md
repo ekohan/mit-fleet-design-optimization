@@ -40,19 +40,25 @@ mit-fleet-design-optimization/
 ├── src/
 │   ├── main.py                     # Principal execution script
 │   ├── clustering.py               # Customer clustering implementation
-│   ├── fsm_optimizer.py            # Fleet Size and Mix optimization
+│   ├── fsm_optimizer.py            # Fleet Size and Mix main MILP model
+│   ├── post_optimization.py        # FSM post processeing optimization
 │   ├── clustering_playground.py    # Clustering experiments
-│   ├── column_generation_playground.py
-│   ├── benchmarking/              # Benchmarking implementations
+│   ├── benchmarking/               # Benchmarking implementations
 │   │   ├── run_benchmark.py       # VRP benchmark runner
-│   │   └── vrp_solver.py          # Single-compartment VRP solver
+│   │   ├── vrp_solver.py          # Single-compartment VRP solver
+│   │   ├── cvrp_to_fsm.py         # CVRP instance converter
+│   │   ├── cvrp_parser.py         # CVRP instance file parser
+│   │   └── cvrp_instances/        # Standard CVRP benchmark instances
+│   │       ├── X-n106-k14.vrp
+│   │       ├── X-n157-k13.vrp
+│   │       └── ...
 │   ├── config/
 │   │   └── default_config.yaml    # Default configuration parameters
 │   └── utils/
-│       ├── data_processing.py
+│       ├── cli.py
+│       ├── coordinate_converter.py
 │       ├── logging.py
-│       ├── save_results.py
-│       └── vehicle_configurations.py
+│       └── ...
 ├── results/                       # Optimization results storage
 │   ├── *.xlsx                 # Excel reports with detailed solution data
 │   ├── *.json                 # JSON format results (if enabled in config)
@@ -81,6 +87,9 @@ The data directory contains utilities to process raw sales data into formats sui
 - `benchmarking/`: Benchmarking implementations
   - `run_benchmark.py`: VRP benchmark runner
   - `vrp_solver.py`: Single-compartment VRP solver
+  - `cvrp_to_fsm.py`: CVRP instance converter
+  - `cvrp_parser.py`: CVRP instance file parser
+  - `cvrp_instances/`: Standard CVRP benchmark instances
 - `config/`: Configuration files and parameters
 - `utils/`: Helper modules for data processing, logging, and result management
 
@@ -220,6 +229,43 @@ The VRP benchmark feeds all customer data directly to the VRP solver without clu
 - Reflects the inherent efficiencies of single-compartment vehicles
 - Provides a fair baseline for comparing with the MCV approach
 
+### CVRP to FSM Conversion
+
+The system supports converting standard CVRP benchmark instances to FSM format for additional testing and validation. Four conversion types are available:
+
+1. **Normal**: Single instance converted to single good (dry)
+   ```bash
+   python src/benchmarking/cvrp_to_fsm.py --instance X-n106-k14 --benchmark-type normal
+   ```
+   - Uses original vehicle capacity and number of vehicles
+   - Best for direct comparison with CVRP results
+
+2. **Split**: Single instance with demand split across multiple goods
+   ```bash
+   python src/benchmarking/cvrp_to_fsm.py --instance X-n106-k14 --benchmark-type split --num-goods 2
+   ```
+   - Maintains original total demand but distributes across compartments
+   - Tests multi-compartment optimization with correlated demands
+
+3. **Scaled**: Single instance scaled for multiple goods
+   ```bash
+   python src/benchmarking/cvrp_to_fsm.py --instance X-n106-k14 --benchmark-type scaled
+   ```
+   - Multiplies capacity and vehicles by number of goods
+   - Tests scalability of the FSM solver
+
+4. **Combined**: Multiple instances combined into one problem
+   ```bash
+   python src/benchmarking/cvrp_to_fsm.py --instance X-n106-k14 X-n157-k13 --benchmark-type combined
+   ```
+   - Each instance represents a different good type
+   - Tests handling of independent demand patterns
+
+Options:
+- `--format`: Output format (excel or json)
+- `--num-goods`: Number of goods to consider (2 or 3)
+- `--info`: Show detailed information about the tool
+
 ### Running the Benchmark
 
 ```bash
@@ -269,6 +315,7 @@ The benchmark:
 - Highlights cost and efficiency benefits of MCVs vs. single-compartment vehicles
 - Evaluates computational performance as problem size increases
 - Provides quantitative data for solution quality assessment
+- Enables testing against standard CVRP benchmark instances
 
 ## Visualization & Results Analysis
 
