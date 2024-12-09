@@ -1,6 +1,5 @@
 SELECT
     Date,
-    TransportID,
     ClientID,
     Lat,
     Lon,
