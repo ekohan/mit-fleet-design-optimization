@@ -42,6 +42,7 @@ class VRPSolution:
     vehicle_types: List[int]  # Vehicle type index per route
     route_times: List[float]
     route_distances: List[float]
+    route_feasibility: List[bool]  # New field to track which routes exceed constraints
 
 class VRPSolver:
     """Single-compartment VRP solver implementation."""
@@ -227,62 +228,63 @@ class VRPSolver:
         # Calculate route times and check feasibility
         feasible_routes = []
         route_times = []
-        for route in routes:
-            if len(route) > 1:  # Skip empty routes
-                # Get total demand for this route
-                total_demand = sum(
-                    self.data.clients()[client - 1].delivery[0] 
-                    for i in range(1, len(route)-1)  # Skip first (depot) and last (depot) indices
-                    if (client := route[i]) > 0  # Get client ID and check it's not depot
-                )
-                
-                # Get vehicle type and its capacity for this route
-                vehicle_type_idx = route.vehicle_type()
-                vehicle_type = self.data.vehicle_types()[vehicle_type_idx]
-                vehicle_capacity = vehicle_type.capacity[0]  # Single compartment
-                
-                # Calculate utilization percentage
-                utilization = (total_demand / vehicle_capacity) * 100
-                
+        route_feasibility = []  # Track feasibility of each route
+        
+        for route_idx, route in enumerate(routes):
+            if len(route) <= 1:
                 if verbose:
-                    print(f"Route: {[route[i] for i in range(len(route))]}")  # Convert to list for printing
-                    print(f"Total demand: {total_demand}")
-                    print(f"Vehicle type: {vehicle_type_idx}")
-                    print(f"Vehicle capacity: {vehicle_capacity}")
-                    print(f"Utilization: {utilization:.1f}%")
-                
-                # Check capacity constraint
+                    print(f"Route {route_idx} skipped: Empty route")
+                continue
+
+            # Get total demand for this route
+            total_demand = sum(
+                self.data.clients()[client - 1].delivery[0] 
+                for i in range(1, len(route)-1)
+                if (client := route[i]) > 0
+            )
+            
+            # Get vehicle type and capacity
+            vehicle_type_idx = route.vehicle_type()
+            vehicle_type = self.data.vehicle_types()[vehicle_type_idx]
+            vehicle_capacity = vehicle_type.capacity[0]
+            
+            # Calculate utilization percentage
+            utilization = (total_demand / vehicle_capacity) * 100
+            
+            # Create DataFrame of route customers for time estimation
+            route_customers = pd.DataFrame([
+                {
+                    'Latitude': self.data.clients()[client - 1].x / 10000,
+                    'Longitude': self.data.clients()[client - 1].y / 10000
+                }
+                for i in range(1, len(route)-1)
+                if (client := route[i]) > 0
+            ])
+            
+            # Calculate route time
+            route_time = estimate_route_time(
+                cluster_customers=route_customers,
+                depot=self.params.depot,
+                service_time=self.params.service_time,
+                avg_speed=self.params.avg_speed,
+                method='BHH'
+            )
+            
+            # Check if route is feasible (but include it anyway)
+            is_feasible = (utilization <= 100 and route_time <= self.params.max_route_time)
+            
+            # Log route status
+            if not is_feasible:
                 if utilization > 100:
-                    if verbose:
-                        print(f"Route exceeds vehicle capacity! Skipping...")
-                    continue
-                    
-                # Create DataFrame of route customers for time estimation
-                route_customers = pd.DataFrame([
-                    {
-                        'Latitude': self.data.clients()[client - 1].x / 10000,  # Convert back from integer coords
-                        'Longitude': self.data.clients()[client - 1].y / 10000
-                    }
-                    for i in range(1, len(route)-1)  # Skip depot indices
-                    if (client := route[i]) > 0  # Get client ID and check it's not depot
-                ])
-                
-                # Calculate route time
-                route_time = estimate_route_time(
-                    cluster_customers=route_customers,
-                    depot=self.params.depot,
-                    service_time=self.params.service_time,
-                    avg_speed=self.params.avg_speed,
-                    method='BHH'
-                )
-                
-                if verbose:
-                    print(f"Route time: {route_time:.2f} hours")
-                    print(f"Max route time: {self.params.max_route_time} hours")
-                
-                if route_time <= self.params.max_route_time:
-                    feasible_routes.append([route[i] for i in range(len(route))])  # Convert to list for storage
-                    route_times.append(route_time)
+                    logging.warning(f"{Colors.RED}Route {route_idx} exceeds capacity (Utilization: {utilization:.1f}%){Colors.RESET}")
+                if route_time > self.params.max_route_time:
+                    logging.warning(f"{Colors.RED}Route {route_idx} exceeds max time ({route_time:.2f} > {self.params.max_route_time}){Colors.RESET}")
+            elif verbose:
+                logging.info(f"{Colors.GREEN}Route {route_idx} feasible: Utilization={utilization:.1f}%, Time={route_time:.2f}h{Colors.RESET}")
+            
+            feasible_routes.append([route[i] for i in range(len(route))])
+            route_times.append(route_time)
+            route_feasibility.append(is_feasible)
         
         if not feasible_routes:
             return VRPSolution(
@@ -300,7 +302,8 @@ class VRPSolver:
                 vehicle_utilization=[],
                 vehicle_types=[],
                 route_times=[],
-                route_distances=[]
+                route_distances=[],
+                route_feasibility=[]
             )
             
         # Use feasible_routes for solution
@@ -336,9 +339,6 @@ class VRPSolver:
                 vehicle_types.append(vehicle_type_idx)  # Store the vehicle type index
                 route_distances.append(solution.distance())
                 
-                # Add logging to track utilization
-                logging.warning(f"Route {route_idx}: Load = {load}, Capacity = {vehicle_capacity}, Utilization = {load / vehicle_capacity}")
-        
         # Now convert routes to lists for storage
         routes = [[i for i in route] for route in solution.routes()]
 
@@ -347,17 +347,18 @@ class VRPSolver:
             fixed_cost=fixed_cost,
             variable_cost=variable_cost,
             total_distance=solution.distance(),
-            num_vehicles=len(routes),
-            routes=routes,
+            num_vehicles=len(feasible_routes),
+            routes=feasible_routes,
             vehicle_loads=vehicle_loads,
             execution_time=result.runtime,
             solver_status="Optimal" if solution.is_feasible() else "Infeasible",
-            customer_assignments={},  # TODO: Fill this from routes
-            route_sequences=[[str(i) for i in route] for route in routes],
+            customer_assignments={},
+            route_sequences=[[str(i) for i in route] for route in feasible_routes],
             vehicle_utilization=vehicle_utilizations,
             vehicle_types=vehicle_types,
             route_times=route_times,
-            route_distances=route_distances
+            route_distances=route_distances,
+            route_feasibility=route_feasibility  # Add the feasibility information
         )
     
     def _print_solution(
@@ -372,7 +373,7 @@ class VRPSolver:
         compartment_configs: Optional[List[Dict[str, float]]] = None
     ) -> None:
         """Print solution details."""
-        print(f"\nℹ️ VRP Solution Summary:")
+        print(f"\n���️ VRP Solution Summary:")
         
         # Handle infeasible solutions
         if total_cost == float('inf') or not routes:
@@ -526,7 +527,8 @@ class VRPSolver:
             vehicle_utilization=[base_solution.vehicle_utilization[i] for i in valid_indices],
             vehicle_types=[base_solution.vehicle_types[i] for i in valid_indices],
             route_times=base_solution.route_times,  # Keep all route times
-            route_distances=[base_solution.route_distances[i] for i in valid_indices]
+            route_distances=[base_solution.route_distances[i] for i in valid_indices],
+            route_feasibility=[base_solution.route_feasibility[i] for i in valid_indices]  # Keep all route feasibility
         )
         
         # Store compartment configurations
