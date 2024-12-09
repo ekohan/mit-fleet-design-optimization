@@ -17,6 +17,9 @@ from scipy.spatial import distance
 from dataclasses import dataclass
 import re
 from functools import lru_cache
+from sklearn.mixture import GaussianMixture
+import warnings
+from sklearn.exceptions import ConvergenceWarning
 
 logger = logging.getLogger(__name__)
 
@@ -96,12 +99,17 @@ def get_clustering_input(
     distance_metric: str = 'euclidean'
 ) -> np.ndarray:
     """Get appropriate input for clustering algorithm."""
-    if not method.startswith('agglomerative'):
+    # Methods that need precomputed distance matrix
+    needs_precomputed = (
+        method.startswith('agglomerative') 
+    )
+    
+    if needs_precomputed:
+        logger.debug(f"Using precomputed distance matrix for method: {method} with geo_weight={geo_weight}, demand_weight={demand_weight}")
+        return compute_composite_distance(customers, goods, geo_weight, demand_weight)
+    else:
         logger.debug(f"Using feature-based input for method: {method}")
         return customers[['Latitude', 'Longitude']].values
-    
-    logger.debug(f"Using precomputed distance matrix for method: {method} with geo_weight={geo_weight}, demand_weight={demand_weight}")
-    return compute_composite_distance(customers, goods, geo_weight, demand_weight)
 
 def compute_composite_distance(
     customers: pd.DataFrame,
@@ -114,34 +122,37 @@ def compute_composite_distance(
     coords = customers[['Latitude', 'Longitude']].values
     geo_dist = pairwise_distances(coords, metric='euclidean')
     
-    # Get weighted demands
-    product_weights = {
-        'Frozen': 0.5,    # Highest priority - temperature sensitive
-        'Chilled': 0.3,   # Medium priority - temperature controlled
-        'Dry': 0.2        # Lower priority - no temperature control
-    }
-    
+    # Compute demand profiles
     demands = customers[[f'{g}_Demand' for g in goods]].fillna(0).values
-    weighted_demands = np.zeros_like(demands)
+    demand_profiles = np.zeros_like(demands, dtype=float)
+    
+    # Convert to proportions (fixing the broadcasting issue)
+    total_demands = demands.sum(axis=1)
+    nonzero_mask = total_demands > 0
+    for i in range(len(goods)):
+        demand_profiles[nonzero_mask, i] = demands[nonzero_mask, i] / total_demands[nonzero_mask]
+    
+    # Apply temperature sensitivity weights
+    product_weights = {
+        'Frozen': 0.5,    # Highest priority
+        'Chilled': 0.3,   # Medium priority
+        'Dry': 0.2        # Lower priority
+    }
     for i, good in enumerate(goods):
-        weighted_demands[:, i] = demands[:, i] * product_weights.get(good, 1.0)  # Default weight if not specified
+        demand_profiles[:, i] *= product_weights.get(good, 1.0)
     
-    # Compute demand distance
-    demand_dist = pairwise_distances(weighted_demands)
+    # Compute demand similarity using cosine distance
+    demand_dist = pairwise_distances(demand_profiles, metric='cosine')
+    demand_dist = np.nan_to_num(demand_dist, nan=1.0)
     
-    # Normalize distances only if they have non-zero values
+    # Normalize distances
     if geo_dist.max() > 0:
         geo_dist = geo_dist / geo_dist.max()
     if demand_dist.max() > 0:
         demand_dist = demand_dist / demand_dist.max()
     
-    # Return weighted combination
+    # Combine distances with weights
     composite_distance = (geo_weight * geo_dist) + (demand_weight * demand_dist)
-    
-    # Ensure the distance matrix is square
-    if composite_distance.shape[0] != composite_distance.shape[1]:
-        logger.error(f"Composite distance matrix is not square: shape={composite_distance.shape}")
-        raise ValueError(f"Composite distance matrix is not square: shape={composite_distance.shape}")
     
     return composite_distance
 
@@ -152,8 +163,13 @@ def get_clustering_model(n_clusters: int, method: str):
     elif method == 'kmedoids':
         return KMedoids(n_clusters=n_clusters, random_state=42)
     elif method.startswith('agglomerative'):
-        # All agglomerative methods use precomputed distances
         return AgglomerativeClustering(n_clusters=n_clusters, metric='precomputed', linkage='average')
+    elif method == 'gaussian_mixture':
+        return GaussianMixture(
+            n_components=n_clusters,
+            random_state=42,
+            covariance_type='full'
+        )
     else:
         logger.error(f"❌ Unknown clustering method: {method}")
         raise ValueError(f"Unknown clustering method: {method}")
@@ -186,21 +202,26 @@ def generate_clusters_for_configurations(
     
     if params.clustering['method'] == 'combine':
         logger.info("🔄 Using combine method")
-        methods = ['minibatch_kmeans', 'kmedoids']
+        # Base methods that don't use distance matrix
+        methods = [
+            'minibatch_kmeans',
+            'kmedoids',
+            'gaussian_mixture'  # Keeping this as it's effective
+        ]
         
         # Define weight combinations (geo_weight, demand_weight)
         weight_combinations = [
-            (1.0, 0.0),
-            (0.8, 0.2),
-            (0.6, 0.4),
-            (0.4, 0.6),
-            (0.2, 0.8),
-            (0.0, 1.0)
+            (1.0, 0.0),  # Pure geographical
+            (0.8, 0.2),  # Mostly geographical
+            (0.6, 0.4),  # Balanced geo/demand
+            (0.4, 0.6)   # Demand-leaning
         ]
         
+        # Add agglomerative with different weights
         for geo_w, demand_w in weight_combinations:
             method_name = f'agglomerative_geo_{geo_w}_demand_{demand_w}'
             methods.append(method_name)
+        
     else:
         logger.info(f"📍 Using single method: {params.clustering['method']}")
         methods = [params.clustering['method']]
@@ -406,7 +427,7 @@ def process_configuration(
             cluster_dict['Method'] = clustering_method
             clusters.append(cluster_dict)
 
-    logger.info(f"🔧 Clustering Method: {clustering_method} | geo_weight={adjusted_geo_weight}, demand_weight={adjusted_demand_weight}")
+    logger.info(f" Clustering Method: {clustering_method} | geo_weight={adjusted_geo_weight}, demand_weight={adjusted_demand_weight}")
 
     return clusters
 
