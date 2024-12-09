@@ -20,6 +20,7 @@ class Parameters:
     compartment_setup_cost: float
     format: str
     post_optimization: bool = True  # Default to True
+    expected_vehicles: int = -1
 
     @classmethod
     def from_yaml(cls, path: Path | str = None) -> 'Parameters':

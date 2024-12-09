@@ -12,8 +12,9 @@ import pulp
 from haversine import haversine
 import sys
 
-from utils.logging import Colors, Symbols
-from config.parameters import Parameters
+from src.utils.logging import Colors, Symbols
+from src.config.parameters import Parameters
+from src.post_optimization import improve_solution
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,6 @@ def solve_fsm_problem(
     
     # Try to improve solution
     if parameters.post_optimization:
-        from post_optimization import improve_solution
         solution = improve_solution(
             solution,
             configurations_df,
@@ -260,7 +260,6 @@ def _validate_solution(
     Validate that all customers are served in the solution.
     """
     logger = logging.getLogger(__name__)
-    from utils.logging import Colors, Symbols
 
     all_customers_set = set(customers_df['Customer_ID'])
     served_customers = set()

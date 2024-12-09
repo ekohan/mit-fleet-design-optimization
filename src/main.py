@@ -11,13 +11,13 @@ project_root = str(Path(__file__).parent.parent)
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from utils.cli import parse_args, load_parameters, print_parameter_help
-from utils.logging import setup_logging, ProgressTracker, Colors
-from utils.data_processing import load_customer_demand
-from utils.vehicle_configurations import generate_vehicle_configurations
-from utils.save_results import save_optimization_results
-from clustering import generate_clusters_for_configurations
-from fsm_optimizer import solve_fsm_problem
+from src.utils.cli import parse_args, load_parameters, print_parameter_help
+from src.utils.logging import setup_logging, ProgressTracker, Colors
+from src.utils.data_processing import load_customer_demand
+from src.utils.vehicle_configurations import generate_vehicle_configurations
+from src.utils.save_results import save_optimization_results
+from src.clustering import generate_clusters_for_configurations
+from src.fsm_optimizer import solve_fsm_problem
 
 def main():
     """Run the FSM optimization pipeline."""

@@ -4,10 +4,10 @@ import logging
 from typing import Dict, Tuple
 import pandas as pd
 
-from utils.route_time import _bhh_estimation
-from config.parameters import Parameters
-from fsm_optimizer import solve_fsm_problem
-from utils.logging import Colors, Symbols
+from src.utils.route_time import _bhh_estimation
+from src.config.parameters import Parameters
+
+from src.utils.logging import Colors, Symbols
 
 logger = logging.getLogger(__name__)
 
@@ -19,25 +19,29 @@ def improve_solution(
     customers_df: pd.DataFrame,
     params: Parameters
 ) -> Dict:
-    """
-    Improve solution by merging small clusters and re-optimizing.
+    """Improve solution by merging small clusters and re-optimizing."""
+    # Import here to avoid circular dependency
+    from src.fsm_optimizer import solve_fsm_problem
     
-    Args:
-        initial_solution: Original optimization result
-        configurations_df: Vehicle configurations
-        customers_df: Customer demands
-        params: Parameters object
+    MAX_ITERATIONS = 4
+    best_solution = initial_solution
     
-    Returns:
-        Improved solution or original if no improvement found
-    """
-    logger.info(f"\n{Symbols.CHECK} Attempting post-optimization improvements...")
+    # Add a static counter to track total calls
+    if not hasattr(improve_solution, 'total_calls'):
+        improve_solution.total_calls = 0
+    improve_solution.total_calls += 1
+    
+    # If we've exceeded max total calls, return immediately
+    if improve_solution.total_calls > MAX_ITERATIONS:
+        return best_solution
+        
+    logger.info(f"\n{Symbols.CHECK} Attempting post-optimization improvements (call {improve_solution.total_calls}/{MAX_ITERATIONS})...")
     
     # Get original selected clusters
-    selected_clusters = initial_solution.get('selected_clusters', initial_solution.get('clusters'))
+    selected_clusters = best_solution.get('selected_clusters', best_solution.get('clusters'))
     if selected_clusters is None:
         logger.error("Cannot find clusters in solution.")
-        return initial_solution
+        return best_solution
     
     # Ensure goods columns exist in selected_clusters
     for good in params.goods:
@@ -56,7 +60,7 @@ def improve_solution(
     
     if merged_clusters.empty:
         logger.info("→ No valid merged clusters generated")
-        return initial_solution
+        return best_solution
     
     logger.info(f"→ Generated {len(merged_clusters)} merged cluster options")
     
@@ -80,7 +84,7 @@ def improve_solution(
         params
     )
     
-    return improved_solution if improved_solution['total_cost'] < initial_solution['total_cost'] else initial_solution
+    return improved_solution if improved_solution['total_cost'] < best_solution['total_cost'] else best_solution
 
 def generate_post_optimization_merges(
     selected_clusters: pd.DataFrame,
