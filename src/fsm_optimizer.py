@@ -173,32 +173,24 @@ def _create_model(
         for v in V_k[k]:
             if v != 'NoVehicle':
                 config = configurations_df.loc[configurations_df['Config_ID'] == v].iloc[0]
-                # Calculate the base cost
-                base_cost = _calculate_cluster_cost(
-                    cluster=cluster,
-                    config=config,
-                    parameters=parameters
-                )
-
                 # Calculate load percentage
                 total_demand = sum(cluster['Total_Demand'][g] for g in parameters.goods)
                 capacity = config['Capacity']
                 load_percentage = total_demand / capacity
 
-                # Penalize if load percentage is less than threshold
-                if load_percentage < parameters.light_load_threshold:
-                    penalty_amount = parameters.light_load_penalty * (parameters.light_load_threshold - load_percentage)
-                    logger.debug(
-                        f"Applying penalty for cluster {k}, vehicle {v}: "
-                        f"Load Percentage = {load_percentage:.2f}, Penalty = {penalty_amount:.2f}"
-                    )
-                    c_vk[v, k] = base_cost + penalty_amount
-                else:
-                    c_vk[v, k] = base_cost
-                    logger.debug(
-                        f"No penalty for cluster {k}, vehicle {v}: "
-                        f"Load Percentage = {load_percentage:.2f}"
-                    )
+                # Apply fixed penalty if under threshold
+                penalty_amount = parameters.light_load_penalty if load_percentage < parameters.light_load_threshold else 0
+                base_cost = _calculate_cluster_cost(
+                    cluster=cluster,
+                    config=config,
+                    parameters=parameters
+                )
+                
+                c_vk[v, k] = base_cost + penalty_amount
+                logger.debug(
+                    f"Cluster {k}, vehicle {v}: Load Percentage = {load_percentage:.2f}, "
+                    f"Penalty = {penalty_amount}"
+                )
             else:
                 c_vk[v, k] = 0  # Cost is zero for placeholder
 

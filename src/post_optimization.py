@@ -11,7 +11,7 @@ from utils.logging import Colors, Symbols
 
 logger = logging.getLogger(__name__)
 
-SMALL_CLUSTER_SIZE = 4  # Only merge clusters with 1-3 customers
+SMALL_CLUSTER_SIZE = 7  # Only merge clusters with 1-6 customers
 
 def improve_solution(
     initial_solution: Dict,
