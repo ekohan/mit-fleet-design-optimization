@@ -32,36 +32,35 @@ The optimization pipeline follows these steps:
 ```
 mit-fleet-design-optimization/
 ├── data/
-│   ├── export_avg_daily_demand.sql
-│   ├── avg_daily_demand__2023_09.sql
-│   ├── import.py                      # Creates a DB with sales data
-│   ├── export_queries.py              # Generates csv files for each db query
-│   └── sales_2023_create_data.sql
+│   ├── queries/                    # SQL queries for data extraction
+│   │   ├── create_sales_table.sql
+│   │   ├── export_avg_daily_demand.sql
+│   │   ├── avg_daily_demand__2023_09.sql
+│   │   └── ...
+│   ├── raw/                        # Raw data files
+│   │   ├── sales_2023_transformed.sql
+│   │   └── sales_2024_transformed.sql
+│   ├── demand_profiles/            # Generated demand scenarios
+│   │   ├── sales_2023_avg_daily_demand.csv
+│   │   ├── sales_2023_high_demand_day.csv
+│   │   ├── sales_2023_low_demand_day.csv
+│   │   └── ...
+│   ├── import_data.py             # Creates a DB with sales data
+│   └── export_queries.py          # Generates csv files for each db query
 ├── src/
-│   ├── main.py                     # Principal execution script
-│   ├── clustering.py               # Customer clustering implementation
-│   ├── fsm_optimizer.py            # Fleet Size and Mix main MILP model
-│   ├── post_optimization.py        # FSM post processeing optimization
-│   ├── benchmarking/               # Benchmarking implementations
+│   ├── main.py                    # Principal execution script
+│   ├── clustering.py              # Customer clustering implementation
+│   ├── fsm_optimizer.py           # Fleet Size and Mix main MILP model
+│   ├── post_optimization.py       # FSM post processeing optimization
+│   ├── benchmarking/              # Benchmarking implementations
 │   │   ├── run_benchmark.py       # VRP benchmark runner
-│   │   ├── vrp_solver.py          # Single-compartment VRP solver
-│   │   ├── cvrp_to_fsm.py         # CVRP instance converter
-│   │   ├── cvrp_parser.py         # CVRP instance file parser
-│   │   └── cvrp_instances/        # Standard CVRP benchmark instances
-│   │       ├── X-n106-k14.vrp
-│   │       ├── X-n157-k13.vrp
-│   │       └── ...
-│   ├── config/
-│   │   └── default_config.yaml    # Default configuration parameters
-│   └── utils/
-│       ├── cli.py
-│       ├── coordinate_converter.py
-│       ├── logging.py
-│       └── ...
+│   │   ├── vrp_solver.py         # Single-compartment VRP solver
+│   │   ├── cvrp_to_fsm.py        # CVRP instance converter
+│   │   ├── cvrp_parser.py        # CVRP instance file parser
+│   │   └── cvrp_instances/       # Standard CVRP benchmark instances
+│   ├── config/                    # Configuration files and parameters
+│   └── utils/                     # Helper modules
 ├── results/                       # Optimization results storage
-│   ├── *.xlsx                 # Excel reports with detailed solution data
-│   ├── *.json                 # JSON format results (if enabled in config)
-│   └── *.html                 # Interactive cluster visualization maps
 ├── tests/
 ├── init.sh
 ├── requirements.txt
