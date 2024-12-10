@@ -364,8 +364,10 @@ def main():
         print(f"\nWarning: {len(solution['missing_customers'])} customers not served!")
     
     # Save results
+    file_name = f"cvrp_{args.instance}_{args.benchmark_type}"
     results_dir = Path(__file__).parent.parent.parent / 'results'
-    results_path = results_dir / f"cvrp_{args.instance}_{args.benchmark_type}.{'xlsx' if args.format == 'excel' else 'json'}"
+    results_path = results_dir / f"{file_name}.{'xlsx' if args.format == 'excel' else 'json'}"
+    params.demand_file = file_name
     
     save_optimization_results(
         execution_time=time.time() - start_time,
