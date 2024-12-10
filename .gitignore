@@ -4,8 +4,6 @@ __pycache__/
 *.class
 
 # Data files
-data/raw/*
-data/processed/*
 data/forecasts/*
 data/opperar.db
 
