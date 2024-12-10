@@ -42,7 +42,6 @@ mit-fleet-design-optimization/
 │   ├── clustering.py               # Customer clustering implementation
 │   ├── fsm_optimizer.py            # Fleet Size and Mix main MILP model
 │   ├── post_optimization.py        # FSM post processeing optimization
-│   ├── clustering_playground.py    # Clustering experiments
 │   ├── benchmarking/               # Benchmarking implementations
 │   │   ├── run_benchmark.py       # VRP benchmark runner
 │   │   ├── vrp_solver.py          # Single-compartment VRP solver
@@ -82,8 +81,6 @@ The data directory contains utilities to process raw sales data into formats sui
 - `main.py`: Principal execution script that runs the complete optimization pipeline
 - `clustering.py`: Implements customer clustering algorithms with capacity and time constraints
 - `fsm_optimizer.py`: Fleet Size and Mix optimization using integer programming
-- `clustering_playground.py`: Experimental clustering implementations
-- `column_generation_playground.py`: Column generation algorithm experiments
 - `benchmarking/`: Benchmarking implementations
   - `run_benchmark.py`: VRP benchmark runner
   - `vrp_solver.py`: Single-compartment VRP solver
