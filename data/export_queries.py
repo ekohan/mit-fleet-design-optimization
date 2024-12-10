@@ -25,6 +25,16 @@ def get_data_dir() -> Path:
     """Get the data directory path."""
     return Path(__file__).resolve().parent
 
+def get_demand_profiles_dir() -> Path:
+    """Get the demand profiles directory path."""
+    profiles_dir = get_data_dir() / 'demand_profiles'
+    profiles_dir.mkdir(exist_ok=True)
+    return profiles_dir
+
+def get_output_path(csv_file: str) -> Path:
+    """Get the output path for a CSV file."""
+    return get_demand_profiles_dir() / csv_file
+
 def read_sql_file(sql_path: Path) -> str:
     """Read SQL query from file."""
     try:
@@ -80,20 +90,16 @@ def export_all_queries(db_path: Optional[Path] = None) -> None:
         db_path = get_data_dir() / 'opperar.db'
 
     try:
-        # Connect to database
         conn = sqlite3.connect(db_path)
         logger.info(f"Connected to database: {db_path}")
 
         data_dir = get_data_dir()
         
-        # Process each query
         for sql_file, csv_file in QUERY_MAPPING.items():
-            sql_path = data_dir / sql_file
-            csv_path = data_dir / csv_file
+            sql_path = data_dir / 'queries' / sql_file
+            csv_path = get_output_path(csv_file)
             
             logger.info(f"Processing {sql_file}...")
-            
-            # Read and execute query
             query = read_sql_file(sql_path)
             execute_query_to_csv(conn, query, csv_path)
 

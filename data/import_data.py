@@ -1,6 +1,15 @@
 import sqlite3
 from pathlib import Path
 import argparse
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+def get_data_dir() -> Path:
+    """Get the data directory path."""
+    return Path(__file__).resolve().parent
 
 def import_data_to_unified_sales(db_path: Path):
     """Import all sales data into the unified sales table."""
@@ -8,55 +17,39 @@ def import_data_to_unified_sales(db_path: Path):
     cursor = conn.cursor()
     
     try:
-        # Create unified table
-        cursor.executescript("""
-        CREATE TABLE IF NOT EXISTS sales (
-            Date TEXT,
-            Day INTEGER,
-            Month INTEGER,
-            Year INTEGER,
-            YearMonth TEXT,
-            TransportID TEXT,
-            ClientID TEXT,
-            Material TEXT,
-            Description TEXT,
-            Units REAL,
-            Kg REAL,
-            Lat REAL,
-            Lon REAL,
-            ProductType TEXT,
-            SourceYear INTEGER
-        );
+        # Drop existing table if it exists
+        logger.info("Dropping existing sales table...")
+        cursor.execute("DROP TABLE IF EXISTS sales")
         
-        -- Create indexes for better query performance
-        CREATE INDEX IF NOT EXISTS idx_sales_clientid ON sales(ClientID);
-        CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(Date);
-        CREATE INDEX IF NOT EXISTS idx_sales_yearmonth ON sales(YearMonth);
-        CREATE INDEX IF NOT EXISTS idx_sales_producttype ON sales(ProductType);
-        CREATE INDEX IF NOT EXISTS idx_sales_sourceyear ON sales(SourceYear);
-        """)
+        # Create unified table
+        logger.info("Creating new sales table...")
+        schema_path = get_data_dir() / 'queries' / 'create_sales_table.sql'
+        with open(schema_path, 'r', encoding='utf-8') as f:
+            cursor.executescript(f.read())
         
         # Import 2023 data
-        print("Importing 2023 data...")
-        with open(Path(__file__).parent / 'sales_2023_transformed.sql', 'r', encoding='utf-8') as f:
+        logger.info("Importing 2023 data...")
+        data_2023_path = get_data_dir() / 'raw' / 'sales_2023_transformed.sql'
+        with open(data_2023_path, 'r', encoding='utf-8') as f:
             cursor.executescript(f"BEGIN TRANSACTION;\n{f.read()}\nCOMMIT;")
         
         # Import 2024 data
-        print("Importing 2024 data...")
-        with open(Path(__file__).parent / 'sales_2024_transformed.sql', 'r', encoding='utf-8') as f:
+        logger.info("Importing 2024 data...")
+        data_2024_path = get_data_dir() / 'raw' / 'sales_2024_transformed.sql'
+        with open(data_2024_path, 'r', encoding='utf-8') as f:
             cursor.executescript(f"BEGIN TRANSACTION;\n{f.read()}\nCOMMIT;")
         
         # Verify row counts
         cursor.execute("SELECT SourceYear, COUNT(*) FROM sales GROUP BY SourceYear")
         counts = cursor.fetchall()
         for year, count in counts:
-            print(f"Imported {count} rows for year {year}")
+            logger.info(f"Imported {count} rows for year {year}")
         
         conn.commit()
-        print("Import completed successfully")
+        logger.info("Import completed successfully")
         
     except sqlite3.Error as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
         conn.rollback()
     finally:
         conn.close()
@@ -67,6 +60,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Get the script's directory relative to where it's being invoked
-    script_dir = Path('data')
-    db_path = script_dir / args.db
+    db_path = get_data_dir() / args.db
     import_data_to_unified_sales(db_path) 

@@ -40,12 +40,12 @@ clustering:
 
 
 # Data Files
-# See options in /data
-# sales_2023_high_demand_day
-# sales_2023_low_demand_day
-# sales_2023_uniform_visits_per_week
-# sales_2023_avg_daily_demand -- WARNING: visits every client that ordered in the 9-month period
-# sales_2023_09_avg_daily_demand -- WARNING: visits every client that ordered in September 2023
+# See options in data/demand_profiles/
+# sales_2023_high_demand_day.csv
+# sales_2023_low_demand_day.csv
+# sales_2023_uniform_visits_per_week.csv
+# sales_2023_avg_daily_demand.csv -- WARNING: visits every client that ordered in the 9-month period
+# sales_2023_09_avg_daily_demand.csv -- WARNING: visits every client that ordered in September 2023
 demand_file: "sales_2024_avg_day_demand.csv"
 
 # Math model Parameters
