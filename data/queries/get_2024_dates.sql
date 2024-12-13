@@ -1,0 +1,4 @@
+SELECT DISTINCT Date 
+FROM sales 
+WHERE Date LIKE '2024%'
+ORDER BY Date 

@@ -83,8 +83,9 @@ def save_optimization_results(
         ('Total Vehicles', len(selected_clusters)),
     ]
     
-    for vehicle_type in sorted(vehicles_used.keys()):
-        vehicle_count = vehicles_used[vehicle_type]
+    # Ensure all vehicle types are included, defaulting to 0 if not used
+    for vehicle_type in sorted(parameters.vehicles.keys()):
+        vehicle_count = vehicles_used.get(vehicle_type, 0)  # Default to 0 if not used
         summary_metrics.append(
             (f'Vehicles Type {vehicle_type}', vehicle_count)
         )

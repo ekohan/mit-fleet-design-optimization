@@ -16,9 +16,7 @@ QUERY_MAPPING = {
     'export_avg_daily_demand__high_demand_day.sql': 'sales_2023_high_demand_day.csv',
     'export_avg_daily_demand__uniform_visits_per_week.sql': 'sales_2023_uniform_visits_per_week.csv',
     'export_avg_daily_demand__low_demand_day.sql': 'sales_2023_low_demand_day.csv',
-    'export_avg_day_2024_demand.sql': 'sales_2024_avg_day_demand.csv',
-    'export_peak_day_2024_demand.sql': 'sales_2024_peak_day_demand.csv',
-    'export_slow_day_2024_demand.sql': 'sales_2024_slow_day_demand.csv'
+    'export_all_2024_demand.sql': 'sales_2024_all_demand.csv'  # Added this line
 }
 
 def get_data_dir() -> Path:
@@ -84,6 +82,52 @@ def execute_query_to_csv(
         logger.error(f"Error executing query or saving CSV: {str(e)}")
         raise
 
+def execute_query_for_date(
+    conn: sqlite3.Connection,
+    base_query: str,
+    date: str,
+    output_path: Path,
+    index: bool = False
+) -> None:
+    """Execute SQL query for a specific date and save results to CSV."""
+    # Replace the date placeholder in the query
+    query = base_query.replace('{{DATE}}', date)
+    execute_query_to_csv(conn, query, output_path, index)
+
+def export_daily_queries(db_path: Optional[Path] = None) -> None:
+    """Execute queries for each day and export results to CSV files."""
+    if db_path is None:
+        db_path = get_data_dir() / 'opperar.db'
+
+    try:
+        conn = sqlite3.connect(db_path)
+        logger.info(f"Connected to database: {db_path}")
+        data_dir = get_data_dir()
+
+        # Get all dates
+        dates_query = read_sql_file(data_dir / 'queries' / 'get_2024_dates.sql')
+        dates_df = pd.read_sql_query(dates_query, conn)
+        
+        # Read the base query
+        base_query = read_sql_file(data_dir / 'queries' / 'export_avg_day_2024_demand.sql')
+        
+        # Export data for each date
+        for date in dates_df['Date']:
+            csv_file = f'sales_2024_{date}_demand.csv'
+            csv_path = get_output_path(csv_file)
+            
+            logger.info(f"Processing data for {date}...")
+            execute_query_for_date(conn, base_query, date, csv_path)
+
+        conn.close()
+        logger.info("All daily exports completed successfully")
+
+    except Exception as e:
+        logger.error(f"Error during export process: {str(e)}")
+        if 'conn' in locals():
+            conn.close()
+        raise
+
 def export_all_queries(db_path: Optional[Path] = None) -> None:
     """Execute all SQL queries and export results to CSV files."""
     if db_path is None:
@@ -113,4 +157,5 @@ def export_all_queries(db_path: Optional[Path] = None) -> None:
         raise
 
 if __name__ == "__main__":
-    export_all_queries() 
+    export_all_queries()
+    export_daily_queries() 
