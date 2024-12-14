@@ -364,7 +364,11 @@ def main():
         print(f"\nWarning: {len(solution['missing_customers'])} customers not served!")
     
     # Save results
-    file_name = f"cvrp_{args.instance}_{args.benchmark_type}"
+    if args.benchmark_type == 'split':
+        file_name = f"cvrp_{args.instance}_{args.benchmark_type}{args.num_goods}"
+    else:
+        file_name = f"cvrp_{args.instance}_{args.benchmark_type}"
+
     results_dir = Path(__file__).parent.parent.parent / 'results'
     results_path = results_dir / f"{file_name}.{'xlsx' if args.format == 'excel' else 'json'}"
     params.demand_file = file_name

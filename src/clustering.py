@@ -159,7 +159,7 @@ def compute_composite_distance(
 def get_clustering_model(n_clusters: int, method: str):
     """Return the clustering model based on the method name."""
     if method == 'minibatch_kmeans':
-        return MiniBatchKMeans(n_clusters=n_clusters, random_state=42)
+        return MiniBatchKMeans(n_clusters=n_clusters, random_state=42, n_init=3)
     elif method == 'kmedoids':
         return KMedoids(n_clusters=n_clusters, random_state=42)
     elif method.startswith('agglomerative'):
