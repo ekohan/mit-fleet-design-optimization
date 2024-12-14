@@ -31,6 +31,11 @@ def parse_benchmark_args():
         help='Path to config file'
     )
     parser.add_argument(
+        '--demand-file',
+        type=str,
+        help='Name of the demand file to use (must be in data/demand_profiles/)'
+    )
+    parser.add_argument(
         '--time-limit',
         type=int,
         default=300,
@@ -98,6 +103,9 @@ def main():
     # Load parameters
     params = Parameters.from_yaml(args.config)
     
+    # Use demand file from command line if provided, otherwise use from config
+    demand_file = args.demand_file if args.demand_file else params.demand_file
+    
     # Define benchmark steps
     steps = [
         'Load Data',
@@ -108,7 +116,7 @@ def main():
     progress = ProgressTracker(steps)
     
     # Step 1: Load customer data
-    customers = load_customer_demand(params.demand_file)
+    customers = load_customer_demand(demand_file)
     progress.advance(
         f"Loaded {Colors.BOLD}{len(customers)}{Colors.RESET} customers"
     )
