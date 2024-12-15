@@ -108,16 +108,23 @@ def export_daily_queries(db_path: Optional[Path] = None) -> None:
         dates_query = read_sql_file(data_dir / 'queries' / 'get_2024_dates.sql')
         dates_df = pd.read_sql_query(dates_query, conn)
         
-        # Read the base query
+        # Read both base queries
         base_query = read_sql_file(data_dir / 'queries' / 'export_avg_day_2024_demand.sql')
+        base_query_filtered = read_sql_file(data_dir / 'queries' / 'export_avg_day_2024_demand_filtered.sql')
         
-        # Export data for each date
+        # Export data for each date for both regular and filtered queries
         for date in dates_df['Date']:
+            # Regular version
             csv_file = f'sales_2024_{date}_demand.csv'
             csv_path = get_output_path(csv_file)
-            
-            logger.info(f"Processing data for {date}...")
+            logger.info(f"Processing regular data for {date}...")
             execute_query_for_date(conn, base_query, date, csv_path)
+            
+            # Filtered version
+            csv_file_filtered = f'sales_2024_{date}_demand_filtered.csv'
+            csv_path_filtered = get_output_path(csv_file_filtered)
+            logger.info(f"Processing filtered data for {date}...")
+            execute_query_for_date(conn, base_query_filtered, date, csv_path_filtered)
 
         conn.close()
         logger.info("All daily exports completed successfully")
