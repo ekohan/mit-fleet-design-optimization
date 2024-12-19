@@ -9,6 +9,7 @@ import time
 from enum import Enum
 from typing import List, Dict, Union
 import argparse
+import math  # Add this at the top with other imports
 
 # Add project root to Python path
 project_root = str(Path(__file__).parent.parent.parent)
@@ -22,14 +23,15 @@ from src.utils.logging import setup_logging
 from src.main import solve_fsm_problem
 from src.utils.vehicle_configurations import generate_vehicle_configurations
 from src.clustering import generate_clusters_for_configurations
-from src.utils.coordinate_converter import CoordinateConverter, GeoBounds
+from src.utils.coordinate_converter import CoordinateConverter
 from src.utils.save_results import save_optimization_results
 
 class CVRPBenchmarkType(Enum):
-    NORMAL = "normal"  # Type 1: Single instance, single good
-    SPLIT = "split"    # Type 2: Single instance, split demand
-    SCALED = "scaled"  # Type 3: Single instance scaled
-    COMBINED = "combined"  # Type 4: Multiple instances combined
+    NORMAL = "normal"  
+    SPLIT = "split"    
+    SCALED = "scaled"  
+    COMBINED = "combined"  
+    SPATIAL = "spatial"  # New Type 5: Spatial Differentiation
 
 def convert_cvrp_to_fsm(
     instance_names: Union[str, List[str]],
@@ -39,12 +41,6 @@ def convert_cvrp_to_fsm(
 ) -> tuple:
     """
     Convert CVRP instance(s) to FSM format based on benchmark type.
-    
-    Args:
-        instance_names: Single instance name or list of instance names
-        benchmark_type: Type of benchmark conversion
-        num_goods: Number of goods to consider (2 or 3)
-        split_ratios: Dictionary of ratios for splitting demand (for SPLIT type)
     """
     if isinstance(instance_names, str):
         instance_names = [instance_names]
@@ -73,12 +69,15 @@ def convert_cvrp_to_fsm(
         return _convert_split(instances[0], split_ratios)
     elif benchmark_type == CVRPBenchmarkType.SCALED:
         return _convert_scaled(instances[0], num_goods)
-    else:  # COMBINED
+    elif benchmark_type == CVRPBenchmarkType.COMBINED:
         return _convert_combined(instances)
+    elif benchmark_type == CVRPBenchmarkType.SPATIAL:
+        return _convert_spatial(instances[0], num_goods)
+    else:
+        raise ValueError(f"Unsupported benchmark type: {benchmark_type}")
 
 def _convert_normal(instance) -> tuple:
     """Type 1: Normal conversion - single good (dry)"""
-    # Print total demand for debugging
     total_demand = sum(instance.demands.values())
     print(f"Total CVRP demand: {total_demand}")
     print(f"CVRP capacity per vehicle: {instance.capacity}")
@@ -89,15 +88,12 @@ def _convert_normal(instance) -> tuple:
         lambda demand: {'Dry_Demand': demand, 'Chilled_Demand': 0, 'Frozen_Demand': 0}
     )
     
-    # Verify converted demand
     df = pd.DataFrame(customers_data)
-    total_converted = df['Dry_Demand'].sum()
-    print(f"Total converted demand: {total_converted}")
+    print(f"Total converted demand: {df['Dry_Demand'].sum()}")
     
     params = _create_base_params(instance)
     params.expected_vehicles = instance.num_vehicles
     
-    # Override the default vehicles with just our CVRP vehicle
     params.vehicles = {
         'CVRP': {
             'capacity': instance.capacity,
@@ -105,17 +101,10 @@ def _convert_normal(instance) -> tuple:
             'compartments': {'Dry': True, 'Chilled': False, 'Frozen': False}
         }
     }
-    
-    print(f"\nVehicle Configuration:")
-    print(f"Capacity: {instance.capacity}")
-    print(f"Fixed Cost: {params.vehicles['CVRP']['fixed_cost']}")
-    print(f"Compartments: {params.vehicles['CVRP']['compartments']}")
-    
     return pd.DataFrame(customers_data), params
 
 def _convert_split(instance, split_ratios: Dict[str, float]) -> tuple:
     """Type 2: Split demand across goods"""
-    # Convert split_ratios keys to match DataFrame column names
     df_split_ratios = {
         f'{good.capitalize()}_Demand': ratio 
         for good, ratio in split_ratios.items()
@@ -123,16 +112,12 @@ def _convert_split(instance, split_ratios: Dict[str, float]) -> tuple:
     
     customers_data = _create_customer_data(
         instance,
-        lambda demand: {
-            column: demand * ratio 
-            for column, ratio in df_split_ratios.items()
-        }
+        lambda demand: {col: math.ceil(demand * ratio) for col, ratio in df_split_ratios.items()}
     )
     
     params = _create_base_params(instance)
     params.expected_vehicles = instance.num_vehicles
     
-    # Override vehicles with just the multi-compartment CVRP vehicle
     params.vehicles = {
         'CVRP_Multi': {
             'capacity': instance.capacity,
@@ -144,7 +129,7 @@ def _convert_split(instance, split_ratios: Dict[str, float]) -> tuple:
     return pd.DataFrame(customers_data), params
 
 def _convert_scaled(instance, num_goods: int) -> tuple:
-    """Type 3: Scale instance for multiple goods - only scale dry goods"""
+    """Type 3: Scale instance for multiple goods"""
     customers_data = _create_customer_data(
         instance,
         lambda demand: {
@@ -157,7 +142,6 @@ def _convert_scaled(instance, num_goods: int) -> tuple:
     params = _create_base_params(instance)
     params.expected_vehicles = instance.num_vehicles * num_goods
     
-    # Override vehicles with scaled CVRP vehicle
     params.vehicles = {
         'CVRP_Scaled': {
             'capacity': instance.capacity * num_goods,
@@ -170,7 +154,6 @@ def _convert_scaled(instance, num_goods: int) -> tuple:
 
 def _convert_combined(instances: List) -> tuple:
     """Type 4: Combine multiple instances"""
-    # Only use as many goods as we have instances
     goods = ['Dry', 'Chilled', 'Frozen'][:len(instances)]
     goods_columns = [f'{good}_Demand' for good in goods]
     
@@ -184,10 +167,9 @@ def _convert_combined(instances: List) -> tuple:
             customer['Customer_ID'] = f"{idx+1}_{customer['Customer_ID']}"
         customers_data.extend(instance_data)
     
-    params = _create_base_params(instances[0])  # Use first instance for depot
+    params = _create_base_params(instances[0])
     params.expected_vehicles = sum(inst.num_vehicles for inst in instances)
     
-    # Create a vehicle type for each instance with its specific capacity and good
     params.vehicles = {
         f'CVRP_{idx+1}': {
             'capacity': instance.capacity,
@@ -199,31 +181,109 @@ def _convert_combined(instances: List) -> tuple:
     
     return pd.DataFrame(customers_data), params
 
+def _convert_spatial(instance, num_goods: int) -> tuple:
+    """Type 5: Spatial Differentiation
+    Divide service area into quadrants and assign product mixes accordingly.
+    For simplicity:
+    - Quadrant 1 (top-left): Mostly Chilled
+    - Quadrant 2 (top-right): Mostly Dry
+    - Quadrant 3 (bottom-left): Mostly Frozen
+    - Quadrant 4 (bottom-right): Mixed (Dry & Chilled)
+    """
+    # Convert coordinates and find midpoints
+    converter = CoordinateConverter(instance.coordinates)
+    geo_coords = converter.convert_all_coordinates(instance.coordinates)
+    
+    all_lats = [c[0] for cid, c in geo_coords.items() if cid != instance.depot_id]
+    all_lons = [c[1] for cid, c in geo_coords.items() if cid != instance.depot_id]
+    
+    if not all_lats or not all_lons:
+        raise ValueError("No customer coordinates found.")
+    
+    mid_lat = (min(all_lats) + max(all_lats)) / 2.0
+    mid_lon = (min(all_lons) + max(all_lons)) / 2.0
+    
+    def demand_func(demand, lat, lon):
+        if lat > mid_lat and lon < mid_lon:
+            # Quadrant 1: Mostly Chilled
+            return {
+                'Dry_Demand': math.ceil(demand * 0.1),
+                'Chilled_Demand': math.ceil(demand * 0.7),
+                'Frozen_Demand': math.ceil(demand * 0.2)
+            }
+        elif lat > mid_lat and lon >= mid_lon:
+            # Quadrant 2: Mostly Dry
+            return {
+                'Dry_Demand': math.ceil(demand * 0.7),
+                'Chilled_Demand': math.ceil(demand * 0.2),
+                'Frozen_Demand': math.ceil(demand * 0.1)
+            }
+        elif lat <= mid_lat and lon < mid_lon:
+            # Quadrant 3: Mostly Frozen
+            return {
+                'Dry_Demand': math.ceil(demand * 0.1),
+                'Chilled_Demand': math.ceil(demand * 0.2),
+                'Frozen_Demand': math.ceil(demand * 0.7)
+            }
+        else:
+            # Quadrant 4: Mixed (Dry & Chilled)
+            return {
+                'Dry_Demand': math.ceil(demand * 0.4),
+                'Chilled_Demand': math.ceil(demand * 0.4),
+                'Frozen_Demand': math.ceil(demand * 0.2)
+            }
+
+    customers_data = []
+    for cid, coords in geo_coords.items():
+        if cid != instance.depot_id:
+            d = instance.demands.get(cid, 0)
+            dm = demand_func(d, coords[0], coords[1])
+            customer = {
+                'Customer_ID': str(cid),
+                'Latitude': coords[0],
+                'Longitude': coords[1],
+                'Dry_Demand': dm['Dry_Demand'],
+                'Chilled_Demand': dm['Chilled_Demand'],
+                'Frozen_Demand': dm['Frozen_Demand']
+            }
+            customers_data.append(customer)
+
+    params = _create_base_params(instance)
+    # Assume the expected vehicles is roughly the same as original
+    params.expected_vehicles = instance.num_vehicles
+    
+    # Vehicle can handle all compartments since we have multiple goods now
+    params.vehicles = {
+        'CVRP_Spatial': {
+            'capacity': instance.capacity,
+            'fixed_cost': 1000,
+            'compartments': {'Dry': True, 'Chilled': True, 'Frozen': True}
+        }
+    }
+    
+    return pd.DataFrame(customers_data), params
+
 def _create_customer_data(instance, demand_func) -> List[Dict]:
-    """Helper to create customer data with given demand function"""
-    # Calculate bounds from coordinates
     converter = CoordinateConverter(instance.coordinates)
     geo_coords = converter.convert_all_coordinates(instance.coordinates)
     
     customers_data = []
     for cust_id, coords in geo_coords.items():
         if cust_id != instance.depot_id:
-            customer = {
+            base = {
                 'Customer_ID': str(cust_id),
                 'Latitude': coords[0],
                 'Longitude': coords[1],
                 'Dry_Demand': 0,
                 'Chilled_Demand': 0,
-                'Frozen_Demand': 0  # Initialize all demands to 0
+                'Frozen_Demand': 0
             }
-            # Update with any non-zero demands from the demand_func
-            customer.update(demand_func(instance.demands.get(cust_id, 0)))
-            customers_data.append(customer)
+            base.update(demand_func(instance.demands.get(cust_id, 0)))
+            customers_data.append(base)
             
     return customers_data
 
 def _create_base_params(instance) -> Parameters:
-    """Helper to create base parameters"""
     params = Parameters.from_yaml()
     converter = CoordinateConverter(instance.coordinates)
     geo_coords = converter.convert_all_coordinates(instance.coordinates)
@@ -233,27 +293,25 @@ def _create_base_params(instance) -> Parameters:
         'latitude': depot_coords[0],
         'longitude': depot_coords[1]
     }
-
     params.max_route_time = float('inf')
     
     return params
 
 def main():
-    """Main function to run CVRP to FSM conversion and optimization."""
     setup_logging()
     logger = logging.getLogger(__name__)
     
     parser = argparse.ArgumentParser(description='Convert CVRP instance to FSM and optimize')
     parser.add_argument('--instance', 
                        default='X-n106-k14',   
-                       nargs='+',  # Accept one or more instances
-                       help='Name of instance file(s) without extension. For combined type, provide multiple instances.')
+                       nargs='+', 
+                       help='Name of instance file(s) without extension.')
     parser.add_argument('--format',
                        default='excel',
                        choices=['excel', 'json'],
                        help='Output format for results')
     parser.add_argument('--benchmark-type',
-                       choices=['normal', 'split', 'scaled', 'combined'],
+                       choices=['normal', 'split', 'scaled', 'combined', 'spatial'],
                        help='Type of benchmark conversion')
     parser.add_argument('--num-goods',
                        type=int,
@@ -277,55 +335,25 @@ def main():
         print("\nBenchmark Types:")
         print("-" * 80)
         print("normal:")
-        print("  - Single instance converted to single good (dry)")
-        print("  - Uses original vehicle capacity and number of vehicles")
-        print("  - Best for direct comparison with CVRP results")
-        print("\nsplit:")
-        print("  - Single instance with demand split across multiple goods")
-        print("  - Maintains original total demand but distributes across compartments")
-        print("  - Tests multi-compartment optimization with correlated demands")
-        print("\nscaled:")
-        print("  - Single instance scaled for multiple goods")
-        print("  - Multiplies capacity and vehicles by number of goods")
-        print("  - Tests scalability of the FSM solver")
-        print("\ncombined:")
-        print("  - Multiple instances combined into one problem")
-        print("  - Each instance represents a different good type")
-        print("  - Tests handling of independent demand patterns")
+        print("  - Single instance, single good")
+        print("split:")
+        print("  - Single instance, split demand across multiple goods")
+        print("scaled:")
+        print("  - Single instance scaled by number of goods")
+        print("combined:")
+        print("  - Multiple instances combined, each representing a good")
+        print("spatial:")
+        print("  - Single instance with product mix varying by geographic quadrant")
         
-        print("\nUsage Examples:")
-        print("-" * 80)
-        print("1. Basic conversion with normal type:")
-        print("   python src/benchmarking/cvrp_to_fsm.py --instance X-n106-k14 --benchmark-type normal")
-        print("\n2. Split demand across 2 goods:")
-        print("   python src/benchmarking/cvrp_to_fsm.py --instance X-n106-k14 --benchmark-type split --num-goods 2")
-        print("\n3. Save results as JSON:")
-        print("   python src/benchmarking/cvrp_to_fsm.py --instance X-n106-k14 --benchmark-type normal --format json")
-        
-        print("\nAvailable Instances:")
-        print("-" * 80)
-        instance_dir = Path(__file__).parent / 'cvrp_instances'
-        instances = sorted([f.stem for f in instance_dir.glob('*.vrp')])
-        print("  " + "\n  ".join(instances))
-        
-        print("\nOutput:")
-        print("-" * 80)
-        print("- Generates solution files in the results directory")
-        print("- File naming: cvrp_<instance>_<benchmark-type>.<format>")
-        print("- Includes detailed metrics and solution statistics")
-        print("=" * 80)
         return
         
-    # Now check for required arguments
     if not args.benchmark_type:
         parser.error("argument --benchmark-type is required")
     if not args.instance:
         parser.error("argument --instance is required")
 
-    
     start_time = time.time()
     
-    # Convert CVRP to FSM format
     logger.info(f"Converting CVRP instance: {args.instance}")
     customers_df, params = convert_cvrp_to_fsm(
         instance_names=args.instance,
@@ -363,7 +391,6 @@ def main():
     if solution['missing_customers']:
         print(f"\nWarning: {len(solution['missing_customers'])} customers not served!")
     
-    # Save results
     file_name = f"cvrp_{args.instance}_{args.benchmark_type}"
     results_dir = Path(__file__).parent.parent.parent / 'results'
     results_path = results_dir / f"{file_name}.{'xlsx' if args.format == 'excel' else 'json'}"
@@ -389,4 +416,4 @@ def main():
     )
 
 if __name__ == "__main__":
-    main() 
+    main()
