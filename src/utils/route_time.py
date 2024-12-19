@@ -107,5 +107,50 @@ def _clarke_wright_estimation():
 def _continuous_approximation():
     raise NotImplementedError
 
-def _vrp_solver_estimation():
-    raise NotImplementedError 
+def _vrp_solver_estimation(
+    cluster_customers: pd.DataFrame,
+    depot: Dict[str, float],
+    service_time: float,
+    avg_speed: float
+) -> float:
+    """
+    Mimic the route time calculation as performed internally by PyVRP:
+    Sum travel times between consecutive stops (depot -> customers -> depot)
+    plus sum of service durations at each customer.
+
+    Steps:
+    1. Convert all coordinates to lat/long pairs.
+    2. Compute travel time for the route:
+       - Start at depot, go to the first customer
+       - Visit customers in order (as given by the cluster_customers DataFrame)
+       - Return from the last customer to the depot
+    3. Add service time for each visited customer.
+
+    Returns:
+        Estimated route time in hours.
+    """
+    num_customers = len(cluster_customers)
+    if num_customers == 0:
+        return 0.0
+
+    # Convert minutes to hours for service time
+    service_time_hours = service_time / 60.0
+    
+    # Extract route points
+    points = [(depot['latitude'], depot['longitude'])]  # Start at depot
+    points += list(zip(cluster_customers['Latitude'], cluster_customers['Longitude']))
+    points.append((depot['latitude'], depot['longitude']))  # Return to depot
+
+    # Calculate total travel time
+    travel_time = 0.0
+    for i in range(len(points) - 1):
+        dist = haversine(points[i], points[i+1])  # distance in km
+        # Convert distance to travel time (hours)
+        travel_time += dist / avg_speed
+
+    # Add service time for each visited customer
+    total_service_time = num_customers * service_time_hours
+
+    # Total route time
+    route_time = travel_time + total_service_time
+    return route_time
