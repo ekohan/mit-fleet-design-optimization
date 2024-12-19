@@ -108,9 +108,14 @@ def export_daily_queries(db_path: Optional[Path] = None) -> None:
         dates_query = read_sql_file(data_dir / 'queries' / 'get_2024_dates.sql')
         dates_df = pd.read_sql_query(dates_query, conn)
         
+        # Initialize empty DataFrames for aggregation
+        all_regular_data = []
+        all_filtered_data = []
+        
         # Read both base queries
         base_query = read_sql_file(data_dir / 'queries' / 'export_avg_day_2024_demand.sql')
         base_query_filtered = read_sql_file(data_dir / 'queries' / 'export_avg_day_2024_demand_filtered.sql')
+        base_query_center = read_sql_file(data_dir / 'queries' / 'export_all_days_center.sql')
         
         # Export data for each date for both regular and filtered queries
         for date in dates_df['Date']:
@@ -119,12 +124,39 @@ def export_daily_queries(db_path: Optional[Path] = None) -> None:
             csv_path = get_output_path(csv_file)
             logger.info(f"Processing regular data for {date}...")
             execute_query_for_date(conn, base_query, date, csv_path)
+            # Also store for aggregation
+            query = base_query.replace('{{DATE}}', date)
+            df_regular = pd.read_sql_query(query, conn)
+            df_regular['Date'] = date
+            all_regular_data.append(df_regular)
             
             # Filtered version
             csv_file_filtered = f'sales_2024_{date}_demand_filtered.csv'
             csv_path_filtered = get_output_path(csv_file_filtered)
             logger.info(f"Processing filtered data for {date}...")
             execute_query_for_date(conn, base_query_filtered, date, csv_path_filtered)
+            # Also store for aggregation
+            query_filtered = base_query_filtered.replace('{{DATE}}', date)
+            df_filtered = pd.read_sql_query(query_filtered, conn)
+            df_filtered['Date'] = date
+            all_filtered_data.append(df_filtered)
+
+            # Center version
+            csv_file_center = f'sales_2024_{date}_demand_center.csv'
+            csv_path_center = get_output_path(csv_file_center)
+            logger.info(f"Processing center data for {date}...")
+            execute_query_for_date(conn, base_query_center, date, csv_path_center)
+
+        # Combine and save aggregate files
+        logger.info("Creating aggregate files...")
+        pd.concat(all_regular_data).to_csv(
+            get_output_path('sales_2024_all_days_demand.csv'), 
+            index=False
+        )
+        pd.concat(all_filtered_data).to_csv(
+            get_output_path('sales_2024_all_days_demand_filtered.csv'), 
+            index=False
+        )
 
         conn.close()
         logger.info("All daily exports completed successfully")

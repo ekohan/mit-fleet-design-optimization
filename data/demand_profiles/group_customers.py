@@ -37,8 +37,8 @@ def group_customers(df: pd.DataFrame, eps_km: float = 2.0, min_samples: int = 2)
         
         if len(product_df) > 0:
             # Separate large and small orders
-            large_orders = product_df[product_df['Kg'] > 20]
-            small_orders = product_df[product_df['Kg'] <= 20]
+            large_orders = product_df[product_df['Kg'] > 30]
+            small_orders = product_df[product_df['Kg'] <= 30]
             
             # Keep large orders as is
             if len(large_orders) > 0:
@@ -187,7 +187,7 @@ def export_daily_queries_grouped(db_path: Optional[Path] = None) -> None:
         dates_df = pd.read_sql_query(dates_query, conn)
         
         # Read base query
-        base_query_filtered = read_sql_file(data_dir / 'queries' / 'export_avg_day_2024_demand_filtered.sql')
+        base_query_filtered = read_sql_file(data_dir / 'queries' / 'export_avg_day_2024_demand.sql')
         
         # Export grouped data for each date
         for date in dates_df['Date']:
