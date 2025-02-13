@@ -26,6 +26,7 @@ results/*.xlsx
 results/*.json
 results/*.html
 results_back
+back_results
 
 # Etc
 Notes_Eric.txt
