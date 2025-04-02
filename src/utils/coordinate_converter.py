@@ -119,7 +119,9 @@ class CoordinateConverter:
         """
         # Convert from geographic to centered coordinates
         y_centered = (lat - self.geo_bounds.center[0]) / self.scale
-        x_centered = (lon - self.geo_bounds.center[1]) * np.cos(np.radians(lat)) / self.scale
+        # Use cosine of the center latitude for consistency with to_geographic
+        cos_center_lat = np.cos(np.radians(self.geo_bounds.center[0]))
+        x_centered = (lon - self.geo_bounds.center[1]) * cos_center_lat / self.scale
         
         # Un-center the coordinates
         x = x_centered + (self.max_x + self.min_x) / 2

@@ -100,12 +100,14 @@ def _bhh_estimation(
     
     return service_time_total + depot_travel_time + intra_cluster_time
 
-# TODO: Implement other estimation methods
-def _clarke_wright_estimation():
-    raise NotImplementedError
+# Placeholder functions for unimplemented methods
+def _clarke_wright_estimation(*args, **kwargs):
+    """Placeholder for Clarke-Wright method."""
+    raise NotImplementedError("Clarke-Wright method not implemented yet.")
 
-def _continuous_approximation():
-    raise NotImplementedError
+def _continuous_approximation(*args, **kwargs):
+    """Placeholder for Continuous Approximation method."""
+    raise NotImplementedError("Continuous Approximation method not implemented yet.")
 
 def _vrp_solver_estimation(
     cluster_customers: pd.DataFrame,
