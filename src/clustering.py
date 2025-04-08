@@ -14,12 +14,13 @@ from haversine import haversine
 from src.config.parameters import Parameters
 from src.utils.route_time import estimate_route_time
 from scipy.spatial import distance
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import re
 from functools import lru_cache
 from sklearn.mixture import GaussianMixture
 import warnings
 from sklearn.exceptions import ConvergenceWarning
+import itertools
 
 logger = logging.getLogger(__name__)
 
@@ -64,51 +65,58 @@ class Cluster:
         customers: pd.DataFrame,
         config: pd.Series,
         cluster_id: int,
-        goods: List[str],
-        depot: Dict[str, float],
-        service_time: float,
-        avg_speed: float,
-        route_time_estimation: str,
+        settings: 'ClusteringSettings',
         method: str = ''
     ) -> 'Cluster':
-        """Create a cluster from customer data."""
+        """Create a cluster from customer data using settings."""
         return cls(
             cluster_id=cluster_id,
             config_id=config['Config_ID'],
             customers=customers['Customer_ID'].tolist(),
-            total_demand={g: float(customers[f'{g}_Demand'].sum()) for g in goods},
+            total_demand={g: float(customers[f'{g}_Demand'].sum()) for g in settings.goods},
             centroid_latitude=float(customers['Latitude'].mean()),
             centroid_longitude=float(customers['Longitude'].mean()),
-            goods_in_config=[g for g in goods if config[g] == 1],
+            goods_in_config=[g for g in settings.goods if config[g] == 1],
             route_time=float(estimate_route_time(
                 cluster_customers=customers,
-                depot=depot,
-                service_time=service_time,
-                avg_speed=avg_speed,
-                method=route_time_estimation
+                depot=settings.depot,
+                service_time=settings.service_time,
+                avg_speed=settings.avg_speed,
+                method=settings.route_time_estimation
             )),
-            method=method
+            method=settings.method
         )
 
-def get_clustering_input(
-    customers: pd.DataFrame, 
-    goods: List[str], 
-    method: str,
-    geo_weight: float,
-    demand_weight: float,
-    distance_metric: str = 'euclidean'
+@dataclass
+class ClusteringSettings:
+    """Encapsulates all settings required for a clustering run."""
+    method: str
+    goods: List[str]
+    depot: Dict[str, float]
+    avg_speed: float
+    service_time: float
+    max_route_time: float
+    max_depth: int
+    route_time_estimation: str
+    geo_weight: float
+    demand_weight: float
+    distance_metric: str # 'euclidean' or 'composite'
+
+def compute_cluster_metric_input(
+    customers: pd.DataFrame,
+    settings: ClusteringSettings
 ) -> np.ndarray:
     """Get appropriate input for clustering algorithm."""
     # Methods that need precomputed distance matrix
     needs_precomputed = (
-        method.startswith('agglomerative') 
+        settings.method.startswith('agglomerative') 
     )
     
     if needs_precomputed:
-        logger.debug(f"Using precomputed distance matrix for method: {method} with geo_weight={geo_weight}, demand_weight={demand_weight}")
-        return compute_composite_distance(customers, goods, geo_weight, demand_weight)
+        logger.debug(f"Using precomputed distance matrix for method: {settings.method} with geo_weight={settings.geo_weight}, demand_weight={settings.demand_weight}")
+        return compute_composite_distance(customers, settings.goods, settings.geo_weight, settings.demand_weight)
     else:
-        logger.debug(f"Using feature-based input for method: {method}")
+        logger.debug(f"Using feature-based input for method: {settings.method}")
         return customers[['Latitude', 'Longitude']].values
 
 def compute_composite_distance(
@@ -190,89 +198,71 @@ def generate_clusters_for_configurations(
     Returns:
         DataFrame containing all generated clusters
     """
-    # Generate feasibility mapping
+    logger.info("--- Starting Cluster Generation Process ---")
+    if customers.empty or configurations_df.empty:
+        logger.warning("Input customers or configurations are empty. Returning empty DataFrame.")
+        return pd.DataFrame()
+
+    # 1. Generate feasibility mapping
+    logger.info("Generating feasibility mapping...")
     feasible_customers = _generate_feasibility_mapping(
         customers, 
         configurations_df,
         params.goods
     )
-    
-    # Add info logging with distinctive symbols
-    logger.info(f"🔍 Clustering method received: '{params.clustering['method']}'")
-    
-    if params.clustering['method'] == 'combine':
-        logger.info("🔄 Using combine method")
-        # Base methods that don't use distance matrix
-        methods = [
-            'minibatch_kmeans',
-            'kmedoids',
-            'gaussian_mixture'  # Keeping this as it's effective
-        ]
-        
-        # Define weight combinations (geo_weight, demand_weight)
-        weight_combinations = [
-            (1.0, 0.0),  # Pure geographical
-            (0.8, 0.2),  # Mostly geographical
-            (0.6, 0.4),  # Balanced geo/demand
-            (0.4, 0.6)   # Demand-leaning
-        ]
-        
-        # Add agglomerative with different weights
-        for geo_w, demand_w in weight_combinations:
-            method_name = f'agglomerative_geo_{geo_w}_demand_{demand_w}'
-            methods.append(method_name)
-        
-    else:
-        logger.info(f"📍 Using single method: {params.clustering['method']}")
-        methods = [params.clustering['method']]
+    if not feasible_customers:
+        logger.warning("No customers are feasible for any configuration. Returning empty DataFrame.")
+        return pd.DataFrame()
+    logger.info(f"Feasibility mapping generated for {len(feasible_customers)} customers.")
 
-    # Initialize a global cluster ID counter to ensure uniqueness
-    cluster_id_counter = 0
+    # 2. Generate list of ClusteringSettings objects for all runs
+    list_of_settings = _get_clustering_settings_list(params)
 
-    # Process configurations in parallel for each method
+    # Use itertools.count for safer ID generation across parallel runs potentially
+    cluster_id_generator = itertools.count()
+
+    # 4. Process configurations in parallel for each settings configuration
     all_clusters = []
-    for method in methods:
-        clusters_by_config = Parallel(n_jobs=-1)(
+    for settings_for_run in list_of_settings:
+        logger.info(f"--- Running Configuration: {settings_for_run.method} (GeoW: {settings_for_run.geo_weight:.2f}, DemW: {settings_for_run.demand_weight:.2f}) ---")
+
+        # Run clustering for all configurations using these settings in parallel
+        # Use threading backend if models aren't releasing GIL effectively, but start with process-based
+        clusters_by_config = Parallel(n_jobs=-1, backend='loky')(
             delayed(process_configuration)(
-                config,
-                customers,
-                params.goods,
-                params.depot,
-                params.avg_speed,
-                params.service_time,
-                params.max_route_time,
-                feasible_customers,
-                params.clustering['max_depth'],
-                method,  # Using the current method
-                params.clustering['route_time_estimation'],
-                params.clustering['geo_weight'],
-                params.clustering['demand_weight'],
-                params.clustering['distance']
+                config=config,
+                customers=customers,
+                feasible_customers=feasible_customers,
+                settings=settings_for_run
             )
             for _, config in configurations_df.iterrows()
         )
         
-        # Combine all clusters from this method with unique Cluster_IDs
+        # Flatten the list of lists returned by Parallel and assign IDs
         for config_clusters in clusters_by_config:
-            for cluster in config_clusters:
-                # Assign unique Cluster_ID
-                cluster['Cluster_ID'] = cluster_id_counter
-                cluster_id_counter += 1
-                all_clusters.append(cluster)
-    
+            for cluster_dict in config_clusters:
+                # Assign unique Cluster_ID using the generator
+                cluster_dict['Cluster_ID'] = next(cluster_id_generator)
+                all_clusters.append(cluster_dict)
+        logger.info(f"--- Configuration {settings_for_run.method} completed, generated {len([c for config_clusters in clusters_by_config for c in config_clusters])} raw clusters ---")
+
     # Convert to DataFrame
-    combined_clusters_df = pd.DataFrame(all_clusters)
-    
+    if not all_clusters:
+        logger.warning("No clusters were generated by any configuration.")
+        return pd.DataFrame()
+
     # Remove duplicate clusters based on customer sets
-    combined_clusters_df['Customer_Set'] = combined_clusters_df['Customers'].apply(lambda x: frozenset(x))
-    combined_clusters_df = combined_clusters_df.drop_duplicates(subset=['Customer_Set']).drop(columns=['Customer_Set'])
+    logger.info(f"Combining and deduplicating {len(all_clusters)} raw clusters from all configurations...")
+    combined_clusters_df = pd.DataFrame(all_clusters)
+    unique_clusters_df = _deduplicate_clusters(combined_clusters_df)
 
     # Validate cluster coverage
-    validate_cluster_coverage(combined_clusters_df, customers)
+    validate_cluster_coverage(unique_clusters_df, customers)
 
-    logger.info(f"{Symbols.CHECKMARK} Generated a total of {len(combined_clusters_df)} unique clusters using '{params.clustering['method']}' method.")
+    logger.info("--- Cluster Generation Complete ---")
+    logger.info(f"{Symbols.CHECKMARK} Generated a total of {len(unique_clusters_df)} unique clusters across all configurations.")
 
-    return combined_clusters_df
+    return unique_clusters_df
 
 def compute_demands(customers: pd.DataFrame, goods: List[str]) -> Dict[str, np.ndarray]:
     """Compute and cache demand calculations for customers."""
@@ -286,26 +276,12 @@ def compute_demands(customers: pd.DataFrame, goods: List[str]) -> Dict[str, np.n
 def process_configuration(
     config: pd.Series,
     customers: pd.DataFrame,
-    goods: List[str],
-    depot: Dict[str, float],
-    avg_speed: float,
-    service_time: float,
-    max_route_time: float,
     feasible_customers: Dict,
-    max_split_depth: int,
-    clustering_method: str,
-    route_time_estimation: str,
-    geo_weight: float,
-    demand_weight: float,
-    distance_metric: str
+    settings: ClusteringSettings
 ) -> List[Dict]:
     """Process a single vehicle configuration to generate feasible clusters."""
     config_id = config['Config_ID']
     clusters = []
-    
-    # Initialize adjusted weights with default values
-    adjusted_geo_weight = geo_weight
-    adjusted_demand_weight = demand_weight
     
     # Get feasible customers for this configuration
     customers_subset = customers[
@@ -319,7 +295,7 @@ def process_configuration(
         return []
 
     # Always compute total demand first
-    demands = compute_demands(customers_subset, goods)
+    demands = compute_demands(customers_subset, settings.goods)
     customers_subset['Total_Demand'] = demands['total']
 
     # For small subsets, always use MiniBatchKMeans
@@ -331,37 +307,21 @@ def process_configuration(
     else:
         # Initial clustering
         num_clusters = estimate_num_initial_clusters(
-            customers_subset, 
-            config, 
-            depot, 
-            avg_speed, 
-            service_time,
-            goods,
-            max_route_time,
-            route_time_estimation
+            customers_subset,
+            config,
+            settings
         )
 
-        # Handle agglomerative variants
-        if '_' in clustering_method:
-            pattern = r'agglomerative_geo_(\d+\.\d+)_demand_(\d+\.\d+)'
-            if match := re.match(pattern, clustering_method):
-                adjusted_geo_weight = float(match.group(1))
-                adjusted_demand_weight = float(match.group(2))
-
-        # Get input data and cluster using adjusted weights
-        data = get_clustering_input(
-            customers_subset, 
-            goods, 
-            clustering_method, 
-            adjusted_geo_weight,
-            adjusted_demand_weight,
-            distance_metric
+        # Get input data and cluster using weights from settings
+        data = compute_cluster_metric_input(
+            customers_subset,
+            settings
         )
 
         # Ensure the number of clusters does not exceed the number of customers
         num_clusters = min(num_clusters, len(customers_subset))
 
-        model = get_clustering_model(num_clusters, clustering_method)
+        model = get_clustering_model(num_clusters, settings.method)
         customers_subset['Cluster'] = model.fit_predict(data)
 
     # Process clusters (same for both cases)
@@ -376,32 +336,28 @@ def process_configuration(
         cluster_customers, depth = clusters_to_check.pop()
         # Ensure Total_Demand is computed for the subset
         if 'Total_Demand' not in cluster_customers.columns:
-            cluster_customers['Total_Demand'] = compute_demands(cluster_customers, goods)['total']
+            cluster_customers['Total_Demand'] = compute_demands(cluster_customers, settings.goods)['total']
             
         cluster_demand = cluster_customers['Total_Demand'].sum()
         route_time = estimate_route_time(
             cluster_customers=cluster_customers,
-            depot=depot,
-            service_time=service_time,
-            avg_speed=avg_speed,
-            method=route_time_estimation
+            depot=settings.depot,
+            service_time=settings.service_time,
+            avg_speed=settings.avg_speed,
+            method=settings.route_time_estimation
         )
 
-        if (cluster_demand > config['Capacity'] or route_time > max_route_time) and depth < max_split_depth:
+        if (cluster_demand > config['Capacity'] or route_time > settings.max_route_time) and depth < settings.max_depth:
             if len(cluster_customers) > 1:
-                logger.debug(f"Splitting cluster ID {current_cluster_id} at depth {depth}.")
+                logger.debug(f"Splitting cluster for config {config_id} (size {len(cluster_customers)}) at depth {depth}.")
 
                 # Split cluster using the same approach
-                split_data = get_clustering_input(
-                    cluster_customers, 
-                    goods, 
-                    clustering_method,
-                    adjusted_geo_weight,
-                    adjusted_demand_weight,
-                    distance_metric
+                split_data = compute_cluster_metric_input(
+                    cluster_customers,
+                    settings
                 )
                 # Split over-capacity clusters into two
-                split_model = get_clustering_model(2, clustering_method)
+                split_model = get_clustering_model(2, settings.method)
                 sub_labels = split_model.fit_predict(split_data)
 
                 for label in [0, 1]:
@@ -415,19 +371,13 @@ def process_configuration(
                 cluster_customers,
                 config,
                 cluster_id_base + current_cluster_id,
-                goods,
-                depot,
-                service_time,
-                avg_speed,
-                route_time_estimation,
-                clustering_method
+                settings,
+                settings.method
             )
             cluster_dict = cluster.to_dict()
             # Add the clustering method to the cluster information
-            cluster_dict['Method'] = clustering_method
+            cluster_dict['Method'] = settings.method
             clusters.append(cluster_dict)
-
-    logger.info(f" Clustering Method: {clustering_method} | geo_weight={adjusted_geo_weight}, demand_weight={adjusted_demand_weight}")
 
     return clusters
 
@@ -468,36 +418,15 @@ def _is_customer_feasible(
 def estimate_num_initial_clusters(
     customers: pd.DataFrame,
     config: pd.Series,
-    depot: Dict[str, float],
-    avg_speed: float,
-    service_time: float,
-    goods: List[str],
-    max_route_time: float,
-    route_time_estimation: str
+    settings: ClusteringSettings
 ) -> int:
-    """
-    Estimate the number of initial clusters needed based on capacity and time constraints.
-    
-    Args:
-        customers: DataFrame containing customer data
-        config: Vehicle configuration
-        depot: Depot location coordinates
-        avg_speed: Average vehicle speed (km/h)
-        service_time: Service time per customer (minutes)
-        goods: List of goods types
-        max_route_time: Maximum route time (hours)
-        route_time_estimation: Method to estimate route times 
-                             (Legacy, Clarke-Wright, BHH, CA, VRPSolver)
-    
-    Returns:
-        Estimated number of clusters needed
-    """
+    """Estimate the number of initial clusters needed based on capacity and time constraints."""
     if customers.empty:
         return 0
 
     # Calculate total demand for relevant goods
     total_demand = 0
-    for good in goods:
+    for good in settings.goods:
         if config[good]:  # Only consider goods this vehicle can carry
             total_demand += customers[f'{good}_Demand'].sum()
 
@@ -505,7 +434,7 @@ def estimate_num_initial_clusters(
     clusters_by_capacity = np.ceil(total_demand / config['Capacity'])
 
     # Calculate average distance from depot to customers
-    depot_coord = (depot['latitude'], depot['longitude'])
+    depot_coord = (settings.depot['latitude'], settings.depot['longitude'])
     avg_distance = np.mean([
         haversine(depot_coord, (lat, lon))
         for lat, lon in zip(customers['Latitude'], customers['Longitude'])
@@ -513,19 +442,21 @@ def estimate_num_initial_clusters(
 
     # Estimate time for an average route
     avg_customers_per_cluster = len(customers) / clusters_by_capacity
-    avg_cluster = customers.sample(n=min(int(avg_customers_per_cluster), len(customers)))
+    # Ensure sample size doesn't exceed population size and is at least 1 if possible
+    sample_size = max(1, min(int(avg_customers_per_cluster), len(customers)))
+    avg_cluster = customers.sample(n=sample_size)
     avg_route_time = estimate_route_time(
         cluster_customers=avg_cluster,
-        depot=depot,
-        service_time=service_time,  # in minutes
-        avg_speed=avg_speed,
-        method=route_time_estimation
+        depot=settings.depot,
+        service_time=settings.service_time,  # in minutes
+        avg_speed=settings.avg_speed,
+        method=settings.route_time_estimation
     )
 
     # Estimate clusters needed based on time
     clusters_by_time = np.ceil(
         avg_route_time * len(customers) / 
-        (max_route_time * avg_customers_per_cluster)
+        (settings.max_route_time * avg_customers_per_cluster)
     )
 
     # Take the maximum of the two estimates
@@ -545,6 +476,74 @@ def validate_cluster_coverage(clusters_df, customers_df):
             customer_coverage[cid] = True
     uncovered = [cid for cid, covered in customer_coverage.items() if not covered]
 
-@lru_cache(maxsize=128)
-def compute_distance_matrix(customer_ids, method):
-    """Cache distance computations for frequently accessed customer sets."""
+
+def _deduplicate_clusters(clusters_df: pd.DataFrame) -> pd.DataFrame:
+    """Removes duplicate clusters based on the set of customers."""
+    if clusters_df.empty:
+        return clusters_df
+    logger.info(f"Starting deduplication with {len(clusters_df)} clusters.")
+    # Create a column of frozensets for efficient duplicate checking
+    # The lambda handles cases where 'Customers' might not be a list/tuple, creating an empty set
+    clusters_df['Customer_Set'] = clusters_df['Customers'].apply(
+        lambda x: frozenset(x) if isinstance(x, (list, tuple)) else frozenset()
+    )
+    # Drop duplicates based on the frozenset column
+    deduplicated_df = clusters_df.drop_duplicates(subset=['Customer_Set'], keep='first').drop(columns=['Customer_Set'])
+    
+    if len(deduplicated_df) < len(clusters_df):
+        logger.info(f"Finished deduplication: Removed {len(clusters_df) - len(deduplicated_df)} duplicate clusters, {len(deduplicated_df)} unique clusters remain.")
+    else:
+        logger.info(f"Finished deduplication: No duplicate clusters found ({len(deduplicated_df)} clusters).")
+    return deduplicated_df
+
+def _get_clustering_settings_list(params: Parameters) -> List[ClusteringSettings]:
+    """Generates a list of ClusteringSettings objects for all runs."""
+    settings_list = []
+
+    # Create a base settings object with common parameters
+    # The weights here will be used ONLY if a single method is specified
+    base_settings = ClusteringSettings(
+        method=params.clustering['method'],
+        goods=params.goods,
+        depot=params.depot,
+        avg_speed=params.avg_speed,
+        service_time=params.service_time,
+        max_route_time=params.max_route_time,
+        max_depth=params.clustering['max_depth'],
+        route_time_estimation=params.clustering['route_time_estimation'],
+        geo_weight=params.clustering['geo_weight'],
+        demand_weight=params.clustering['demand_weight'],
+        distance_metric=params.clustering['distance']
+    )
+
+    if base_settings.method == 'combine':
+        logger.info("🔄 Generating settings variations for 'combine' method")
+        # 1. Base methods (kmeans, kmedoids, gmm) - Assume primarily geographical (Geo=1, Dem=0)
+        # This reflects original logic where these likely ignored param weights in combine mode
+        base_method_names = ['minibatch_kmeans', 'kmedoids', 'gaussian_mixture']
+        for name in base_method_names:
+            settings_list.append(replace(
+                base_settings, # Start from base
+                method=name # Set correct method name
+            ))
+
+        # 2. Agglomerative with different explicit weights
+        weight_combinations = [
+            (1.0, 0.0), (0.8, 0.2), (0.6, 0.4), (0.4, 0.6), (0.2, 0.8), (0.0, 1.0)
+        ]
+        for geo_w, demand_w in weight_combinations:
+            settings_list.append(replace(
+                base_settings,
+                method='agglomerative', # Set method to agglomerative
+                geo_weight=geo_w, # Use specific weight combo
+                demand_weight=demand_w # Use specific weight combo
+            ))
+
+    else:
+        # Single method specified: Use the base_settings as configured initially
+        # (which already includes the method name and default weights from params)
+        logger.info(f"📍 Using single method configuration: {base_settings.method}")
+        settings_list.append(base_settings)
+
+    logger.info(f"Generated {len(settings_list)} distinct clustering settings configurations.")
+    return settings_list
