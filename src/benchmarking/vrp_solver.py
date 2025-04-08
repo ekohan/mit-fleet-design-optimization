@@ -121,37 +121,43 @@ class VRPSolver:
     def _calculate_distance_matrix(self, n_clients: int) -> np.ndarray:
         """Calculate distance matrix for expanded client list."""
         distance_matrix = np.zeros((n_clients + 1, n_clients + 1))  # +1 for depot
+        client_coords_list = [(0, 0)] * (n_clients + 1) # Store coords (lat, lon) for depot + clients
         
         # Add depot coordinates at index 0
         depot_coords = (self.params.depot['latitude'], self.params.depot['longitude'])
+        client_coords_list[0] = depot_coords
         
-        # Calculate distances
+        # Calculate distances and store client coordinates
         client_idx = 0
         for _, row in self.customers.iterrows():
-            client_coords = (row['Latitude'], row['Longitude'])
-            dist = haversine(depot_coords, client_coords)
+            coords = (row['Latitude'], row['Longitude'])
             
             # Check if this customer should be included based on benchmark type
             if self.benchmark_type == BenchmarkType.MULTI_COMPARTMENT:
                 total_demand = sum(row[f'{good}_Demand'] for good in self.params.goods)
                 if total_demand > 0:
                     client_idx += 1
+                    dist = haversine(depot_coords, coords)
                     distance_matrix[0, client_idx] = dist
                     distance_matrix[client_idx, 0] = dist
+                    client_coords_list[client_idx] = coords # Store coords
             else:  # SINGLE_COMPARTMENT
                 for good in self.params.goods:
                     if row[f'{good}_Demand'] > 0:
                         client_idx += 1
+                        dist = haversine(depot_coords, coords)
                         distance_matrix[0, client_idx] = dist
                         distance_matrix[client_idx, 0] = dist
+                        client_coords_list[client_idx] = coords # Store coords
         
-        # Calculate client-to-client distances
+        # Calculate client-to-client distances using stored coordinates
         for i in range(1, n_clients + 1):
             for j in range(i + 1, n_clients + 1):
-                dist = distance_matrix[i, 0]  # If same location, distance is 0
-                if dist > 0:
-                    distance_matrix[i, j] = dist
-                    distance_matrix[j, i] = dist
+                coords_i = client_coords_list[i]
+                coords_j = client_coords_list[j]
+                dist = haversine(coords_i, coords_j)
+                distance_matrix[i, j] = dist
+                distance_matrix[j, i] = dist
         
         return distance_matrix
     
@@ -373,7 +379,7 @@ class VRPSolver:
         compartment_configs: Optional[List[Dict[str, float]]] = None
     ) -> None:
         """Print solution details."""
-        print(f"\n���️ VRP Solution Summary:")
+        print(f"\n🚚 VRP Solution Summary:")
         
         # Handle infeasible solutions
         if total_cost == float('inf') or not routes:
