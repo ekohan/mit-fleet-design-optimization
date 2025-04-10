@@ -17,6 +17,7 @@ from dataclasses import dataclass, replace
 from sklearn.mixture import GaussianMixture
 from sklearn.exceptions import ConvergenceWarning
 import itertools
+from multiprocessing import Manager
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +179,58 @@ def get_clustering_model(n_clusters: int, method: str):
         logger.error(f"❌ Unknown clustering method: {method}")
         raise ValueError(f"Unknown clustering method: {method}")
 
+def get_cached_demand(
+    customers: pd.DataFrame,
+    goods: List[str],
+    demand_cache: Dict
+) -> Dict[str, float]:
+    """Get demand from cache or compute and cache it."""
+    # Use sorted tuple of customer IDs as key (immutable and hashable)
+    key = tuple(sorted(customers['Customer_ID']))
+    
+    # Check if in cache
+    result = demand_cache.get(key, None)
+    if result is not None:
+        return result
+    
+    # Not in cache, compute it
+    demand_dict = {g: float(customers[f'{g}_Demand'].sum()) for g in goods}
+    
+    # Store in cache
+    demand_cache[key] = demand_dict
+    return demand_dict
+
+def get_cached_route_time(
+    customers: pd.DataFrame,
+    depot: Dict[str, float],
+    service_time: float,
+    avg_speed: float,
+    method: str,
+    route_time_cache: Dict
+) -> float:
+    """Get route time from cache or compute and cache it."""
+    # Create a hashable key including all parameters that affect route time
+    depot_key = tuple(sorted((k, v) for k, v in depot.items()))
+    key = (tuple(sorted(customers['Customer_ID'])), depot_key, service_time, avg_speed, method)
+    
+    # Check if in cache
+    result = route_time_cache.get(key, None)
+    if result is not None:
+        return result
+    
+    # Not in cache, compute it
+    route_time = float(estimate_route_time(
+        cluster_customers=customers,
+        depot=depot,
+        service_time=service_time,
+        avg_speed=avg_speed,
+        method=method
+    ))
+    
+    # Store in cache
+    route_time_cache[key] = route_time
+    return route_time
+
 def generate_clusters_for_configurations(
     customers: pd.DataFrame,
     configurations_df: pd.DataFrame,
@@ -199,48 +252,59 @@ def generate_clusters_for_configurations(
         logger.warning("Input customers or configurations are empty. Returning empty DataFrame.")
         return pd.DataFrame()
 
-    # 1. Generate feasibility mapping
-    logger.info("Generating feasibility mapping...")
-    feasible_customers = _generate_feasibility_mapping(
-        customers, 
-        configurations_df,
-        params.goods
-    )
-    if not feasible_customers:
-        logger.warning("No customers are feasible for any configuration. Returning empty DataFrame.")
-        return pd.DataFrame()
-    logger.info(f"Feasibility mapping generated for {len(feasible_customers)} customers.")
-
-    # 2. Generate list of ClusteringSettings objects for all runs
-    list_of_settings = _get_clustering_settings_list(params)
-
-    # Use itertools.count for safer ID generation across parallel runs potentially
-    cluster_id_generator = itertools.count()
-
-    # 4. Process configurations in parallel for each settings configuration
-    all_clusters = []
-    for settings_for_run in list_of_settings:
-        logger.info(f"--- Running Configuration: {settings_for_run.method} (GeoW: {settings_for_run.geo_weight:.2f}, DemW: {settings_for_run.demand_weight:.2f}) ---")
-
-        # Run clustering for all configurations using these settings in parallel
-        # Use threading backend if models aren't releasing GIL effectively, but start with process-based
-        clusters_by_config = Parallel(n_jobs=-1, backend='loky')(
-            delayed(process_configuration)(
-                config=config,
-                customers=customers,
-                feasible_customers=feasible_customers,
-                settings=settings_for_run
-            )
-            for _, config in configurations_df.iterrows()
-        )
+    # Create shared caches using multiprocessing.Manager
+    with Manager() as manager:
+        shared_demand_cache = manager.dict()
+        shared_route_time_cache = manager.dict()
         
-        # Flatten the list of lists returned by Parallel and assign IDs
-        for config_clusters in clusters_by_config:
-            for cluster in config_clusters:
-                # Assign unique Cluster_ID
-                cluster.cluster_id = next(cluster_id_generator)
-                all_clusters.append(cluster)
-        logger.info(f"--- Configuration {settings_for_run.method} completed, generated {len([c for config_clusters in clusters_by_config for c in config_clusters])} raw clusters ---")
+        logger.info("Initializing shared caches for demand and route time calculations")
+
+        # 1. Generate feasibility mapping
+        logger.info("Generating feasibility mapping...")
+        feasible_customers = _generate_feasibility_mapping(
+            customers, 
+            configurations_df,
+            params.goods
+        )
+        if not feasible_customers:
+            logger.warning("No customers are feasible for any configuration. Returning empty DataFrame.")
+            return pd.DataFrame()
+        logger.info(f"Feasibility mapping generated for {len(feasible_customers)} customers.")
+
+        # 2. Generate list of ClusteringSettings objects for all runs
+        list_of_settings = _get_clustering_settings_list(params)
+
+        # Use itertools.count for safer ID generation across parallel runs potentially
+        cluster_id_generator = itertools.count()
+
+        # 4. Process configurations in parallel for each settings configuration
+        all_clusters = []
+        for settings_for_run in list_of_settings:
+            logger.info(f"--- Running Configuration: {settings_for_run.method} (GeoW: {settings_for_run.geo_weight:.2f}, DemW: {settings_for_run.demand_weight:.2f}) ---")
+
+            # Run clustering for all configurations using these settings in parallel
+            # Use threading backend if models aren't releasing GIL effectively, but start with process-based
+            clusters_by_config = Parallel(n_jobs=-1, backend='loky')(
+                delayed(process_configuration)(
+                    config=config,
+                    customers=customers,
+                    feasible_customers=feasible_customers,
+                    settings=settings_for_run,
+                    demand_cache=shared_demand_cache,
+                    route_time_cache=shared_route_time_cache
+                )
+                for _, config in configurations_df.iterrows()
+            )
+            
+            # Flatten the list of lists returned by Parallel and assign IDs
+            for config_clusters in clusters_by_config:
+                for cluster in config_clusters:
+                    # Assign unique Cluster_ID
+                    cluster.cluster_id = next(cluster_id_generator)
+                    all_clusters.append(cluster)
+            logger.info(f"--- Configuration {settings_for_run.method} completed, generated {len([c for config_clusters in clusters_by_config for c in config_clusters])} raw clusters ---")
+
+        logger.info(f"Cache statistics: {len(shared_demand_cache)} demand entries, {len(shared_route_time_cache)} route time entries")
 
     if not all_clusters:
         logger.warning("No clusters were generated by any configuration.")
@@ -262,20 +326,13 @@ def generate_clusters_for_configurations(
 
     return unique_clusters_df
 
-def compute_demands(customers: pd.DataFrame, goods: List[str]) -> Dict[str, np.ndarray]:
-    """Compute and cache demand calculations for customers."""
-    return {
-        'total': customers[[f'{g}_Demand' for g in goods]].sum(axis=1),
-        'by_good': customers[[f'{g}_Demand' for g in goods]].fillna(0).values,
-        'weighted': customers[[f'{g}_Demand' for g in goods]].fillna(0).values * \
-                   np.array([PRODUCT_WEIGHTS.get(g, 1.0) for g in goods])
-    }
-
 def process_configuration(
     config: pd.Series,
     customers: pd.DataFrame,
     feasible_customers: Dict,
-    settings: ClusteringSettings
+    settings: ClusteringSettings,
+    demand_cache: Dict = None,
+    route_time_cache: Dict = None
 ) -> List[Cluster]:
     """Process a single vehicle configuration to generate feasible clusters."""
     # 1. Get customers that can be served by the configuration
@@ -284,10 +341,10 @@ def process_configuration(
         return []
     
     # 2. Create initial clusters based on size
-    labeled_customers = create_initial_clusters(customers_subset, config, settings)
+    initial_clusters_df = create_initial_clusters(customers_subset, config, settings)
     
     # 3. Process clusters recursively until constraints are satisfied
-    return process_clusters_recursively(labeled_customers, config, settings)
+    return process_clusters_recursively(initial_clusters_df, config, settings, demand_cache, route_time_cache)
 
 def get_feasible_customers_subset(
     customers: pd.DataFrame, 
@@ -302,29 +359,23 @@ def get_feasible_customers_subset(
         ])
     ].copy()
 
-def add_demand_information(
-    customers_subset: pd.DataFrame, 
-    goods: List[str]
-) -> pd.DataFrame:
-    """Add total demand information to the customer dataframe."""
-    customers_copy = customers_subset.copy()
-    demands = compute_demands(customers_copy, goods)
-    customers_copy['Total_Demand'] = demands['total']
-    return customers_copy
-
 def create_initial_clusters(
     customers_subset: pd.DataFrame, 
     config: pd.Series, 
     settings: ClusteringSettings
 ) -> pd.DataFrame:
     """Create initial clusters based on dataset size and settings."""
-    # Add total demand
-    customers_with_demand = add_demand_information(customers_subset, settings.goods)
+    # Create a working copy
+    customers_copy = customers_subset.copy()
     
-    if len(customers_with_demand) <= 2:
-        return create_small_dataset_clusters(customers_with_demand)
+    # Add total demand directly if needed for the algorithm
+    # This is equivalent to what add_demand_information was doing
+    customers_copy['Total_Demand'] = customers_copy[[f'{g}_Demand' for g in settings.goods]].sum(axis=1)
+    
+    if len(customers_copy) <= 2:
+        return create_small_dataset_clusters(customers_copy)
     else:
-        return create_normal_dataset_clusters(customers_with_demand, config, settings)
+        return create_normal_dataset_clusters(customers_copy, config, settings)
 
 def create_small_dataset_clusters(customers_subset: pd.DataFrame) -> pd.DataFrame:
     """Create clusters for small datasets (≤2 customers)."""
@@ -369,7 +420,9 @@ def generate_cluster_id_base(config_id: int) -> int:
 def check_constraints(
     cluster_customers: pd.DataFrame,
     config: pd.Series,
-    settings: ClusteringSettings
+    settings: ClusteringSettings,
+    demand_cache: Dict,
+    route_time_cache: Dict
 ) -> tuple[bool, bool]:
     """
     Check if cluster violates capacity or time constraints.
@@ -377,17 +430,22 @@ def check_constraints(
     Returns:
         tuple: (capacity_violated, time_violated)
     """
-    # Ensure Total_Demand is computed
-    if 'Total_Demand' not in cluster_customers.columns:
-        cluster_customers = add_demand_information(cluster_customers, settings.goods)
+    # Get demand from cache
+    demand_dict = get_cached_demand(
+        cluster_customers, 
+        settings.goods, 
+        demand_cache
+    )
+    cluster_demand = sum(demand_dict.values())
     
-    cluster_demand = cluster_customers['Total_Demand'].sum()
-    route_time = estimate_route_time(
-        cluster_customers=cluster_customers,
-        depot=settings.depot,
-        service_time=settings.service_time,
-        avg_speed=settings.avg_speed,
-        method=settings.route_time_estimation
+    # Get route time from cache
+    route_time = get_cached_route_time(
+        cluster_customers,
+        settings.depot,
+        settings.service_time,
+        settings.avg_speed,
+        settings.route_time_estimation,
+        route_time_cache
     )
     
     capacity_violated = cluster_demand > config['Capacity']
@@ -399,10 +457,18 @@ def should_split_cluster(
     cluster_customers: pd.DataFrame, 
     config: pd.Series, 
     settings: ClusteringSettings, 
-    depth: int
+    depth: int,
+    demand_cache: Dict,
+    route_time_cache: Dict
 ) -> bool:
     """Determine if a cluster should be split based on constraints."""
-    capacity_violated, time_violated = check_constraints(cluster_customers, config, settings)
+    capacity_violated, time_violated = check_constraints(
+        cluster_customers, 
+        config, 
+        settings,
+        demand_cache,
+        route_time_cache
+    )
     is_singleton_cluster = len(cluster_customers) <= 1
     
     # Log warning for single-customer constraints
@@ -446,22 +512,47 @@ def create_cluster(
     cluster_customers: pd.DataFrame, 
     config: pd.Series, 
     cluster_id: int, 
-    settings: ClusteringSettings
+    settings: ClusteringSettings,
+    demand_cache: Dict,
+    route_time_cache: Dict
 ) -> Cluster:
     """Create a Cluster object from customer data."""
-    cluster = Cluster.from_customers(
+    # Get demand from cache
+    total_demand = get_cached_demand(
+        cluster_customers, 
+        settings.goods, 
+        demand_cache
+    )
+    
+    # Get route time from cache
+    route_time = get_cached_route_time(
         cluster_customers,
-        config,
-        cluster_id,
-        settings,
-        settings.method
+        settings.depot,
+        settings.service_time,
+        settings.avg_speed,
+        settings.route_time_estimation,
+        route_time_cache
+    )
+    
+    cluster = Cluster(
+        cluster_id=cluster_id,
+        config_id=config['Config_ID'],
+        customers=cluster_customers['Customer_ID'].tolist(),
+        total_demand=total_demand,
+        centroid_latitude=float(cluster_customers['Latitude'].mean()),
+        centroid_longitude=float(cluster_customers['Longitude'].mean()),
+        goods_in_config=[g for g in settings.goods if config[g] == 1],
+        route_time=route_time,
+        method=settings.method
     )
     return cluster
 
 def process_clusters_recursively(
-    labeled_customers: pd.DataFrame, 
+    initial_clusters_df: pd.DataFrame, 
     config: pd.Series, 
-    settings: ClusteringSettings
+    settings: ClusteringSettings,
+    demand_cache: Dict,
+    route_time_cache: Dict
 ) -> List[Cluster]:
     """Process clusters recursively to ensure constraints are satisfied."""
     config_id = config['Config_ID']
@@ -471,8 +562,8 @@ def process_clusters_recursively(
     
     # Process clusters until all constraints are satisfied
     clusters_to_check = [
-        (labeled_customers[labeled_customers['Cluster'] == c], 0)
-        for c in labeled_customers['Cluster'].unique()
+        (initial_clusters_df[initial_clusters_df['Cluster'] == c], 0)
+        for c in initial_clusters_df['Cluster'].unique()
     ]
     
     logger.info(f"Starting recursive processing for config {config_id} with {len(clusters_to_check)} initial clusters")
@@ -487,7 +578,13 @@ def process_clusters_recursively(
         # Check if max depth reached
         if max_depth_reached:
             # Check if constraints violated
-            capacity_violated, time_violated = check_constraints(cluster_customers, config, settings)
+            capacity_violated, time_violated = check_constraints(
+                cluster_customers, 
+                config, 
+                settings,
+                demand_cache,
+                route_time_cache
+            )
             
             if capacity_violated or time_violated:
                 logger.warning(f"⚠️ Max depth {settings.max_depth} reached but constraints still violated: "
@@ -497,7 +594,7 @@ def process_clusters_recursively(
                 continue  # Skip this cluster
         
         # Not at max depth, check if we should split
-        if not max_depth_reached and should_split_cluster(cluster_customers, config, settings, depth):
+        if not max_depth_reached and should_split_cluster(cluster_customers, config, settings, depth, demand_cache, route_time_cache):
             split_count += 1
             logger.debug(f"Splitting cluster for config {config_id} (size {len(cluster_customers)}) at depth {depth}/{settings.max_depth}")
             # Split oversized clusters
@@ -510,7 +607,9 @@ def process_clusters_recursively(
                 cluster_customers, 
                 config,
                 cluster_id_base + current_cluster_id, 
-                settings
+                settings,
+                demand_cache,
+                route_time_cache
             )
             clusters.append(cluster)
     
