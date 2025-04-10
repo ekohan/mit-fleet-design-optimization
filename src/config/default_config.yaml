@@ -36,7 +36,7 @@ clustering:
   distance: euclidean  # Options: euclidean, composite (only for agglomerative)
   geo_weight: 0.7    # Weight for geographical distance (composite-only)
   demand_weight: 0.3  # Weight for demand distance (composite-only)
-  route_time_estimation: 'BHH'  # Options: Legacy, Clarke-Wright, BHH, CA, VRPSolver
+  route_time_estimation: 'TSP'  # Options: TSP, BHH, Legacy
 
 
 # Data Files

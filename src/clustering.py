@@ -15,7 +15,6 @@ from src.config.parameters import Parameters
 from src.utils.route_time import estimate_route_time
 from dataclasses import dataclass, replace
 from sklearn.mixture import GaussianMixture
-from sklearn.exceptions import ConvergenceWarning
 import itertools
 from multiprocessing import Manager
 
@@ -55,34 +54,6 @@ class Cluster:
             'Route_Time': self.route_time,
             'Method': self.method
         }
-
-    @classmethod
-    def from_customers(
-        cls,
-        customers: pd.DataFrame,
-        config: pd.Series,
-        cluster_id: int,
-        settings: 'ClusteringSettings',
-        method: str = ''
-    ) -> 'Cluster':
-        """Create a cluster from customer data using settings."""
-        return cls(
-            cluster_id=cluster_id,
-            config_id=config['Config_ID'],
-            customers=customers['Customer_ID'].tolist(),
-            total_demand={g: float(customers[f'{g}_Demand'].sum()) for g in settings.goods},
-            centroid_latitude=float(customers['Latitude'].mean()),
-            centroid_longitude=float(customers['Longitude'].mean()),
-            goods_in_config=[g for g in settings.goods if config[g] == 1],
-            route_time=float(estimate_route_time(
-                cluster_customers=customers,
-                depot=settings.depot,
-                service_time=settings.service_time,
-                avg_speed=settings.avg_speed,
-                method=settings.route_time_estimation
-            )),
-            method=settings.method
-        )
 
 @dataclass
 class ClusteringSettings:
@@ -202,16 +173,12 @@ def get_cached_demand(
 
 def get_cached_route_time(
     customers: pd.DataFrame,
-    depot: Dict[str, float],
-    service_time: float,
-    avg_speed: float,
-    method: str,
-    route_time_cache: Dict
+    settings: ClusteringSettings,
+    route_time_cache: Dict,
 ) -> float:
     """Get route time from cache or compute and cache it."""
-    # Create a hashable key including all parameters that affect route time
-    depot_key = tuple(sorted((k, v) for k, v in depot.items()))
-    key = (tuple(sorted(customers['Customer_ID'])), depot_key, service_time, avg_speed, method)
+    # Create a hashable key using only customer IDs - same approach as demand cache
+    key = tuple(sorted(customers['Customer_ID']))
     
     # Check if in cache
     result = route_time_cache.get(key, None)
@@ -221,10 +188,11 @@ def get_cached_route_time(
     # Not in cache, compute it
     route_time = float(estimate_route_time(
         cluster_customers=customers,
-        depot=depot,
-        service_time=service_time,
-        avg_speed=avg_speed,
-        method=method
+        depot=settings.depot,
+        service_time=settings.service_time,
+        avg_speed=settings.avg_speed,
+        method=settings.route_time_estimation,
+        max_route_time=settings.max_route_time
     ))
     
     # Store in cache
@@ -441,10 +409,7 @@ def check_constraints(
     # Get route time from cache
     route_time = get_cached_route_time(
         cluster_customers,
-        settings.depot,
-        settings.service_time,
-        settings.avg_speed,
-        settings.route_time_estimation,
+        settings,
         route_time_cache
     )
     
@@ -527,10 +492,7 @@ def create_cluster(
     # Get route time from cache
     route_time = get_cached_route_time(
         cluster_customers,
-        settings.depot,
-        settings.service_time,
-        settings.avg_speed,
-        settings.route_time_estimation,
+        settings,
         route_time_cache
     )
     
