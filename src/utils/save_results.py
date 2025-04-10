@@ -152,12 +152,11 @@ def save_optimization_results(
                     total_demand[good] / config['Capacity']
                 )
             
-            # Calculate empty percentage (as decimal)
-            max_load = max(
-                cluster_details.at[cluster_idx, f'Load_{good}_pct']
-                for good in parameters.goods
-            )
-            cluster_details.at[cluster_idx, 'Load_empty_pct'] = 1 - max_load
+            # Calculate TOTAL load percentage and empty percentage
+            config_capacity = config['Capacity']
+            total_load_pct = total_demand_sum / config_capacity if config_capacity > 0 else 0
+            cluster_details.at[cluster_idx, 'Load_total_pct'] = total_load_pct
+            cluster_details.at[cluster_idx, 'Load_empty_pct'] = 1 - total_load_pct
 
     # Prepare all data
     data = {
