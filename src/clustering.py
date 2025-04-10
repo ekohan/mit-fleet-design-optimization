@@ -12,7 +12,7 @@ from sklearn_extra.cluster import KMedoids
 from joblib import Parallel, delayed
 from haversine import haversine
 from src.config.parameters import Parameters
-from src.utils.route_time import estimate_route_time
+from src.utils.route_time import estimate_route_time, build_distance_duration_matrices
 from dataclasses import dataclass, replace
 from sklearn.mixture import GaussianMixture
 import itertools
@@ -241,6 +241,15 @@ def generate_clusters_for_configurations(
 
         # 2. Generate list of ClusteringSettings objects for all runs
         list_of_settings = _get_clustering_settings_list(params)
+
+        # 3. Precompute distance/duration matrices if TSP route estimation is used
+        tsp_needed = any(s.route_time_estimation == 'TSP' for s in list_of_settings)
+        if tsp_needed:
+            logger.info("TSP route estimation detected. Precomputing global distance/duration matrices...")
+            # Call the function from route_time module to build and cache matrices
+            build_distance_duration_matrices(customers, params.depot, params.avg_speed)
+        else:
+            logger.info("TSP route estimation not used. Skipping global matrix precomputation.")
 
         # Use itertools.count for safer ID generation across parallel runs potentially
         cluster_id_generator = itertools.count()

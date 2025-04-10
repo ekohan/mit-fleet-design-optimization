@@ -145,8 +145,8 @@ def parse_args() -> ArgumentParser:
     parser.add_argument(
         '--route-time-estimation',
         type=str,
-        choices=['Legacy', 'Clarke-Wright', 'BHH', 'CA', 'VRPSolver'],
-        help='Method to estimate route times (Legacy, Clarke-Wright, BHH, CA, VRPSolver)'
+        choices=['BHH', 'TSP', 'Legacy'],
+        help='Method to estimate route times (BHH, TSP, Legacy)'
     )
     parser.add_argument(
         '--clustering-method',
