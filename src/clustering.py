@@ -3,7 +3,7 @@ Module for generating clusters from customer data.
 """
 
 import logging
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import pandas as pd
 import numpy as np
 from sklearn.cluster import MiniBatchKMeans, AgglomerativeClustering
@@ -12,10 +12,9 @@ from sklearn_extra.cluster import KMedoids
 from joblib import Parallel, delayed
 from haversine import haversine
 from src.config.parameters import Parameters
-from src.utils.route_time import estimate_route_time
-from dataclasses import dataclass, replace
+from src.utils.route_time import estimate_route_time, build_distance_duration_matrices
+from dataclasses import dataclass, replace, field
 from sklearn.mixture import GaussianMixture
-from sklearn.exceptions import ConvergenceWarning
 import itertools
 from multiprocessing import Manager
 
@@ -41,10 +40,11 @@ class Cluster:
     goods_in_config: List[str]
     route_time: float
     method: str = ''
+    tsp_sequence: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict:
         """Convert cluster to dictionary format."""
-        return {
+        data = {
             'Cluster_ID': self.cluster_id,
             'Config_ID': self.config_id,
             'Customers': self.customers,
@@ -55,34 +55,10 @@ class Cluster:
             'Route_Time': self.route_time,
             'Method': self.method
         }
-
-    @classmethod
-    def from_customers(
-        cls,
-        customers: pd.DataFrame,
-        config: pd.Series,
-        cluster_id: int,
-        settings: 'ClusteringSettings',
-        method: str = ''
-    ) -> 'Cluster':
-        """Create a cluster from customer data using settings."""
-        return cls(
-            cluster_id=cluster_id,
-            config_id=config['Config_ID'],
-            customers=customers['Customer_ID'].tolist(),
-            total_demand={g: float(customers[f'{g}_Demand'].sum()) for g in settings.goods},
-            centroid_latitude=float(customers['Latitude'].mean()),
-            centroid_longitude=float(customers['Longitude'].mean()),
-            goods_in_config=[g for g in settings.goods if config[g] == 1],
-            route_time=float(estimate_route_time(
-                cluster_customers=customers,
-                depot=settings.depot,
-                service_time=settings.service_time,
-                avg_speed=settings.avg_speed,
-                method=settings.route_time_estimation
-            )),
-            method=settings.method
-        )
+        # Only add sequence if it exists
+        if self.tsp_sequence:
+            data['TSP_Sequence'] = self.tsp_sequence
+        return data
 
 @dataclass
 class ClusteringSettings:
@@ -202,34 +178,32 @@ def get_cached_demand(
 
 def get_cached_route_time(
     customers: pd.DataFrame,
-    depot: Dict[str, float],
-    service_time: float,
-    avg_speed: float,
-    method: str,
-    route_time_cache: Dict
-) -> float:
-    """Get route time from cache or compute and cache it."""
-    # Create a hashable key including all parameters that affect route time
-    depot_key = tuple(sorted((k, v) for k, v in depot.items()))
-    key = (tuple(sorted(customers['Customer_ID'])), depot_key, service_time, avg_speed, method)
+    settings: ClusteringSettings,
+    route_time_cache: Dict,
+) -> Tuple[float, List[str]]:
+    """Get route time and sequence (if TSP) from cache or compute and cache it."""
+    # Create a hashable key using only customer IDs - same approach as demand cache
+    key = tuple(sorted(customers['Customer_ID']))
     
     # Check if in cache
     result = route_time_cache.get(key, None)
     if result is not None:
+        # Result is now a tuple (time, sequence)
         return result
     
     # Not in cache, compute it
-    route_time = float(estimate_route_time(
+    route_time, route_sequence = estimate_route_time(
         cluster_customers=customers,
-        depot=depot,
-        service_time=service_time,
-        avg_speed=avg_speed,
-        method=method
-    ))
+        depot=settings.depot,
+        service_time=settings.service_time,
+        avg_speed=settings.avg_speed,
+        method=settings.route_time_estimation,
+        max_route_time=settings.max_route_time
+    )
     
-    # Store in cache
-    route_time_cache[key] = route_time
-    return route_time
+    # Store tuple in cache
+    route_time_cache[key] = (route_time, route_sequence)
+    return route_time, route_sequence
 
 def generate_clusters_for_configurations(
     customers: pd.DataFrame,
@@ -273,6 +247,15 @@ def generate_clusters_for_configurations(
 
         # 2. Generate list of ClusteringSettings objects for all runs
         list_of_settings = _get_clustering_settings_list(params)
+
+        # 3. Precompute distance/duration matrices if TSP route estimation is used
+        tsp_needed = any(s.route_time_estimation == 'TSP' for s in list_of_settings)
+        if tsp_needed:
+            logger.info("TSP route estimation detected. Precomputing global distance/duration matrices...")
+            # Call the function from route_time module to build and cache matrices
+            build_distance_duration_matrices(customers, params.depot, params.avg_speed)
+        else:
+            logger.info("TSP route estimation not used. Skipping global matrix precomputation.")
 
         # Use itertools.count for safer ID generation across parallel runs potentially
         cluster_id_generator = itertools.count()
@@ -438,13 +421,10 @@ def check_constraints(
     )
     cluster_demand = sum(demand_dict.values())
     
-    # Get route time from cache
-    route_time = get_cached_route_time(
+    # Get route time from cache (ignore sequence for constraint check)
+    route_time, _ = get_cached_route_time(
         cluster_customers,
-        settings.depot,
-        settings.service_time,
-        settings.avg_speed,
-        settings.route_time_estimation,
+        settings,
         route_time_cache
     )
     
@@ -524,13 +504,10 @@ def create_cluster(
         demand_cache
     )
     
-    # Get route time from cache
-    route_time = get_cached_route_time(
+    # Get route time and sequence from cache
+    route_time, tsp_sequence = get_cached_route_time(
         cluster_customers,
-        settings.depot,
-        settings.service_time,
-        settings.avg_speed,
-        settings.route_time_estimation,
+        settings,
         route_time_cache
     )
     
@@ -543,7 +520,8 @@ def create_cluster(
         centroid_longitude=float(cluster_customers['Longitude'].mean()),
         goods_in_config=[g for g in settings.goods if config[g] == 1],
         route_time=route_time,
-        method=settings.method
+        method=settings.method,
+        tsp_sequence=tsp_sequence
     )
     return cluster
 
@@ -698,7 +676,8 @@ def estimate_num_initial_clusters(
     # Ensure sample size doesn't exceed population size and is at least 1 if possible
     sample_size = max(1, min(int(avg_customers_per_cluster), len(customers)))
     avg_cluster = customers.sample(n=sample_size)
-    avg_route_time = estimate_route_time(
+    # Unpack the tuple returned by estimate_route_time
+    avg_route_time, _ = estimate_route_time(
         cluster_customers=avg_cluster,
         depot=settings.depot,
         service_time=settings.service_time,  # in minutes

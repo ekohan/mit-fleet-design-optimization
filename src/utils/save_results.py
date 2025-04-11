@@ -126,6 +126,10 @@ def save_optimization_results(
     if 'Customers' in cluster_details.columns:
         cluster_details['Num_Customers'] = cluster_details['Customers'].apply(len)
         cluster_details['Customers'] = cluster_details['Customers'].apply(str)
+    if 'TSP_Sequence' in cluster_details.columns:
+        cluster_details['TSP_Sequence'] = cluster_details['TSP_Sequence'].apply(
+            lambda x: ' -> '.join(map(str, x)) if isinstance(x, (list, tuple)) and x else str(x)
+        )
     if 'Total_Demand' in cluster_details.columns:
         cluster_details['Total_Demand'] = cluster_details['Total_Demand'].apply(str)
         
@@ -214,8 +218,11 @@ def _write_to_excel(filename: str, data: dict) -> None:
         )
         
         # Sheet 3: Selected Clusters
+        cluster_cols = [col for col in data['cluster_details'].columns if col not in ['Customers', 'TSP_Sequence']] + ['Customers', 'TSP_Sequence']
+        # Reorder cols to put Customers and TSP_Sequence last, if they exist
+        cluster_cols_ordered = [col for col in cluster_cols if col in data['cluster_details'].columns]
         data['cluster_details'].to_excel(
-            writer, sheet_name='Selected Clusters', index=False
+            writer, sheet_name='Selected Clusters', index=False, columns=cluster_cols_ordered
         )
         
         # Sheet 4: Vehicle Usage
@@ -248,6 +255,12 @@ def _write_to_json(filename: str, data: dict) -> None:
             return super().default(obj)
 
     # Convert vehicles_used to list of dictionaries
+    # Ensure cluster details are serializable (TSP sequence might be list)
+    serializable_clusters = data['cluster_details'].to_dict(orient='records')
+    for cluster in serializable_clusters:
+        if 'TSP_Sequence' in cluster and isinstance(cluster['TSP_Sequence'], list):
+            cluster['TSP_Sequence'] = ' -> '.join(map(str, cluster['TSP_Sequence']))
+
     vehicle_usage = [
         {"vehicle_type": k, "count": v} 
         for k, v in data['vehicles_used'].items()
@@ -256,7 +269,7 @@ def _write_to_json(filename: str, data: dict) -> None:
     json_data = {
         'Solution Summary': dict(data['summary_metrics']),
         'Configurations': data['configurations_df'].to_dict(orient='records'),
-        'Selected Clusters': data['cluster_details'].to_dict(orient='records'),
+        'Selected Clusters': serializable_clusters, # Use serializable version
         'Vehicle Usage': vehicle_usage,
         'Other Considerations': data['other_considerations'],
         'Execution Details': data['execution_details']

@@ -4,15 +4,100 @@ import numpy as np
 import pandas as pd
 from haversine import haversine
 
+from pyvrp import (
+    Model, Client, Depot, VehicleType, ProblemData,
+    GeneticAlgorithmParams, PopulationParams, SolveParams
+)
+# Import stopping criteria from the correct submodule
+from pyvrp.stop import MaxIterations
+import logging # Added for logging
+
+logger = logging.getLogger(__name__) # Added logger
+
+# Global cache for distance and duration matrices (populated if TSP method is used)
+_matrix_cache = {
+    'distance_matrix': None,
+    'duration_matrix': None,
+    'customer_id_to_idx': None,
+    'depot_idx': 0  # Depot is always at index 0
+}
+
+def build_distance_duration_matrices(
+    customers_df: pd.DataFrame,
+    depot: Dict[str, float],
+    avg_speed: float
+) -> None:
+    """
+    Build global distance and duration matrices for all customers plus the depot
+    and store them in the module-level cache `_matrix_cache`.
+
+    Args:
+        customers_df: DataFrame containing ALL customer data.
+        depot: Depot location coordinates {'latitude': float, 'longitude': float}.
+        avg_speed: Average vehicle speed (km/h).
+    """
+    if customers_df.empty:
+        logger.warning("Cannot build matrices: Customer DataFrame is empty.")
+        return
+
+    logger.info(f"Building global distance/duration matrices for {len(customers_df)} customers...")
+    # Create mapping from Customer_ID to matrix index (Depot is 0)
+    customer_ids = customers_df['Customer_ID'].tolist()
+    # Ensure unique IDs before creating map
+    if len(set(customer_ids)) != len(customer_ids):
+         logger.warning("Duplicate Customer IDs found. Matrix mapping might be incorrect.")
+    customer_id_to_idx = {cid: idx + 1 for idx, cid in enumerate(customer_ids)}
+
+    # Total locations = all customers + depot
+    n_locations = len(customers_df) + 1
+
+    # Prepare coordinates list: depot first, then all customers
+    depot_coord = (depot['latitude'], depot['longitude'])
+    # Ensure Latitude/Longitude columns exist
+    if 'Latitude' not in customers_df.columns or 'Longitude' not in customers_df.columns:
+        logger.error("Missing 'Latitude' or 'Longitude' columns in customer data.")
+        raise ValueError("Missing coordinate columns in customer data.")
+        
+    customer_coords = list(zip(customers_df['Latitude'], customers_df['Longitude']))
+    all_coords = [depot_coord] + customer_coords
+
+    # Initialize matrices
+    distance_matrix = np.zeros((n_locations, n_locations), dtype=int)
+    duration_matrix = np.zeros((n_locations, n_locations), dtype=int)
+
+    # Speed in km/s for duration calculation
+    avg_speed_kps = avg_speed / 3600 if avg_speed > 0 else 0
+
+    # Populate matrices
+    for i in range(n_locations):
+        for j in range(i + 1, n_locations):
+            # Distance using Haversine (km)
+            dist_km = haversine(all_coords[i], all_coords[j])
+
+            # Store distance in meters (integer)
+            distance_matrix[i, j] = distance_matrix[j, i] = int(dist_km * 1000)
+
+            # Duration in seconds
+            duration_seconds = (dist_km / avg_speed_kps) if avg_speed_kps > 0 else np.inf # Use infinity if speed is 0
+            duration_matrix[i, j] = duration_matrix[j, i] = int(duration_seconds)
+
+    # Update cache
+    _matrix_cache['distance_matrix'] = distance_matrix
+    _matrix_cache['duration_matrix'] = duration_matrix
+    _matrix_cache['customer_id_to_idx'] = customer_id_to_idx
+    logger.info(f"Successfully built and cached global matrices ({n_locations}x{n_locations}).")
+
+
 def estimate_route_time(
     cluster_customers: pd.DataFrame,
     depot: Dict[str, float],
     service_time: float,
     avg_speed: float,
-    method: str = 'Legacy'
-) -> float:
+    method: str = 'Legacy',
+    max_route_time: float = None
+) -> Tuple[float, List[str]]:
     """
-    Estimate route time using different methods.
+    Estimate route time using different methods. Return time and sequence (if TSP).
     
     Args:
         cluster_customers: DataFrame containing customer data
@@ -20,31 +105,25 @@ def estimate_route_time(
         service_time: Service time per customer (minutes)
         avg_speed: Average vehicle speed (km/h)
         method: Route time estimation method
+        max_route_time: Maximum route time in hours (optional)
         
     Returns:
-        Estimated route time in hours
+        Tuple: (Estimated route time in hours, List of customer IDs in visit sequence or [])
     """
     if method == 'Legacy':
-        return _legacy_estimation(len(cluster_customers), service_time)
-    
-    elif method == 'Clarke-Wright':
-        return _clarke_wright_estimation(
-            cluster_customers, depot, service_time, avg_speed
-        )
-    
+        time = _legacy_estimation(len(cluster_customers), service_time)
+        return time, [] # Return empty sequence
+
     elif method == 'BHH':
-        return _bhh_estimation(
+        time = _bhh_estimation(
             cluster_customers, depot, service_time, avg_speed
         )
+        return time, [] # Return empty sequence
     
-    elif method == 'CA':
-        return _continuous_approximation(
-            cluster_customers, depot, service_time, avg_speed
-        )
-    
-    elif method == 'VRPSolver':
-        return _vrp_solver_estimation(
-            cluster_customers, depot, service_time, avg_speed
+    elif method == 'TSP':
+        # Returns (time, sequence)
+        return _pyvrp_tsp_estimation(
+            cluster_customers, depot, service_time, avg_speed, max_route_time
         )
     
     else:
@@ -100,57 +179,230 @@ def _bhh_estimation(
     
     return service_time_total + depot_travel_time + intra_cluster_time
 
-# TODO: Implement other estimation methods
-def _clarke_wright_estimation():
-    raise NotImplementedError
-
-def _continuous_approximation():
-    raise NotImplementedError
-
-def _vrp_solver_estimation(
+def _pyvrp_tsp_estimation(
     cluster_customers: pd.DataFrame,
     depot: Dict[str, float],
-    service_time: float,
-    avg_speed: float
-) -> float:
+    service_time: float,  # minutes
+    avg_speed: float,      # km/h
+    max_route_time: float = None  # hours, optional parameter
+) -> Tuple[float, List[str]]:
     """
-    Mimic the route time calculation as performed internally by PyVRP:
-    Sum travel times between consecutive stops (depot -> customers -> depot)
-    plus sum of service durations at each customer.
+    Estimate route time by solving a TSP for the cluster using PyVRP.
+    Assumes infinite capacity (single vehicle TSP).
+    Uses precomputed global matrices from `_matrix_cache` if available.
 
-    Steps:
-    1. Convert all coordinates to lat/long pairs.
-    2. Compute travel time for the route:
-       - Start at depot, go to the first customer
-       - Visit customers in order (as given by the cluster_customers DataFrame)
-       - Return from the last customer to the depot
-    3. Add service time for each visited customer.
+    Args:
+        cluster_customers: DataFrame containing customer data for the cluster.
+        depot: Depot location coordinates {'latitude': float, 'longitude': float}.
+        service_time: Service time per customer (minutes).
+        avg_speed: Average vehicle speed (km/h).
+        max_route_time: Maximum route time in hours (optional, defaults to 1 week if None).
 
     Returns:
-        Estimated route time in hours.
+        Tuple: (Estimated route time in hours, List of customer IDs in visit sequence or [])
     """
     num_customers = len(cluster_customers)
-    if num_customers == 0:
-        return 0.0
-
-    # Convert minutes to hours for service time
-    service_time_hours = service_time / 60.0
     
-    # Extract route points
-    points = [(depot['latitude'], depot['longitude'])]  # Start at depot
-    points += list(zip(cluster_customers['Latitude'], cluster_customers['Longitude']))
-    points.append((depot['latitude'], depot['longitude']))  # Return to depot
+    # Handle edge cases: 0 or 1 customer
+    if num_customers == 0:
+        return 0.0, []
+    if num_customers == 1:
+        depot_coord = (depot['latitude'], depot['longitude'])
+        cust_row = cluster_customers.iloc[0]
+        cust_coord = (cust_row['Latitude'], cust_row['Longitude'])
+        dist_to = haversine(depot_coord, cust_coord)
+        dist_from = haversine(cust_coord, depot_coord)
+        travel_time_hours = (dist_to + dist_from) / avg_speed
+        service_time_hours = service_time / 60.0
+        # Sequence for single customer: Depot -> Customer -> Depot
+        sequence = ["Depot", cust_row['Customer_ID'], "Depot"]
+        return travel_time_hours + service_time_hours, sequence
 
-    # Calculate total travel time
-    travel_time = 0.0
-    for i in range(len(points) - 1):
-        dist = haversine(points[i], points[i+1])  # distance in km
-        # Convert distance to travel time (hours)
-        travel_time += dist / avg_speed
+    # --- Prepare data for PyVRP TSP ---
+    
+    # Create mapping from matrix index back to Customer_ID (or "Depot")
+    # This needs to be consistent with how matrices are built/sliced
+    idx_to_id_map = {}
 
-    # Add service time for each visited customer
-    total_service_time = num_customers * service_time_hours
+    # Create PyVRP Depot object (scaling coordinates for precision)
+    pyvrp_depot = Depot(
+        x=int(depot['latitude'] * 10000), 
+        y=int(depot['longitude'] * 10000)
+    )
 
-    # Total route time
-    route_time = travel_time + total_service_time
-    return route_time
+    # Create PyVRP Client objects
+    pyvrp_clients = []
+    for _, customer in cluster_customers.iterrows():
+        pyvrp_clients.append(Client(
+            x=int(customer['Latitude'] * 10000),
+            y=int(customer['Longitude'] * 10000),
+            delivery=[1],  # Dummy demand for TSP
+            service_duration=int(service_time * 60) # Service time in seconds
+        ))
+
+    # Create a single VehicleType with effectively infinite capacity and duration
+    # Capacity needs to be at least num_customers for dummy demands
+    # Use max_route_time if provided, otherwise use a week as effectively infinite
+    max_duration_seconds = int((max_route_time or 24 * 7) * 3600)  # Convert hours to seconds
+    vehicle_type = VehicleType(
+        num_available=1, 
+        capacity=[num_customers + 1], # Sufficient capacity for dummy demands
+        max_duration=max_duration_seconds # Maximum route time in seconds
+    )
+
+    # --- Use sliced matrices from global cache if available, otherwise compute on-the-fly ---
+    distance_matrix = None
+    duration_matrix = None
+    cluster_indices_map = {} # Map relative indices (0..N) in the sliced matrix back to global indices
+
+    # Check if cache is populated
+    cache_ready = (
+        _matrix_cache['distance_matrix'] is not None and
+        _matrix_cache['duration_matrix'] is not None and
+        _matrix_cache['customer_id_to_idx'] is not None
+    )
+
+    if cache_ready:
+        logger.debug(f"Using cached global matrices for cluster TSP (Size: {num_customers})")
+        # Get the global distance and duration matrices and mapping
+        global_distance_matrix = _matrix_cache['distance_matrix']
+        global_duration_matrix = _matrix_cache['duration_matrix']
+        customer_id_to_idx = _matrix_cache['customer_id_to_idx']
+        depot_idx = _matrix_cache['depot_idx'] # Should be 0
+
+        # Get indices for this specific cluster (Depot + Cluster Customers)
+        cluster_indices = [depot_idx]
+        missing_ids = []
+        # Map customer IDs to their global indices
+        cluster_customer_ids = cluster_customers['Customer_ID'].tolist()
+        for customer_id in cluster_customer_ids:
+            idx = customer_id_to_idx.get(customer_id)
+            if idx is not None:
+                cluster_indices.append(idx)
+            else:
+                # This case should ideally not happen if build_distance_duration_matrices
+                # was called with the full customer set. Log a warning if it does.
+                missing_ids.append(customer_id)
+                
+        if missing_ids:
+             logger.warning(f"Customer IDs {missing_ids} not found in global matrix cache map. TSP matrix will be incomplete.")
+             # Decide how to handle this - Option 1: Fallback, Option 2: Proceed with warning
+             # Fallback to on-the-fly computation if critical IDs are missing
+             cache_ready = False # Force fallback if any ID is missing
+
+        if cache_ready:
+            # Slice the global matrices efficiently using numpy indexing
+            n_locations = len(cluster_indices)
+            # Use ix_ to select rows and columns based on index list
+            distance_matrix = global_distance_matrix[np.ix_(cluster_indices, cluster_indices)]
+            duration_matrix = global_duration_matrix[np.ix_(cluster_indices, cluster_indices)]
+            
+            # Validate dimensions
+            if distance_matrix.shape != (n_locations, n_locations) or \
+               duration_matrix.shape != (n_locations, n_locations):
+                 logger.error("Matrix slicing resulted in unexpected dimensions. Fallback needed.")
+                 cache_ready = False # Force fallback
+
+            if cache_ready:
+                 # Create the index-to-ID map for this specific cluster based on global indices
+                 idx_to_id_map[0] = "Depot" # Relative index 0 is always the Depot
+                 for i, global_idx in enumerate(cluster_indices[1:], start=1): # Start from relative index 1
+                     # Find the customer ID corresponding to this global index
+                     # This requires iterating through the global map or having an inverse map
+                     for cid, g_idx in customer_id_to_idx.items():
+                         if g_idx == global_idx:
+                             idx_to_id_map[i] = cid
+                             break
+
+
+    # Fallback: Compute matrices on-the-fly if cache wasn't ready or slicing failed
+    if not cache_ready:
+        logger.debug(f"Cache not ready or slicing failed. Computing matrices on-the-fly for cluster TSP (Size: {num_customers})")
+        n_locations = num_customers + 1 # Customers + Depot
+        locations_coords = [(depot['latitude'], depot['longitude'])] + \
+                           list(zip(cluster_customers['Latitude'], cluster_customers['Longitude']))
+
+        distance_matrix = np.zeros((n_locations, n_locations), dtype=int)
+        duration_matrix = np.zeros((n_locations, n_locations), dtype=int)
+
+        # Speed in km/s for duration calculation
+        avg_speed_kps = avg_speed / 3600 if avg_speed > 0 else 0
+
+        for i in range(n_locations):
+            for j in range(i + 1, n_locations):
+                # Distance using Haversine (km)
+                dist_km = haversine(locations_coords[i], locations_coords[j])
+
+                # Store distance in meters
+                distance_matrix[i, j] = distance_matrix[j, i] = int(dist_km * 1000)
+
+                # Duration in seconds
+                duration_seconds = (dist_km / avg_speed_kps) if avg_speed_kps > 0 else np.inf
+                duration_matrix[i, j] = duration_matrix[j, i] = int(duration_seconds)
+
+        # Create the index-to-ID map for this specific cluster
+        idx_to_id_map[0] = "Depot" # Index 0 is the Depot
+        for i, customer_id in enumerate(cluster_customers['Customer_ID'], start=1): # Start from index 1
+            idx_to_id_map[i] = customer_id
+
+
+    # --- Create Problem Data and Model ---
+    # Ensure matrices were actually created (either via cache or on-the-fly)
+    if distance_matrix is None or duration_matrix is None:
+        logger.error("Distance/Duration matrices could not be obtained for TSP.")
+        # Return a large value indicating failure/infeasibility and empty sequence
+        return (max_route_time or 24 * 7) * 1.1, [] 
+
+    problem_data = ProblemData(
+        clients=pyvrp_clients,
+        depots=[pyvrp_depot],
+        vehicle_types=[vehicle_type],
+        distance_matrices=[distance_matrix],
+        duration_matrices=[duration_matrix]
+    )
+    model = Model.from_data(problem_data)
+
+    # --- Solve the TSP using PyVRP's Genetic Algorithm ---
+    # Use fewer iterations suitable for smaller TSP instances
+    ga_params = GeneticAlgorithmParams(
+        repair_probability=0.8, # Standard default
+        nb_iter_no_improvement=500 # Reduced iterations
+    )
+    pop_params = PopulationParams(
+        min_pop_size=10, # Smaller population
+        generation_size=20,
+        nb_elite=2,
+        nb_close=3
+    )
+    # Reduce max iterations for faster solving on small problems
+    stop = MaxIterations(max_iterations=1000) 
+    
+    result = model.solve(
+        stop=stop, 
+        params=SolveParams(genetic=ga_params, population=pop_params), 
+        display=False # No verbose output during estimation
+    )
+    
+    # --- Extract Result ---
+    sequence = []
+    if result.best.is_feasible():
+        # PyVRP duration includes travel and service time in seconds
+        total_duration_seconds = result.best.duration() 
+        # Extract route sequence - PyVRP returns list of location indices
+        # There's only one route in TSP
+        if result.best.routes():
+             route_indices = result.best.routes()[0].visits()
+             # Map indices back to Customer IDs using idx_to_id_map
+             # Add Depot at start and end
+             sequence = ["Depot"] + [idx_to_id_map.get(idx, f"UnknownIdx_{idx}") for idx in route_indices] + ["Depot"]
+             logger.debug(f"TSP sequence indices: {route_indices}, mapped: {sequence}")
+        else:
+             logger.warning("TSP solution feasible but no route found?")
+             
+        # Convert total duration to hours
+        return total_duration_seconds / 3600.0, sequence
+    else:
+        logger.warning(f"TSP solution infeasible for cluster. Returning max time. Num customers: {num_customers}")
+        # If max_route_time is provided, return that value (or slightly higher)
+        # Otherwise use 24*7 (1 week) as the default max
+        return (max_route_time or 24*7) * 1.01, []  # Return slightly over max_route_time and empty sequence

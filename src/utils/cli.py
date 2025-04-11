@@ -145,8 +145,8 @@ def parse_args() -> ArgumentParser:
     parser.add_argument(
         '--route-time-estimation',
         type=str,
-        choices=['Legacy', 'Clarke-Wright', 'BHH', 'CA', 'VRPSolver'],
-        help='Method to estimate route times (Legacy, Clarke-Wright, BHH, CA, VRPSolver)'
+        choices=['BHH', 'TSP', 'Legacy'],
+        help='Method to estimate route times (BHH, TSP, Legacy)'
     )
     parser.add_argument(
         '--clustering-method',
@@ -198,7 +198,9 @@ def load_parameters(args) -> Parameters:
     overrides = get_parameter_overrides(args)
     
     # Handle clustering parameters
-    if any(param in overrides for param in ['clustering_method', 'clustering_distance', 'geo_weight', 'demand_weight']):
+    # Ensure this block runs if route_time_estimation is overridden
+    clustering_override_keys = ['clustering_method', 'clustering_distance', 'geo_weight', 'demand_weight', 'route_time_estimation']
+    if any(param in overrides for param in clustering_override_keys):
         clustering = params.clustering.copy()  # Preserve ALL existing clustering params
         
         if 'clustering_method' in overrides:
@@ -209,6 +211,8 @@ def load_parameters(args) -> Parameters:
             clustering['geo_weight'] = overrides.pop('geo_weight')
         if 'demand_weight' in overrides:
             clustering['demand_weight'] = overrides.pop('demand_weight')
+        if 'route_time_estimation' in overrides:
+            clustering['route_time_estimation'] = overrides.pop('route_time_estimation')
             
         overrides['clustering'] = clustering
     
