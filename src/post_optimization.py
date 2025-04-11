@@ -12,6 +12,7 @@ from src.utils.logging import Colors, Symbols
 logger = logging.getLogger(__name__)
 
 SMALL_CLUSTER_SIZE = 7  # Only merge clusters with 1-6 customers
+MERGED_CLUSTER_TSP_MSG = "Merged cluster, no TSP computed"  # Placeholder for merged clusters
 
 def improve_solution(
     initial_solution: Dict,
@@ -64,16 +65,22 @@ def improve_solution(
     
     logger.info(f"→ Generated {len(merged_clusters)} merged cluster options")
     
-    # Define required columns including goods
-    required_columns = [
-        'Cluster_ID', 'Config_ID', 'Customers', 'Route_Time', 
-        'Total_Demand', 'Method', 'Centroid_Latitude', 'Centroid_Longitude'
-    ] + list(params.goods)
+    # Get all columns from the master DataFrame (selected_clusters)
+    all_columns = selected_clusters.columns.tolist()
     
-    # Combine clusters with explicit column ordering
+    # Ensure merged_clusters has all the same columns as selected_clusters
+    # This preserves the structure including TSP_Sequence if it exists
+    for col in all_columns:
+        if col not in merged_clusters.columns:
+            if col == 'TSP_Sequence':
+                merged_clusters[col] = MERGED_CLUSTER_TSP_MSG
+            else:
+                merged_clusters[col] = None
+    
+    # Combine clusters while preserving all columns from the master DataFrame
     combined_clusters = pd.concat([
-        selected_clusters[required_columns],
-        merged_clusters[required_columns]
+        selected_clusters,
+        merged_clusters[all_columns]  # Ensure same column order
     ], ignore_index=True)
     
     # Re-run optimization with combined set
@@ -176,7 +183,7 @@ def generate_post_optimization_merges(
                     configurations_df['Config_ID'] == target_cluster['Config_ID']
                 ].iloc[0]
                 
-                # Create new cluster with all required fields
+                # Create new cluster with core required fields
                 new_cluster = {
                     'Cluster_ID': f"{target_cluster['Cluster_ID']}_{small_cluster['Cluster_ID']}",
                     'Config_ID': target_cluster['Config_ID'],  # Keep target config
@@ -186,8 +193,10 @@ def generate_post_optimization_merges(
                     'Method': f"merged_{target_cluster['Method']}",
                     'Centroid_Latitude': centroid_lat,
                     'Centroid_Longitude': centroid_lon,
-                    'Capacity': target_config['Capacity']  # Preserve target capacity
                 }
+                
+                # Always set TSP_Sequence for merged clusters to our placeholder
+                new_cluster['TSP_Sequence'] = MERGED_CLUSTER_TSP_MSG
                 
                 # Add goods configuration from target vehicle
                 for good in params.goods:
@@ -198,13 +207,15 @@ def generate_post_optimization_merges(
     if not new_clusters:
         return pd.DataFrame()
         
-    # Create DataFrame with explicit column ordering
-    columns = [
+    # Create barebones DataFrame with the minimal required columns
+    # The improve_solution function will handle adding any missing columns
+    minimal_columns = [
         'Cluster_ID', 'Config_ID', 'Customers', 'Route_Time', 
-        'Total_Demand', 'Method', 'Centroid_Latitude', 'Centroid_Longitude'
+        'Total_Demand', 'Method', 'Centroid_Latitude', 'Centroid_Longitude',
+        'TSP_Sequence'  # Always include TSP_Sequence with our placeholder
     ] + list(params.goods)
     
-    return pd.DataFrame(new_clusters, columns=columns)
+    return pd.DataFrame(new_clusters, columns=minimal_columns)
 
 def validate_merged_cluster(
     cluster1: pd.Series,

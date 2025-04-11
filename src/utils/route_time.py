@@ -95,9 +95,9 @@ def estimate_route_time(
     avg_speed: float,
     method: str = 'Legacy',
     max_route_time: float = None
-) -> float:
+) -> Tuple[float, List[str]]:
     """
-    Estimate route time using different methods.
+    Estimate route time using different methods. Return time and sequence (if TSP).
     
     Args:
         cluster_customers: DataFrame containing customer data
@@ -108,17 +108,20 @@ def estimate_route_time(
         max_route_time: Maximum route time in hours (optional)
         
     Returns:
-        Estimated route time in hours
+        Tuple: (Estimated route time in hours, List of customer IDs in visit sequence or [])
     """
     if method == 'Legacy':
-        return _legacy_estimation(len(cluster_customers), service_time)
+        time = _legacy_estimation(len(cluster_customers), service_time)
+        return time, [] # Return empty sequence
 
     elif method == 'BHH':
-        return _bhh_estimation(
+        time = _bhh_estimation(
             cluster_customers, depot, service_time, avg_speed
         )
+        return time, [] # Return empty sequence
     
     elif method == 'TSP':
+        # Returns (time, sequence)
         return _pyvrp_tsp_estimation(
             cluster_customers, depot, service_time, avg_speed, max_route_time
         )
@@ -182,7 +185,7 @@ def _pyvrp_tsp_estimation(
     service_time: float,  # minutes
     avg_speed: float,      # km/h
     max_route_time: float = None  # hours, optional parameter
-) -> float:
+) -> Tuple[float, List[str]]:
     """
     Estimate route time by solving a TSP for the cluster using PyVRP.
     Assumes infinite capacity (single vehicle TSP).
@@ -196,24 +199,31 @@ def _pyvrp_tsp_estimation(
         max_route_time: Maximum route time in hours (optional, defaults to 1 week if None).
 
     Returns:
-        Estimated route time in hours.
+        Tuple: (Estimated route time in hours, List of customer IDs in visit sequence or [])
     """
     num_customers = len(cluster_customers)
     
     # Handle edge cases: 0 or 1 customer
     if num_customers == 0:
-        return 0.0
+        return 0.0, []
     if num_customers == 1:
         depot_coord = (depot['latitude'], depot['longitude'])
-        cust_coord = (cluster_customers.iloc[0]['Latitude'], cluster_customers.iloc[0]['Longitude'])
+        cust_row = cluster_customers.iloc[0]
+        cust_coord = (cust_row['Latitude'], cust_row['Longitude'])
         dist_to = haversine(depot_coord, cust_coord)
         dist_from = haversine(cust_coord, depot_coord)
         travel_time_hours = (dist_to + dist_from) / avg_speed
         service_time_hours = service_time / 60.0
-        return travel_time_hours + service_time_hours
+        # Sequence for single customer: Depot -> Customer -> Depot
+        sequence = ["Depot", cust_row['Customer_ID'], "Depot"]
+        return travel_time_hours + service_time_hours, sequence
 
     # --- Prepare data for PyVRP TSP ---
     
+    # Create mapping from matrix index back to Customer_ID (or "Depot")
+    # This needs to be consistent with how matrices are built/sliced
+    idx_to_id_map = {}
+
     # Create PyVRP Depot object (scaling coordinates for precision)
     pyvrp_depot = Depot(
         x=int(depot['latitude'] * 10000), 
@@ -243,6 +253,7 @@ def _pyvrp_tsp_estimation(
     # --- Use sliced matrices from global cache if available, otherwise compute on-the-fly ---
     distance_matrix = None
     duration_matrix = None
+    cluster_indices_map = {} # Map relative indices (0..N) in the sliced matrix back to global indices
 
     # Check if cache is populated
     cache_ready = (
@@ -262,7 +273,9 @@ def _pyvrp_tsp_estimation(
         # Get indices for this specific cluster (Depot + Cluster Customers)
         cluster_indices = [depot_idx]
         missing_ids = []
-        for customer_id in cluster_customers['Customer_ID']:
+        # Map customer IDs to their global indices
+        cluster_customer_ids = cluster_customers['Customer_ID'].tolist()
+        for customer_id in cluster_customer_ids:
             idx = customer_id_to_idx.get(customer_id)
             if idx is not None:
                 cluster_indices.append(idx)
@@ -290,6 +303,17 @@ def _pyvrp_tsp_estimation(
                  logger.error("Matrix slicing resulted in unexpected dimensions. Fallback needed.")
                  cache_ready = False # Force fallback
 
+            if cache_ready:
+                 # Create the index-to-ID map for this specific cluster based on global indices
+                 idx_to_id_map[0] = "Depot" # Relative index 0 is always the Depot
+                 for i, global_idx in enumerate(cluster_indices[1:], start=1): # Start from relative index 1
+                     # Find the customer ID corresponding to this global index
+                     # This requires iterating through the global map or having an inverse map
+                     for cid, g_idx in customer_id_to_idx.items():
+                         if g_idx == global_idx:
+                             idx_to_id_map[i] = cid
+                             break
+
 
     # Fallback: Compute matrices on-the-fly if cache wasn't ready or slicing failed
     if not cache_ready:
@@ -316,12 +340,18 @@ def _pyvrp_tsp_estimation(
                 duration_seconds = (dist_km / avg_speed_kps) if avg_speed_kps > 0 else np.inf
                 duration_matrix[i, j] = duration_matrix[j, i] = int(duration_seconds)
 
+        # Create the index-to-ID map for this specific cluster
+        idx_to_id_map[0] = "Depot" # Index 0 is the Depot
+        for i, customer_id in enumerate(cluster_customers['Customer_ID'], start=1): # Start from index 1
+            idx_to_id_map[i] = customer_id
+
+
     # --- Create Problem Data and Model ---
     # Ensure matrices were actually created (either via cache or on-the-fly)
     if distance_matrix is None or duration_matrix is None:
         logger.error("Distance/Duration matrices could not be obtained for TSP.")
-        # Return a large value indicating failure/infeasibility
-        return (max_route_time or 24 * 7) * 1.1 # Return > max time
+        # Return a large value indicating failure/infeasibility and empty sequence
+        return (max_route_time or 24 * 7) * 1.1, [] 
 
     problem_data = ProblemData(
         clients=pyvrp_clients,
@@ -354,12 +384,25 @@ def _pyvrp_tsp_estimation(
     )
     
     # --- Extract Result ---
+    sequence = []
     if result.best.is_feasible():
         # PyVRP duration includes travel and service time in seconds
         total_duration_seconds = result.best.duration() 
+        # Extract route sequence - PyVRP returns list of location indices
+        # There's only one route in TSP
+        if result.best.routes():
+             route_indices = result.best.routes()[0].visits()
+             # Map indices back to Customer IDs using idx_to_id_map
+             # Add Depot at start and end
+             sequence = ["Depot"] + [idx_to_id_map.get(idx, f"UnknownIdx_{idx}") for idx in route_indices] + ["Depot"]
+             logger.debug(f"TSP sequence indices: {route_indices}, mapped: {sequence}")
+        else:
+             logger.warning("TSP solution feasible but no route found?")
+             
         # Convert total duration to hours
-        return total_duration_seconds / 3600.0
+        return total_duration_seconds / 3600.0, sequence
     else:
+        logger.warning(f"TSP solution infeasible for cluster. Returning max time. Num customers: {num_customers}")
         # If max_route_time is provided, return that value (or slightly higher)
         # Otherwise use 24*7 (1 week) as the default max
-        return (max_route_time or 24*7) * 1.01  # Return slightly over max_route_time
+        return (max_route_time or 24*7) * 1.01, []  # Return slightly over max_route_time and empty sequence

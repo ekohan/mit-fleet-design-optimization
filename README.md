@@ -165,7 +165,7 @@ python src/main.py --clustering-method combine --verbose
 - `--avg-speed`: Average vehicle speed in km/h
 - `--max-route-time`: Maximum route time in hours
 - `--service-time`: Service time per customer in minutes
-- `--route-time-estimation`: Method to estimate route times (Legacy, Clarke-Wright, BHH, CA, VRPSolver)
+- `--route-time-estimation`: Method to estimate route times (BHH, TSP, Legacy)
 - `--light-load-penalty`: Penalty cost for light loads (0 to disable)
 - `--light-load-threshold`: Threshold for light load penalty (0.0 to 1.0)
 - `--compartment-setup-cost`: Cost per additional compartment beyond the first one
