@@ -243,7 +243,12 @@ def _pyvrp_tsp_estimation(
     # Create a single VehicleType with effectively infinite capacity and duration
     # Capacity needs to be at least num_customers for dummy demands
     # Use max_route_time if provided, otherwise use a week as effectively infinite
-    max_duration_seconds = int((max_route_time or 24 * 7) * 3600)  # Convert hours to seconds
+    # Determine effective max_route_time in hours, default to one week if None or infinite
+    if max_route_time is None or np.isinf(max_route_time):
+        effective_max_route_time = 24 * 7  # one week
+    else:
+        effective_max_route_time = max_route_time
+    max_duration_seconds = int(effective_max_route_time * 3600)  # Convert hours to seconds
     vehicle_type = VehicleType(
         num_available=1, 
         capacity=[num_customers + 1], # Sufficient capacity for dummy demands
