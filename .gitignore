@@ -30,6 +30,8 @@ back_results
 
 # Testing
 .coverage*
+coverage/*
+!coverage/coverage-summary.json
 
 # Etc
 Notes_Eric.txt
