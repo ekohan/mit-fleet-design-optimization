@@ -1,0 +1,87 @@
+import pandas as pd
+import logging
+import pulp
+import pytest
+
+from src.fsm_optimizer import _create_model, _extract_solution, _validate_solution
+from src.config.parameters import Parameters
+
+
+def make_toy():
+    # One cluster with two customers
+    clusters_df = pd.DataFrame([{
+        'Cluster_ID': 1,
+        'Customers': ['C1', 'C2'],
+        'Total_Demand': {'Dry': 2, 'Chilled': 0, 'Frozen': 0},
+        'Route_Time': 1.0
+    }])
+    # One configuration that can serve Dry
+    config_df = pd.DataFrame([{
+        'Config_ID': 1,
+        'Vehicle_Type': 'A',
+        'Capacity': 5,
+        'Fixed_Cost': 10,
+        'Dry': 1,
+        'Chilled': 0,
+        'Frozen': 0
+    }])
+    params = Parameters.from_yaml()
+    return clusters_df, config_df, params
+
+
+def test_create_model_constraints():
+    clusters_df, config_df, params = make_toy()
+    model, y_vars, x_vars, c_vk = _create_model(clusters_df, config_df, params)
+    # Each customer coverage constraint exists
+    for cid in ['C1', 'C2']:
+        cname = f"Customer_Coverage_{cid}"
+        assert cname in model.constraints
+    # There is exactly one x_var for (1,1)
+    assert (1, 1) in x_vars
+
+
+def test_light_load_threshold_monotonicity():
+    clusters_df, config_df, params = make_toy()
+    # small cluster demand -> light-load penalty applies
+    params.light_load_penalty = 100
+    costs = []
+    for thr in [0.0, 0.5, 0.9]:
+        params.light_load_threshold = thr
+        model, y_vars, x_vars, c_vk = _create_model(clusters_df, config_df, params)
+        costs.append(c_vk[(1, 1)])
+    # Objective cost non-decreasing as threshold increases
+    assert costs[0] <= costs[1] <= costs[2]
+
+
+def test_capacity_infeasibility_injects_NoVehicle(caplog):
+    clusters_df, config_df, params = make_toy()
+    # Make demand exceed capacity
+    clusters_df.at[0, 'Total_Demand'] = {'Dry': 100, 'Chilled': 0, 'Frozen': 0}
+    caplog.set_level(logging.WARNING)
+    model, y_vars, x_vars, c_vk = _create_model(clusters_df, config_df, params)
+    # 'NoVehicle' var should be present and y_1==0 forced
+    assert any(v == 'NoVehicle' for (v, k) in x_vars)
+    # There should be an unserviceable-cluster constraint
+    assert f"Unserviceable_Cluster_1" in model.constraints
+    # Warning about unserviceable cluster
+    assert 'cannot be served' in caplog.text.lower()
+
+
+def test_extract_and_validate_solution():
+    clusters_df, config_df, params = make_toy()
+    # Build y_vars: cluster 1 selected
+    y = pulp.LpVariable('y_1', cat='Binary'); y.varValue = 1
+    y_vars = {1: y}
+    # Build x_vars: assign config 1 to cluster 1
+    x = pulp.LpVariable('x_1_1', cat='Binary'); x.varValue = 1
+    x_vars = {(1, 1): x}
+    selected = _extract_solution(clusters_df, y_vars, x_vars)
+    # The selected DataFrame should have Config_ID=1
+    assert list(selected['Config_ID']) == [1]
+    # Validate solution: no missing customers
+    customers_df = pd.DataFrame([
+        {'Customer_ID': 'C1', 'Dry_Demand': 0, 'Chilled_Demand': 0, 'Frozen_Demand': 0},
+        {'Customer_ID': 'C2', 'Dry_Demand': 0, 'Chilled_Demand': 0, 'Frozen_Demand': 0}
+    ])
+    missing = _validate_solution(selected, customers_df, config_df)
+    assert missing == set() 
