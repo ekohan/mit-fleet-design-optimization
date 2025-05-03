@@ -82,8 +82,4 @@ def test_capacity_violation_model_warning(caplog):
     assert any(v == 'NoVehicle' for v, k in x_vars.keys()), "Should inject NoVehicle for infeasible cluster"
     # Check warning about unserviceable cluster
     assert 'cannot be served' in caplog.text.lower(), "Expected warning about unserviceable cluster"
-
-
-# Removed old solve_fsm_problem-based capacity violation tests
-
-# ... existing code below ... 
+    

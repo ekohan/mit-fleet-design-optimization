@@ -29,6 +29,7 @@ results_back
 back_results
 
 # Testing
+.hypothesis/
 .coverage*
 coverage/*
 !coverage/coverage-summary.json
