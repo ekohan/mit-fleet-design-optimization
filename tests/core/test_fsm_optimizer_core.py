@@ -6,35 +6,8 @@ import importlib
 import src.fsm_optimizer as fsm
 from src.config.parameters import Parameters
 
-# Helper to build toy data for FSM tests
-def make_toy_data():
-    # One customer 'C1'
-    clusters_df = pd.DataFrame({
-        'Cluster_ID': [1],
-        'Customers': [['C1']],
-        'Total_Demand': [{'Dry': 1, 'Chilled': 0, 'Frozen': 0}],
-        'Config_ID': [1],
-        'Centroid_Latitude': [0.0],
-        'Centroid_Longitude': [0.0],
-        'Route_Time': [1.0],
-        'Method': ['test']
-    })
-    config_df = pd.DataFrame([{
-        'Config_ID': 1,
-        'Vehicle_Type': 'X',
-        'Capacity': 10,
-        'Fixed_Cost': 5,
-        'Dry': 1,
-        'Chilled': 0,
-        'Frozen': 0
-    }])
-    customers_df = pd.DataFrame([{'Customer_ID':'C1','Dry_Demand':0,'Chilled_Demand':0,'Frozen_Demand':0}])
-    params = Parameters.from_yaml()  # default config
-    return clusters_df, config_df, customers_df, params
-
-
-def test_create_model_counts():
-    clusters_df, config_df, customers_df, params = make_toy_data()
+def test_create_model_counts(toy_fsm_core_data):
+    clusters_df, config_df, customers_df, params = toy_fsm_core_data
     model, y_vars, x_vars, c_vk = fsm._create_model(clusters_df, config_df, params)
     # Exactly one cluster variable and one assignment x-var
     assert len(y_vars) == 1, "Should create one y var"
@@ -70,9 +43,9 @@ def test_extract_solution():
     assert list(selected['Config_ID']) == [10]
 
 
-def test_capacity_violation_model_warning(caplog):
+def test_capacity_violation_model_warning(toy_fsm_core_data, caplog):
+    clusters_df, config_df, customers_df, params = toy_fsm_core_data
     # Build base data and violate capacity so no config is feasible
-    clusters_df, config_df, customers_df, params = make_toy_data()
     clusters_df.at[0, 'Total_Demand'] = {'Dry': 100, 'Chilled': 0, 'Frozen': 0}
     # Capture warnings from model construction
     caplog.set_level(logging.WARNING, logger='src.fsm_optimizer')

@@ -6,25 +6,9 @@ from src.fsm_optimizer import _create_model
 from src.config.parameters import Parameters
 
 
-def test_create_model_basic():
-    # Create a single cluster with two customers
-    clusters_df = pd.DataFrame([{
-        'Cluster_ID': 'k1',
-        'Customers': [1, 2],
-        'Total_Demand': {'Dry': 5, 'Chilled': 0, 'Frozen': 0},
-        'Route_Time': 1.0  # dummy route time
-    }])
-    # Single vehicle configuration that can serve Dry
-    configurations_df = pd.DataFrame([{
-        'Config_ID': 'v1',
-        'Capacity': 10,
-        'Fixed_Cost': 100,
-        'Dry': 1,
-        'Chilled': 0,
-        'Frozen': 0
-    }])
-    # Load default parameters from YAML
-    params = Parameters.from_yaml('src/config/default_config.yaml')
+def test_create_model_basic(toy_fsm_model_build_data):
+    # Use shared toy data fixture for model build tests
+    clusters_df, configurations_df, params = toy_fsm_model_build_data
 
     model, y_vars, x_vars, c_vk = _create_model(clusters_df, configurations_df, params)
 

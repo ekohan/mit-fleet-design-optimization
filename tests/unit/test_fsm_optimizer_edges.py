@@ -7,30 +7,8 @@ from src.fsm_optimizer import _create_model, _extract_solution, _validate_soluti
 from src.config.parameters import Parameters
 
 
-def make_toy():
-    # One cluster with two customers
-    clusters_df = pd.DataFrame([{
-        'Cluster_ID': 1,
-        'Customers': ['C1', 'C2'],
-        'Total_Demand': {'Dry': 2, 'Chilled': 0, 'Frozen': 0},
-        'Route_Time': 1.0
-    }])
-    # One configuration that can serve Dry
-    config_df = pd.DataFrame([{
-        'Config_ID': 1,
-        'Vehicle_Type': 'A',
-        'Capacity': 5,
-        'Fixed_Cost': 10,
-        'Dry': 1,
-        'Chilled': 0,
-        'Frozen': 0
-    }])
-    params = Parameters.from_yaml()
-    return clusters_df, config_df, params
-
-
-def test_create_model_constraints():
-    clusters_df, config_df, params = make_toy()
+def test_create_model_constraints(toy_fsm_edge_data):
+    clusters_df, config_df, params = toy_fsm_edge_data
     model, y_vars, x_vars, c_vk = _create_model(clusters_df, config_df, params)
     # Each customer coverage constraint exists
     for cid in ['C1', 'C2']:
@@ -40,8 +18,8 @@ def test_create_model_constraints():
     assert (1, 1) in x_vars
 
 
-def test_light_load_threshold_monotonicity():
-    clusters_df, config_df, params = make_toy()
+def test_light_load_threshold_monotonicity(toy_fsm_edge_data):
+    clusters_df, config_df, params = toy_fsm_edge_data
     # small cluster demand -> light-load penalty applies
     params.light_load_penalty = 100
     costs = []
@@ -53,8 +31,8 @@ def test_light_load_threshold_monotonicity():
     assert costs[0] <= costs[1] <= costs[2]
 
 
-def test_capacity_infeasibility_injects_NoVehicle(caplog):
-    clusters_df, config_df, params = make_toy()
+def test_capacity_infeasibility_injects_NoVehicle(toy_fsm_edge_data, caplog):
+    clusters_df, config_df, params = toy_fsm_edge_data
     # Make demand exceed capacity
     clusters_df.at[0, 'Total_Demand'] = {'Dry': 100, 'Chilled': 0, 'Frozen': 0}
     caplog.set_level(logging.WARNING)
@@ -67,8 +45,8 @@ def test_capacity_infeasibility_injects_NoVehicle(caplog):
     assert 'cannot be served' in caplog.text.lower()
 
 
-def test_extract_and_validate_solution():
-    clusters_df, config_df, params = make_toy()
+def test_extract_and_validate_solution(toy_fsm_edge_data):
+    clusters_df, config_df, params = toy_fsm_edge_data
     # Build y_vars: cluster 1 selected
     y = pulp.LpVariable('y_1', cat='Binary'); y.varValue = 1
     y_vars = {1: y}

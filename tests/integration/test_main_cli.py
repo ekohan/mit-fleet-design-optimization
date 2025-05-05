@@ -11,7 +11,7 @@ def test_main_generates_excel(tmp_results_dir, monkeypatch):
     # Set CLI args for Excel
     sys.argv = [
         'src.main',
-        '--config', 'tests/_assets/mini.yaml',
+        '--config', 'tests/_assets/smoke/mini.yaml',
         '--format', 'excel',
         '--demand-file', 'mini_demand.csv'
     ]
@@ -27,7 +27,7 @@ def test_main_generates_json(tmp_results_dir, monkeypatch):
     monkeypatch.setenv('PROJECT_RESULTS_DIR', str(tmp_results_dir))
     sys.argv = [
         'src.main',
-        '--config', 'tests/_assets/mini.yaml',
+        '--config', 'tests/_assets/smoke/mini.yaml',
         '--format', 'json',
         '--demand-file', 'mini_demand.csv'
     ]
