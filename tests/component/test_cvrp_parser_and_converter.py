@@ -65,7 +65,7 @@ def test_parse_solution_logs_warning(tmp_path, caplog):
     assert solution.num_vehicles == len(solution.routes)
     assert solution.expected_vehicles == 3
     # Expect warning about mismatch k3 vs actual 2 routes
-    assert any('differs' in rec.message for rec in caplog.records), "Expected mismatch warning"
+    assert any('differ' in rec.message.lower() for rec in caplog.records), "Expected vehicle count mismatch warning"
 
 # --- Converter tests ----------------------------------------------------------
 

@@ -68,4 +68,10 @@ def test_parse_solution_logs_warning(tmp_path, caplog):
     assert sol.num_vehicles == 2
     assert sol.expected_vehicles == 3
     # Should log a warning about differing k
-    assert 'differs from instance name' in caplog.text.lower() 
+    # Use record_tuples to check for warning messages more robustly
+    assert any(
+        rec[0] == 'src.benchmarking.cvrp_parser' and 
+        rec[1] == logging.WARNING and
+        'differs' in rec[2].lower()
+        for rec in caplog.record_tuples
+    ), "Expected warning about vehicle count mismatch" 

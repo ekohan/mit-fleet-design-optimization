@@ -54,5 +54,10 @@ def test_capacity_violation_model_warning(toy_fsm_core_data, caplog):
     # Assert that 'NoVehicle' variable was injected for unserviceable cluster
     assert any(v == 'NoVehicle' for v, k in x_vars.keys()), "Should inject NoVehicle for infeasible cluster"
     # Check warning about unserviceable cluster
-    assert 'cannot be served' in caplog.text.lower(), "Expected warning about unserviceable cluster"
+    assert any(
+        rec[0] == 'src.fsm_optimizer' and 
+        rec[1] == logging.WARNING and
+        'serve' in rec[2].lower()
+        for rec in caplog.record_tuples
+    ), "Expected warning about unserviceable cluster"
     

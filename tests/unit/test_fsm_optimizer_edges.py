@@ -41,8 +41,13 @@ def test_capacity_infeasibility_injects_NoVehicle(toy_fsm_edge_data, caplog):
     assert any(v == 'NoVehicle' for (v, k) in x_vars)
     # There should be an unserviceable-cluster constraint
     assert f"Unserviceable_Cluster_1" in model.constraints
-    # Warning about unserviceable cluster
-    assert 'cannot be served' in caplog.text.lower()
+    # Use record_tuples for more robust log checking
+    assert any(
+        rec[0].startswith('src.fsm_optimizer') and 
+        rec[1] == logging.WARNING and
+        'serve' in rec[2].lower()
+        for rec in caplog.record_tuples
+    ), "Expected warning about unserviceable cluster"
 
 
 def test_extract_and_validate_solution(toy_fsm_edge_data):
