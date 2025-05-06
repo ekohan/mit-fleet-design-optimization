@@ -15,6 +15,7 @@ import sys
 from src.utils.logging import Colors, Symbols
 from src.config.parameters import Parameters
 from src.post_optimization import improve_solution
+from src.utils.solver import pick_solver
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ def solve_fsm_problem(
     configurations_df: pd.DataFrame,
     customers_df: pd.DataFrame,
     parameters: Parameters,
+    solver=None,
     verbose: bool = False
 ) -> Dict:
     """
@@ -33,6 +35,7 @@ def solve_fsm_problem(
         configurations_df: DataFrame containing vehicle configurations
         customers_df: DataFrame containing customer demands
         parameters: Parameters object containing optimization parameters
+        solver: Optional solver to use instead of pick_solver
         verbose: Whether to enable verbose output to screen
     
     Returns:
@@ -41,9 +44,8 @@ def solve_fsm_problem(
     # Create optimization model
     model, y_vars, x_vars, c_vk = _create_model(clusters_df, configurations_df, parameters)
     
-    # Solve the model
-    solver = pulp.GUROBI_CMD(msg=1 if verbose else 0)
-    
+    # Select solver: use provided or pick based on FSM_SOLVER env
+    solver = solver or pick_solver(verbose)
     start_time = time.time()
     model.solve(solver)
     end_time = time.time()
