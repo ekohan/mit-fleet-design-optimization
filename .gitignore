@@ -28,6 +28,12 @@ results/*.html
 results_back
 back_results
 
+# Testing
+.hypothesis/
+.coverage*
+coverage/*
+!coverage/coverage-summary.json
+
 # Etc
 Notes_Eric.txt
 2023-CIE-Districting.pdf

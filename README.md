@@ -376,6 +376,11 @@ To view the interactive map, open the generated HTML file in a web browser.
 ![Results Summary](results_xlsx.png)
 *Detailed breakdown of solution metrics and performance*
 
+## Solver backend
+By default the code selects GUROBI if it is available; otherwise it uses CBC.
+Set the environment variable FSM_SOLVER to 'gurobi', 'cbc', or 'auto' to override.
+CI runs with FSM_SOLVER=cbc so contributors do not need a Gurobi licence.
+
 ## License
 
 This project is licensed under the MIT License.

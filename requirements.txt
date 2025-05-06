@@ -21,3 +21,5 @@ folium
 pyvrp
 rich
 vrplib
+# Testing dependencies
+hypothesis
