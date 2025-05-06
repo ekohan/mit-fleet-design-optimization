@@ -15,10 +15,8 @@ def pick_solver(verbose: bool = False):
     if choice == "cbc":
         return pulp.PULP_CBC_CMD(msg=msg)
 
-    # auto
+    # auto: try Gurobi, fallback to CBC on instantiation errors
     try:
-        s = pulp.GUROBI_CMD(msg=msg)
-        s.get_solver_filename()      # raises if gurobi_cl missing
-        return s
+        return pulp.GUROBI_CMD(msg=msg)
     except (pulp.PulpError, OSError):
         return pulp.PULP_CBC_CMD(msg=msg) 
