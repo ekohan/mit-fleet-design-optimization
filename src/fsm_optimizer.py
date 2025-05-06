@@ -46,6 +46,7 @@ def solve_fsm_problem(
     
     # Select solver: use provided or pick based on FSM_SOLVER env
     solver = solver or pick_solver(verbose)
+    logger.info(f"Using solver: {solver.name}")
     start_time = time.time()
     model.solve(solver)
     end_time = time.time()
