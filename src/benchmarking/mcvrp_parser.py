@@ -12,7 +12,7 @@ def parse_mcvrp(path: Union[str, Path]) -> MCVRPInstance:
         raise FileNotFoundError(f"MCVRP instance file not found: {path}")
 
     # Read all lines, stripping whitespace
-    lines = [line.strip() for line in p.open()]
+    lines = [line.strip() for line in p.open(encoding='latin-1')]
 
     # Parse header key:value lines
     headers: Dict[str, str] = {}
