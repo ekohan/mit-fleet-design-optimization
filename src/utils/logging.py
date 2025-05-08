@@ -36,7 +36,9 @@ class SimpleFormatter(logging.Formatter):
             'CRITICAL': Colors.RED + Colors.BOLD
         }.get(record.levelname, Colors.RESET)
         
-        return f"{color}{record.msg}{Colors.RESET}"
+        # Use record.getMessage() to include formatting with args
+        message = record.getMessage()
+        return f"{color}{message}{Colors.RESET}"
 
 def setup_logging():
     """Configure clean and simple logging."""

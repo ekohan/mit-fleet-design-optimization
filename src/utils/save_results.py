@@ -34,7 +34,8 @@ def save_optimization_results(
     parameters: Parameters,
     filename: str = None,
     format: str = 'excel',
-    is_benchmark: bool = False
+    is_benchmark: bool = False,
+    expected_vehicles: int | None = None
 ) -> None:
     """Save optimization results to a file (Excel or JSON) and create visualization"""
     
@@ -82,6 +83,9 @@ def save_optimization_results(
         ('  Compartment Setup Penalties ($)', f"{total_compartment_penalties:,.2f}"),
         ('Total Vehicles', len(selected_clusters)),
     ]
+    
+    if expected_vehicles is not None:
+        summary_metrics.append(('Expected Vehicles', expected_vehicles))
     
     for vehicle_type in sorted(vehicles_used.keys()):
         vehicle_count = vehicles_used[vehicle_type]

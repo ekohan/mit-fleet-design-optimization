@@ -385,7 +385,8 @@ def main():
         parameters=params,
         filename=results_path,
         format=args.format,
-        is_benchmark=True
+        is_benchmark=True,
+        expected_vehicles=params.expected_vehicles
     )
 
 if __name__ == "__main__":
