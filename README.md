@@ -55,8 +55,13 @@ mit-fleet-design-optimization/
 │   ├── benchmarking/              # Benchmarking implementations
 │   │   ├── run_benchmark.py       # VRP benchmark runner
 │   │   ├── vrp_solver.py         # Single-compartment VRP solver
-│   │   ├── cvrp_to_fsm.py        # CVRP instance converter
-│   │   ├── cvrp_parser.py        # CVRP instance file parser
+│   │   ├── vrp_to_fsm.py         # Unified VRP-to-FSM conversion CLI
+│   │   ├── vrp_interface.py      # Library interface for VRP-to-FSM
+│   │   ├── cvrp_converter.py     # CVRP-to-FSM conversion logic
+│   │   ├── mcvrp_to_fsm.py       # MCVRP-to-FSM conversion logic
+│   │   ├── convert_mcvrp_to_fsm.py # Deprecated CLI shim for MCVRP
+│   │   ├── cvrp_to_fsm.py        # Deprecated CLI shim for CVRP
+│   │   └── cvrp_parser.py        # CVRP instance file parser
 │   │   └── cvrp_instances/       # Standard CVRP benchmark instances
 │   ├── config/                    # Configuration files and parameters
 │   └── utils/                     # Helper modules
@@ -83,7 +88,12 @@ The data directory contains utilities to process raw sales data into formats sui
 - `benchmarking/`: Benchmarking implementations
   - `run_benchmark.py`: VRP benchmark runner
   - `vrp_solver.py`: Single-compartment VRP solver
-  - `cvrp_to_fsm.py`: CVRP instance converter
+  - `vrp_to_fsm.py`: Unified VRP-to-FSM conversion CLI
+  - `vrp_interface.py`: Library interface for VRP-to-FSM
+  - `cvrp_converter.py`: CVRP-to-FSM conversion logic
+  - `mcvrp_to_fsm.py`: MCVRP-to-FSM conversion logic
+  - `convert_mcvrp_to_fsm.py`: Deprecated CLI shim for MCVRP
+  - `cvrp_to_fsm.py`: Deprecated CLI shim for CVRP
   - `cvrp_parser.py`: CVRP instance file parser
   - `cvrp_instances/`: Standard CVRP benchmark instances
 - `config/`: Configuration files and parameters
@@ -225,42 +235,52 @@ The VRP benchmark feeds all customer data directly to the VRP solver without clu
 - Reflects the inherent efficiencies of single-compartment vehicles
 - Provides a fair baseline for comparing with the MCV approach
 
-### CVRP to FSM Conversion
+### VRP to FSM Conversion
 
-The system supports converting standard CVRP benchmark instances to FSM format for additional testing and validation. Four conversion types are available:
+The system provides a unified command-line interface for converting both CVRP and MCVRP instances to FSM format and running the optimization in one step.
 
-1. **Normal**: Single instance converted to single good (dry)
-   ```bash
-   python src/benchmarking/cvrp_to_fsm.py --instance X-n106-k14 --benchmark-type normal
-   ```
-   - Uses original vehicle capacity and number of vehicles
-   - Best for direct comparison with CVRP results
+Usage examples (script invocation):
+```bash
+# Convert a multi-compartment VRP instance (3 goods):
+python src/benchmarking/vrp_to_fsm.py \
+  --vrp-type mcvrp \
+  --instance 10_3_3_3_(01)
 
-2. **Split**: Single instance with demand split across multiple goods
-   ```bash
-   python src/benchmarking/cvrp_to_fsm.py --instance X-n106-k14 --benchmark-type split --num-goods 2
-   ```
-   - Maintains original total demand but distributes across compartments
-   - Tests multi-compartment optimization with correlated demands
+# Convert a classic CVRP instance with the 'normal' benchmark type:
+python src/benchmarking/vrp_to_fsm.py \
+  --vrp-type cvrp \
+  --instance X-n106-k14 \
+  --benchmark-type normal
 
-3. **Scaled**: Single instance scaled for multiple goods
-   ```bash
-   python src/benchmarking/cvrp_to_fsm.py --instance X-n106-k14 --benchmark-type scaled
-   ```
-   - Multiplies capacity and vehicles by number of goods
-   - Tests scalability of the FSM solver
+# Save results in JSON format with 2 goods split:
+python src/benchmarking/vrp_to_fsm.py \
+  --vrp-type cvrp \
+  --instance X-n106-k14 \
+  --benchmark-type split \
+  --num-goods 2 \
+  --format json
 
-4. **Combined**: Multiple instances combined into one problem
-   ```bash
-   python src/benchmarking/cvrp_to_fsm.py --instance X-n106-k14 X-n157-k13 --benchmark-type combined
-   ```
-   - Each instance represents a different good type
-   - Tests handling of independent demand patterns
+# Run all MCVRP benchmark instances and save results:
+python src/benchmarking/run_all_mcvrp.py
 
-Options:
-- `--format`: Output format (excel or json)
-- `--num-goods`: Number of goods to consider (2 or 3)
-- `--info`: Show detailed information about the tool
+# Parse all MCVRP JSON results and generate a CSV summary:
+python tools/parse_mcvrp_results.py
+```
+
+Key options:
+- `--vrp-type`: `cvrp` or `mcvrp` (required)
+- `--instance`: Instance name(s) without extension (`.vrp` for CVRP, `.dat` for MCVRP) (required)
+- `--benchmark-type`: CVRP benchmark variant (`normal`, `split`, `scaled`, `combined`)
+- `--num-goods`: Number of goods to consider for CVRP (`2` or `3`, default `3`)
+- `--format`: Output file format (`excel` or `json`, default `excel`)
+- `--verbose`: Enable verbose solver output
+- `--info`: Show detailed information and exit
+
+Results are saved to the `results/` directory with filenames following:
+```
+vrp_<vrp-type>_<instance(s)>_<benchmark-type>.<ext>
+```
+For MCVRP, the `<benchmark-type>` segment is omitted.
 
 ### Running the Benchmark
 
