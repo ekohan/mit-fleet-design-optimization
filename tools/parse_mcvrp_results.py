@@ -10,7 +10,7 @@ def main():
     out_csv = results_dir / "summary_mcvrp.csv"
     rows = []
 
-    for json_file in sorted(results_dir.glob("mcvrp_*.json")):
+    for json_file in sorted(results_dir.glob("*mcvrp_*.json")):
         data = json.loads(json_file.read_text())
         summary = data.get("Solution Summary", {})
         instance = json_file.stem.replace("mcvrp_", "")
