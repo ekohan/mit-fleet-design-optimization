@@ -25,7 +25,6 @@ import src.utils.data_processing
 import src.utils.data_processing as dp_module
 import src.clustering as clustering_module
 import src.fsm_optimizer as fsm_module
-import src.utils.save_results as save_module
 
 @contextlib.contextmanager
 def stub_data_processing(monkeypatch):
@@ -88,6 +87,9 @@ def stub_solver(monkeypatch):
 @contextlib.contextmanager
 def stub_save_results(monkeypatch, output_dir):
     """Stub save_optimization_results to write dummy output files."""
+    # Import locally to avoid circular dependencies during test collection
+    import src.utils.save_results as save_module_local
+
     def fake_save(*args, **kwargs):
         # Get the format from kwargs or default to excel
         format = kwargs.get('format', 'excel')
@@ -97,15 +99,22 @@ def stub_save_results(monkeypatch, output_dir):
         ext = "xlsx" if format == "excel" else "json"
         (Path(output_dir) / f"output.{ext}").write_text("dummy")
     
-    # Import and patch the module
-    import src.utils.save_results
-    monkeypatch.setattr(src.utils.save_results, "save_optimization_results", fake_save)
+    monkeypatch.setattr(save_module_local, "save_optimization_results", fake_save)
     yield
 
 @contextlib.contextmanager
 def stub_vrplib(monkeypatch):
-    """Stub CVRPParser in src.benchmarking.cvrp_to_fsm."""
+    """Stub CVRPParser in src.benchmarking.cvrp_to_fsm and bypass missing-file guard for .vrp."""
     import src.benchmarking.cvrp_to_fsm as mod
+    # Monkey-patch Path.exists to return True for .vrp under cvrp_instances
+    from pathlib import Path
+    orig_exists = Path.exists
+    def fake_exists(self):
+        if self.suffix == '.vrp' and 'cvrp_instances' in str(self):
+            return True
+        return orig_exists(self)
+    monkeypatch.setattr(Path, 'exists', fake_exists)
+
     # Dummy parser with minimal behavior
     class DummyParser:
         def __init__(self, path): pass

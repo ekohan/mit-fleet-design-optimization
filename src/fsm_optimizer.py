@@ -463,7 +463,6 @@ def _calculate_cluster_cost(
     - Compartment setup cost
     
     Note: Light load penalties are handled separately in the model creation.
-    TODO: CHECK IF THIS IS CORRECT
     Args:
         cluster: The cluster data as a Pandas Series.
         config: The vehicle configuration data as a Pandas Series.

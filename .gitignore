@@ -25,6 +25,7 @@ mit-fleet-env/
 results/*.xlsx
 results/*.json
 results/*.html
+results/*.csv
 results_back
 back_results
 

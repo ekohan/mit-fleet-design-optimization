@@ -3,6 +3,7 @@ import sys
 import pytest
 import pandas as pd
 from io import StringIO
+from pathlib import Path
 
 from src.benchmarking.cvrp_parser import CVRPParser
 from src.benchmarking.cvrp_to_fsm import main as c2f_main, convert_cvrp_to_fsm, CVRPBenchmarkType
@@ -81,6 +82,20 @@ class DummyInst:
 
 @pytest.fixture(autouse=True)
 def stub_parser(monkeypatch):
+    # ----------------------------------------------------------------------------
+    # Create placeholder .vrp files so our pre-check in convert_cvrp_to_fsm will find them.
+    # Contents are never parsed (we stub out CVRPParser).
+    instances_dir = (
+        Path(__file__).resolve().parents[2]  # project root
+        / "src" / "benchmarking" / "cvrp_instances"
+    )
+    instances_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("dummy", "a", "b"):
+        f = instances_dir / f"{name}.vrp"
+        if not f.exists():
+            f.write_text("")  # empty stub
+    # ----------------------------------------------------------------------------
+
     class FakeParser:
         def __init__(self, path): pass
         def parse(self): return FakeParser.instance

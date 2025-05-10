@@ -4,6 +4,7 @@ from src.benchmarking.cvrp_to_fsm import (
     convert_cvrp_to_fsm,
     CVRPBenchmarkType
 )
+from pathlib import Path
 
 # Monkey-patch CVRPParser.parse to return a controlled instance
 class DummyInst:
@@ -17,6 +18,13 @@ class DummyInst:
 @pytest.fixture(autouse=True)
 def patch_parser(monkeypatch):
     import src.benchmarking.cvrp_to_fsm as mod
+    # Bypass convert_cvrp_to_fsm file-existence check for unit tests
+    orig_exists = Path.exists
+    def fake_exists(self):
+        if self.suffix == '.vrp' and 'cvrp_instances' in str(self):
+            return True
+        return orig_exists(self)
+    monkeypatch.setattr(Path, 'exists', fake_exists)
     class DummyParser:
         def __init__(self, path): pass
         def parse(self): return DummyInst()
