@@ -1,8 +1,10 @@
 # Fleet‑Size‑and‑Mix Optimizer (FSM‑Opt) for Multi-Compartment Vehicle Routing
 
-Fast, reproducible tooling for **multi‑compartment vehicle fleet design** in urban food distribution.  This repository provides a comprehensive Python implementation supporting the research paper on [Designing Multi-Compartment Vehicle Fleets for Last-Mile Food Distribution Systems](https://arxiv.org/search/?query=fleet+size+mix&searchtype=all&source=header).
-
 *Written for transparent research, hardened for production use.*
+
+Fast, reproducible tooling for **multi‑compartment vehicle fleet design** in urban food distribution. 
+This repository provides a comprehensive Python implementation supporting our research paper on [Designing Multi-Compartment Vehicle Fleets for Last-Mile Food Distribution Systems](https://arxiv.org/search/?query=fleet+size+mix&searchtype=all&source=header).
+
 
 ---
 
