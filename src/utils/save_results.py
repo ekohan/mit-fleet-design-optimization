@@ -11,8 +11,7 @@ import ast
 import folium
 from folium import plugins
 from typing import Dict
-from src.benchmarking.vrp_solver import VRPSolution
-from src.benchmarking.benchmark_types import BenchmarkType
+from src.core_types import BenchmarkType, VRPSolution
 import logging
 
 # Add logging to track load percentages
@@ -35,7 +34,9 @@ def save_optimization_results(
     filename: str = None,
     format: str = 'excel',
     is_benchmark: bool = False,
-    expected_vehicles: int | None = None
+    expected_vehicles: int | None = None,
+    solver_runtime_sec: float = None,
+    post_optimization_runtime_sec: float = None
 ) -> None:
     """Save optimization results to a file (Excel or JSON) and create visualization"""
     
@@ -172,25 +173,27 @@ def save_optimization_results(
         'configurations_df': configurations_df,
         'cluster_details': cluster_details,
         'vehicles_used': vehicles_used,
-        'other_considerations': {
-            'Total Vehicles Used': len(selected_clusters),
-            'Number of Unserved Customers': len(missing_customers),
-            'Unserved Customers': str(list(missing_customers)) if missing_customers else "None",
-            'Average Customers per Cluster': cluster_details['Num_Customers'].mean() if 'Num_Customers' in cluster_details.columns else 'N/A',
-            'Average Distance per Cluster': cluster_details['Estimated_Distance'].mean() if 'Estimated_Distance' in cluster_details.columns else 'N/A'
-        },
-        'execution_details': {
-            'Execution Time (s)': execution_time,
-            'Solver': solver_name,
-            'Solver Status': solver_status,
-            'Total Fixed Cost': total_fixed_cost,
-            'Total Variable Cost': total_variable_cost,
-            'Total Penalties': total_penalties,
-            'Light Load Penalties': total_light_load_penalties,
-            'Compartment Setup Penalties': total_compartment_penalties,
-            'Total Cost': total_fixed_cost + total_variable_cost + total_penalties,
-            'Demand File': parameters.demand_file
-        }
+        'other_considerations': [
+            ('Total Vehicles Used', len(selected_clusters)),
+            ('Number of Unserved Customers', len(missing_customers)),
+            ('Unserved Customers', str(list(missing_customers)) if missing_customers else "None"),
+            ('Average Customers per Cluster', cluster_details['Num_Customers'].mean() if 'Num_Customers' in cluster_details.columns else 'N/A'),
+            ('Average Distance per Cluster', cluster_details['Estimated_Distance'].mean() if 'Estimated_Distance' in cluster_details.columns else 'N/A')
+        ],
+        'execution_details': [
+            ('Execution Time (s)', execution_time),
+            ('Solver', solver_name),
+            ('Solver Status', solver_status),
+            ('Solver Runtime (s)', solver_runtime_sec),
+            ('Post-Optimization Runtime (s)', post_optimization_runtime_sec),
+            ('Total Fixed Cost', total_fixed_cost),
+            ('Total Variable Cost', total_variable_cost),
+            ('Total Penalties', total_penalties),
+            ('Light Load Penalties', total_light_load_penalties),
+            ('Compartment Setup Penalties', total_compartment_penalties),
+            ('Total Cost', total_fixed_cost + total_variable_cost + total_penalties),
+            ('Demand File', parameters.demand_file)
+        ]
     }
 
     try:
@@ -237,12 +240,12 @@ def _write_to_excel(filename: str, data: dict) -> None:
         vehicles_df.to_excel(writer, sheet_name='Vehicle Usage', index=False)
         
         # Sheet 5: Other Considerations
-        pd.DataFrame([data['other_considerations']]).to_excel(
+        pd.DataFrame(data['other_considerations'], columns=['Metric', 'Value']).to_excel(
             writer, sheet_name='Other Considerations', index=False
         )
 
         # Sheet 6: Execution Details
-        pd.DataFrame([data['execution_details']]).to_excel(
+        pd.DataFrame(data['execution_details'], columns=['Metric', 'Value']).to_excel(
             writer, sheet_name='Execution Details', index=False
         )
 
@@ -275,8 +278,8 @@ def _write_to_json(filename: str, data: dict) -> None:
         'Configurations': data['configurations_df'].to_dict(orient='records'),
         'Selected Clusters': serializable_clusters, # Use serializable version
         'Vehicle Usage': vehicle_usage,
-        'Other Considerations': data['other_considerations'],
-        'Execution Details': data['execution_details']
+        'Other Considerations': dict(data['other_considerations']),
+        'Execution Details': dict(data['execution_details'])
     }
 
     with open(filename, 'w') as f:

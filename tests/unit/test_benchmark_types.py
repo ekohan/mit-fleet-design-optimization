@@ -1,5 +1,5 @@
 import pytest
-from src.benchmarking.benchmark_types import BenchmarkType
+from src.core_types import BenchmarkType
 
 @pytest.mark.parametrize("enum_member,expected_value", [
     (BenchmarkType.SINGLE_COMPARTMENT, "single_compartment"),

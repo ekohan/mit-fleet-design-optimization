@@ -19,30 +19,10 @@ import logging
 from src.config.parameters import Parameters
 from src.utils.logging import Colors, Symbols
 from src.utils.route_time import estimate_route_time
-from src.benchmarking.benchmark_types import BenchmarkType
+from src.core_types import BenchmarkType, VRPSolution
 
 # Add logging to track utilization
 logging.basicConfig(level=logging.WARNING)
-
-@dataclass
-class VRPSolution:
-    """Results from VRP solver."""
-    total_cost: float
-    fixed_cost: float
-    variable_cost: float
-    total_distance: float
-    num_vehicles: int
-    routes: List[List[int]]
-    vehicle_loads: List[float]
-    execution_time: float
-    solver_status: str
-    customer_assignments: Dict[str, int]  # customer_id -> route_id mapping
-    route_sequences: List[List[str]]  # List of customer sequences per route
-    vehicle_utilization: List[float]  # Capacity utilization per route
-    vehicle_types: List[int]  # Vehicle type index per route
-    route_times: List[float]
-    route_distances: List[float]
-    route_feasibility: List[bool]  # New field to track which routes exceed constraints
 
 class VRPSolver:
     """Single-compartment VRP solver implementation."""
