@@ -44,6 +44,8 @@ def main():
             execution_time=time.time() - start_time,
             solver_name=solution["solver_name"],
             solver_status=solution["solver_status"],
+            solver_runtime_sec=solution["solver_runtime_sec"],
+            post_optimization_runtime_sec=solution["post_optimization_runtime_sec"],
             configurations_df=configs_df,
             selected_clusters=solution["selected_clusters"],
             total_fixed_cost=solution["total_fixed_cost"],

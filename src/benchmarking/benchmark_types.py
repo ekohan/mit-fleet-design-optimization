@@ -1,4 +1,6 @@
-from enum import Enum
+from src.core_types import BenchmarkType # noqa: F401
+
+# BenchmarkType enum is now defined in src.core_types.py
 
 class BenchmarkType(Enum):
     """Types of VRP benchmarks."""
