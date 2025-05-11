@@ -109,6 +109,9 @@ def generate_post_optimization_merges(
         'invalid_compatibility': 0
     }
     
+    # Create an indexed DataFrame for efficient configuration lookups
+    configs_indexed = configurations_df.set_index('Config_ID')
+    
     # Get all small clusters
     small_clusters = selected_clusters[
         selected_clusters['Customers'].apply(len) <= SMALL_CLUSTER_SIZE
@@ -124,9 +127,7 @@ def generate_post_optimization_merges(
     
     # Try merging small clusters with potential targets
     for _, small_cluster in small_clusters.iterrows():
-        small_config = configurations_df[
-            configurations_df['Config_ID'] == small_cluster['Config_ID']
-        ].iloc[0]
+        small_config = configs_indexed.loc[small_cluster['Config_ID']]
         
         # Get goods used by small cluster
         small_goods = {
@@ -142,9 +143,7 @@ def generate_post_optimization_merges(
             stats['attempted'] += 1
             
             # Get target configuration
-            target_config = configurations_df[
-                configurations_df['Config_ID'] == target_cluster['Config_ID']
-            ].iloc[0]
+            target_config = configs_indexed.loc[target_cluster['Config_ID']]
             
             # Check capacity compatibility
             if target_config['Capacity'] < small_config['Capacity']:
@@ -177,11 +176,6 @@ def generate_post_optimization_merges(
                 # Calculate new centroid
                 centroid_lat = merged_customers['Latitude'].mean()
                 centroid_lon = merged_customers['Longitude'].mean()
-                
-                # Get target configuration - we keep its goods and capacity
-                target_config = configurations_df[
-                    configurations_df['Config_ID'] == target_cluster['Config_ID']
-                ].iloc[0]
                 
                 # Create new cluster with core required fields
                 new_cluster = {

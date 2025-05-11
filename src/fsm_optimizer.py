@@ -94,7 +94,7 @@ def solve_fsm_problem(
         'solver_runtime_sec': solver_time
     })
     
-    # Instrument post-optimization timing
+    # Improvement phase
     post_optimization_time = None
     if parameters.post_optimization:
         post_start = time.time()
