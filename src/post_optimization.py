@@ -137,6 +137,8 @@ def generate_post_optimization_merges(
     
     # Create an indexed DataFrame for efficient configuration lookups
     configs_indexed = configurations_df.set_index('Config_ID')
+    # Index customers for fast lookup
+    customers_indexed = customers_df.set_index('Customer_ID')
     
     # Get all small clusters
     small_clusters = selected_clusters[
@@ -193,11 +195,9 @@ def generate_post_optimization_merges(
                 stats['valid'] += 1
                 
                 # Get merged customers data for centroid calculation
-                merged_customers = customers_df[
-                    customers_df['Customer_ID'].isin(
-                        target_cluster['Customers'] + small_cluster['Customers']
-                    )
-                ]
+                merged_customers = customers_indexed.loc[
+                    target_cluster['Customers'] + small_cluster['Customers']
+                ].reset_index()
                 
                 # Calculate new centroid
                 centroid_lat = merged_customers['Latitude'].mean()
@@ -245,6 +245,11 @@ def validate_merged_cluster(
     params: Parameters
 ) -> Tuple[bool, float, Dict]:
     """Validate if two clusters can be merged."""
+    # Index customers for fast lookup
+    if customers_df.index.name != 'Customer_ID':
+        customers_indexed = customers_df.set_index('Customer_ID', drop=False)
+    else:
+        customers_indexed = customers_df
     # Check compartment compatibility
     merged_goods = {}
     for g in params.goods:
@@ -261,10 +266,8 @@ def validate_merged_cluster(
     cluster1_customers = cluster1['Customers'] if isinstance(cluster1['Customers'], list) else [cluster1['Customers']]
     cluster2_customers = cluster2['Customers'] if isinstance(cluster2['Customers'], list) else [cluster2['Customers']]
     
-    merged_customers = customers_df[
-        customers_df['Customer_ID'].isin(
-            cluster1_customers + cluster2_customers
-        )
+    merged_customers = customers_indexed.loc[
+        cluster1_customers + cluster2_customers
     ]
     
     # Validate customer locations
