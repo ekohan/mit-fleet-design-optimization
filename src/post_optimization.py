@@ -4,12 +4,38 @@ import logging
 from typing import Dict, Tuple
 import pandas as pd
 
-from src.utils.route_time import _bhh_estimation
+from src.utils.route_time import estimate_route_time
 from src.config.parameters import Parameters
 
 from src.utils.logging import Colors, Symbols
 
 logger = logging.getLogger(__name__)
+
+# Cache for merged cluster route times
+_merged_route_time_cache: Dict[Tuple[str, ...], float] = {}
+
+def _get_merged_route_time(
+    customers: pd.DataFrame,
+    params: Parameters
+) -> float:
+    """
+    Estimate (and cache) the route time for a merged cluster of customers.
+    Always uses the same method & max_route_time from params.
+    """
+    key: Tuple[str, ...] = tuple(sorted(customers['Customer_ID']))
+    if key in _merged_route_time_cache:
+        return _merged_route_time_cache[key]
+    
+    time, _sequence = estimate_route_time(
+        cluster_customers=customers,
+        depot=params.depot,
+        service_time=params.service_time,
+        avg_speed=params.avg_speed,
+        method='BHH', # TODO: Remove hardcoded values on route time estimation --- params.route_time_estimation,
+        max_route_time=params.max_route_time
+    )
+    _merged_route_time_cache[key] = time
+    return time
 
 SMALL_CLUSTER_SIZE = 7  # Only merge clusters with 1-6 customers
 MERGED_CLUSTER_TSP_MSG = "Merged cluster, no TSP computed"  # Placeholder for merged clusters
@@ -246,13 +272,8 @@ def validate_merged_cluster(
         merged_customers['Longitude'].isna().any()):
         return False, 0, {}
 
-    # Calculate new route time using BHH
-    new_route_time = _bhh_estimation(
-        merged_customers,
-        params.depot,
-        params.service_time,
-        params.avg_speed
-    )
+    # Estimate (and cache) new route time using the general estimator
+    new_route_time = _get_merged_route_time(merged_customers, params)
 
     if new_route_time > params.max_route_time:
         return False, 0, {}
