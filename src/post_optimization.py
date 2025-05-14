@@ -41,8 +41,6 @@ def _get_merged_route_time(
     _merged_route_time_cache[key] = (time, sequence)
     return time, sequence
 
-MERGED_CLUSTER_TSP_MSG = "Merged cluster, no TSP computed"  # Placeholder for merged clusters
-
 def improve_solution(
     initial_solution: Dict,
     configurations_df: pd.DataFrame,
@@ -96,15 +94,6 @@ def improve_solution(
     
     # Get all columns from the master DataFrame (selected_clusters)
     all_columns = selected_clusters.columns.tolist()
-    
-    # Ensure merged_clusters has all the same columns as selected_clusters
-    # This preserves the structure including TSP_Sequence if it exists
-    for col in all_columns:
-        if col not in merged_clusters.columns:
-            if col == 'TSP_Sequence':
-                merged_clusters[col] = MERGED_CLUSTER_TSP_MSG
-            else:
-                merged_clusters[col] = None
     
     # Combine clusters while preserving all columns from the master DataFrame
     combined_clusters = pd.concat([
@@ -235,7 +224,8 @@ def generate_post_optimization_merges(
                 'Centroid_Latitude': centroid_lat,
                 'Centroid_Longitude': centroid_lon
             }
-            new_cluster['TSP_Sequence'] = tsp_sequence if tsp_sequence is not None else MERGED_CLUSTER_TSP_MSG
+            if tsp_sequence is not None:
+                new_cluster['TSP_Sequence'] = tsp_sequence
             for good in params.goods:
                 new_cluster[good] = target_config[good]
             new_clusters.append(new_cluster)
@@ -255,8 +245,7 @@ def generate_post_optimization_merges(
     # The improve_solution function will handle adding any missing columns
     minimal_columns = [
         'Cluster_ID', 'Config_ID', 'Customers', 'Route_Time', 
-        'Total_Demand', 'Method', 'Centroid_Latitude', 'Centroid_Longitude',
-        'TSP_Sequence'  # Always include TSP_Sequence with our placeholder
+        'Total_Demand', 'Method', 'Centroid_Latitude', 'Centroid_Longitude', 'TSP_Sequence'
     ] + list(params.goods)
     
     return pd.DataFrame(new_clusters, columns=minimal_columns)
