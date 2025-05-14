@@ -14,6 +14,26 @@ import logging # Added for logging
 
 logger = logging.getLogger(__name__) # Added logger
 
+def calculate_total_service_time_hours(num_customers: int, service_time_per_customer_minutes: float) -> float:
+    """
+    Calculates the total service time in hours for a given number of customers
+    and a per-customer service time in minutes.
+
+    Args:
+        num_customers: The number of customers.
+        service_time_per_customer_minutes: Service time for each customer in minutes.
+
+    Returns:
+        Total service time in hours.
+    """
+    if num_customers < 0:
+        logger.warning("Number of customers cannot be negative. Returning 0.0 hours service time.")
+        return 0.0
+    if service_time_per_customer_minutes < 0:
+        logger.warning("Service time per customer cannot be negative. Returning 0.0 hours service time.")
+        return 0.0
+    return (num_customers * service_time_per_customer_minutes) / 60.0
+
 # Global cache for distance and duration matrices (populated if TSP method is used)
 _matrix_cache = {
     'distance_matrix': None,
@@ -131,7 +151,8 @@ def estimate_route_time(
 
 def _legacy_estimation(num_customers: int, service_time: float) -> float:
     """Original simple estimation method."""
-    return 1 + num_customers * service_time / 60  # Convert minutes to hours
+    # Convert minutes to hours for service_time component
+    return 1 + calculate_total_service_time_hours(num_customers, service_time)
 
 def _bhh_estimation(
     cluster_customers: pd.DataFrame,
@@ -144,10 +165,12 @@ def _bhh_estimation(
     L ≈ 0.765 * sqrt(n) * sqrt(A)
     """
     if len(cluster_customers) <= 1:
-        return service_time / 60
+        # For 0 or 1 customer, service time is the primary component.
+        # Assuming service_time is per customer.
+        return calculate_total_service_time_hours(len(cluster_customers), service_time)
         
     # Calculate service time component
-    service_time_total = len(cluster_customers) * service_time / 60  # hours
+    service_time_total = calculate_total_service_time_hours(len(cluster_customers), service_time)
     
     # Calculate depot travel component
     centroid_lat = cluster_customers['Latitude'].mean()
@@ -213,7 +236,7 @@ def _pyvrp_tsp_estimation(
         dist_to = haversine(depot_coord, cust_coord)
         dist_from = haversine(cust_coord, depot_coord)
         travel_time_hours = (dist_to + dist_from) / avg_speed
-        service_time_hours = service_time / 60.0
+        service_time_hours = calculate_total_service_time_hours(1, service_time)
         # Sequence for single customer: Depot -> Customer -> Depot
         sequence = ["Depot", cust_row['Customer_ID'], "Depot"]
         return travel_time_hours + service_time_hours, sequence
