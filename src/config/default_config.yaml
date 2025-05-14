@@ -53,5 +53,10 @@ light_load_penalty: 0  # Adjust penalty value as needed -- 0 == don't penalize
 light_load_threshold: 0.20  # Threshold for light load (e.g., 0.2 for 20%) -- when to penalize
 compartment_setup_cost: 50  # Cost per additional compartment beyond the first one
 
+# Post-optimization
+post_optimization: true         # Enable iterative improvement phase
+small_cluster_size: 7           # ≤ customers per "small" cluster
+nearest_merge_candidates: 10    # max neighbour clusters to probe
+
+# Output format
 format: 'excel'  # Output format (excel or json)
-post_optimization: true  # Enable post-optimization improvements

@@ -41,8 +41,6 @@ def _get_merged_route_time(
     _merged_route_time_cache[key] = (time, sequence)
     return time, sequence
 
-SMALL_CLUSTER_SIZE = 7  # Only merge clusters with 1-6 customers
-NEAREST_MERGE_CANDIDATES = 10  # Only consider the 10 nearest clusters
 MERGED_CLUSTER_TSP_MSG = "Merged cluster, no TSP computed"  # Placeholder for merged clusters
 
 def improve_solution(
@@ -149,7 +147,7 @@ def generate_post_optimization_merges(
     cluster_meta = selected_clusters.copy()
     cluster_meta['Capacity'] = cluster_meta['Config_ID'].map(configs_indexed['Capacity'])
     small_meta = cluster_meta[
-        cluster_meta['Customers'].apply(len) <= SMALL_CLUSTER_SIZE
+        cluster_meta['Customers'].apply(len) <= params.small_cluster_size
     ]
     if small_meta.empty:
         return pd.DataFrame()
@@ -187,7 +185,7 @@ def generate_post_optimization_merges(
         valid_idxs = np.where(valid_mask)[0]
         if valid_idxs.size == 0:
             continue
-        nearest_idxs = valid_idxs[np.argsort(distances[valid_idxs])[:NEAREST_MERGE_CANDIDATES]]
+        nearest_idxs = valid_idxs[np.argsort(distances[valid_idxs])[:params.nearest_merge_candidates]]
         for idx in nearest_idxs:
             # Quick lower-bound time prune before costly route-time estimation
             target = target_meta.iloc[idx]
