@@ -33,7 +33,7 @@ back_results
 .hypothesis/
 .coverage*
 coverage/*
-!coverage/coverage-summary.json
+coverage/coverage-summary.json
 
 # Etc
 Notes_Eric.txt
