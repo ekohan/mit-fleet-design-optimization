@@ -31,7 +31,14 @@ def test_bhh_estimation_bounds():
 def test_estimate_route_time_dispatch(method):
     # Single customer cluster
     df = pd.DataFrame({'Latitude': [0.0], 'Longitude': [0.0]})
-    t, seq = estimate_route_time(df, {'latitude':0,'longitude':0}, service_time=15, avg_speed=30, method=method)
+    t, seq = estimate_route_time(
+        df, 
+        {'latitude':0,'longitude':0}, 
+        service_time=15, 
+        avg_speed=30, 
+        method=method,
+        prune_tsp=False
+    )
     assert isinstance(t, float)
     assert isinstance(seq, list)
     # Legacy should return empty sequence

@@ -114,7 +114,8 @@ def estimate_route_time(
     service_time: float,
     avg_speed: float,
     method: str = 'Legacy',
-    max_route_time: float = None
+    max_route_time: float = None,
+    prune_tsp: bool = False
 ) -> Tuple[float, List[str]]:
     """
     Estimate route time using different methods. Return time and sequence (if TSP).
@@ -126,6 +127,7 @@ def estimate_route_time(
         avg_speed: Average vehicle speed (km/h)
         method: Route time estimation method
         max_route_time: Maximum route time in hours (optional)
+        prune_tsp: If True, skip TSP if BHH estimate exceeds max_route_time (optional)
         
     Returns:
         Tuple: (Estimated route time in hours, List of customer IDs in visit sequence or [])
@@ -141,6 +143,16 @@ def estimate_route_time(
         return time, [] # Return empty sequence
     
     elif method == 'TSP':
+        # Prune TSP computation based on BHH estimate if requested
+        logger.warning(f"Prune TSP: {prune_tsp}, Max Route Time: {max_route_time}")
+        if prune_tsp and max_route_time is not None:
+            bhh_time = _bhh_estimation(cluster_customers, depot, service_time, avg_speed)
+            # Add a 20% margin to account for BHH underestimation
+            if bhh_time > max_route_time * 1.2:
+                logger.warning(
+                    f"Cluster skipped TSP computation: BHH estimate {bhh_time:.2f}h greatly exceeds max_route_time {max_route_time}h"
+                )
+                return max_route_time * 1.01, []  # Slightly over max, empty sequence
         # Returns (time, sequence)
         return _pyvrp_tsp_estimation(
             cluster_customers, depot, service_time, avg_speed, max_route_time

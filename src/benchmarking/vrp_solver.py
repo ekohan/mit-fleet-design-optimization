@@ -253,7 +253,9 @@ class VRPSolver:
                 depot=self.params.depot,
                 service_time=self.params.service_time,
                 avg_speed=self.params.avg_speed,
-                method='BHH'
+                method='BHH',
+                max_route_time=self.params.max_route_time,
+                prune_tsp=self.params.prune_tsp
             )
             
             # Check if route is feasible (but include it anyway)

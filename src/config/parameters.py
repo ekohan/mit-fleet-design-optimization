@@ -24,6 +24,7 @@ class Parameters:
     small_cluster_size: int = 7
     nearest_merge_candidates: int = 10
     max_improvement_iterations: int = 4
+    prune_tsp: bool = False
 
     @classmethod
     def from_yaml(cls, path: Path | str = None) -> 'Parameters':

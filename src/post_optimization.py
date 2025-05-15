@@ -37,7 +37,8 @@ def _get_merged_route_time(
         service_time=params.service_time,
         avg_speed=params.avg_speed,
         method=params.clustering['route_time_estimation'],
-        max_route_time=params.max_route_time
+        max_route_time=params.max_route_time,
+        prune_tsp=params.prune_tsp
     )
     _merged_route_time_cache[key] = (time, sequence)
     return time, sequence
