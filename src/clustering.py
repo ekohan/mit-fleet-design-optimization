@@ -660,13 +660,16 @@ def estimate_num_initial_clusters(
     customers: pd.DataFrame,
     config: pd.Series,
     settings: ClusteringSettings,
-    params: Parameters
+    params: Parameters = None
 ) -> int:
     """
     Estimate the number of initial clusters needed based on capacity and time constraints.
     """
     if customers.empty:
         return 0
+
+    # Default prune_tsp flag if params not provided
+    prune_tsp_val = params.prune_tsp if params is not None else False
 
     # Calculate total demand for relevant goods
     total_demand = 0
@@ -697,7 +700,7 @@ def estimate_num_initial_clusters(
         avg_speed=settings.avg_speed,
         method=settings.route_time_estimation, # Use the specific method for estimation
         max_route_time=settings.max_route_time, # Pass max_route_time
-        prune_tsp=params.prune_tsp # Use params.prune_tsp
+        prune_tsp=prune_tsp_val # Use params.prune_tsp or default False
     )
 
     # Estimate clusters needed based on time
