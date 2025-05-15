@@ -39,7 +39,7 @@ def solve_fsm_problem(
         verbose: Whether to enable verbose output to screen
     
     Returns:
-        Dictionary containing optimization results
+        Dictionary containing optimization results.
     """
     # Create optimization model
     model, y_vars, x_vars, c_vk = _create_model(clusters_df, configurations_df, parameters)
@@ -50,9 +50,10 @@ def solve_fsm_problem(
     start_time = time.time()
     model.solve(solver)
     end_time = time.time()
+    solver_time = end_time - start_time
     
     if verbose:
-        print(f"Optimization completed in {end_time - start_time:.2f} seconds.")
+        print(f"Optimization completed in {solver_time:.2f} seconds.")
     
     # Check solution status
     if model.status != pulp.LpStatusOptimal:
@@ -89,18 +90,26 @@ def solve_fsm_problem(
         'selected_clusters': selected_clusters,
         'missing_customers': missing_customers,
         'solver_name': model.solver.name,
-        'solver_status': pulp.LpStatus[model.status]
+        'solver_status': pulp.LpStatus[model.status],
+        'solver_runtime_sec': solver_time
     })
     
-    # Try to improve solution
+    # Improvement phase
+    post_optimization_time = None
     if parameters.post_optimization:
+        post_start = time.time()
         solution = improve_solution(
             solution,
             configurations_df,
             customers_df,
             parameters
         )
-    
+        post_end = time.time()
+        post_optimization_time = post_end - post_start
+
+    # Record post-optimization runtime
+    solution['post_optimization_runtime_sec'] = post_optimization_time
+
     return solution
 
 def _create_model(

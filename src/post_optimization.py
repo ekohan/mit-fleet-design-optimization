@@ -4,12 +4,38 @@ import logging
 from typing import Dict, Tuple
 import pandas as pd
 
-from src.utils.route_time import _bhh_estimation
+from src.utils.route_time import estimate_route_time
 from src.config.parameters import Parameters
 
 from src.utils.logging import Colors, Symbols
 
 logger = logging.getLogger(__name__)
+
+# Cache for merged cluster route times
+_merged_route_time_cache: Dict[Tuple[str, ...], float] = {}
+
+def _get_merged_route_time(
+    customers: pd.DataFrame,
+    params: Parameters
+) -> float:
+    """
+    Estimate (and cache) the route time for a merged cluster of customers.
+    Always uses the same method & max_route_time from params.
+    """
+    key: Tuple[str, ...] = tuple(sorted(customers['Customer_ID']))
+    if key in _merged_route_time_cache:
+        return _merged_route_time_cache[key]
+    
+    time, _sequence = estimate_route_time(
+        cluster_customers=customers,
+        depot=params.depot,
+        service_time=params.service_time,
+        avg_speed=params.avg_speed,
+        method='BHH', # TODO: Remove hardcoded values on route time estimation --- params.route_time_estimation,
+        max_route_time=params.max_route_time
+    )
+    _merged_route_time_cache[key] = time
+    return time
 
 SMALL_CLUSTER_SIZE = 7  # Only merge clusters with 1-6 customers
 MERGED_CLUSTER_TSP_MSG = "Merged cluster, no TSP computed"  # Placeholder for merged clusters
@@ -109,6 +135,11 @@ def generate_post_optimization_merges(
         'invalid_compatibility': 0
     }
     
+    # Create an indexed DataFrame for efficient configuration lookups
+    configs_indexed = configurations_df.set_index('Config_ID')
+    # Index customers for fast lookup
+    customers_indexed = customers_df.set_index('Customer_ID')
+    
     # Get all small clusters
     small_clusters = selected_clusters[
         selected_clusters['Customers'].apply(len) <= SMALL_CLUSTER_SIZE
@@ -124,9 +155,7 @@ def generate_post_optimization_merges(
     
     # Try merging small clusters with potential targets
     for _, small_cluster in small_clusters.iterrows():
-        small_config = configurations_df[
-            configurations_df['Config_ID'] == small_cluster['Config_ID']
-        ].iloc[0]
+        small_config = configs_indexed.loc[small_cluster['Config_ID']]
         
         # Get goods used by small cluster
         small_goods = {
@@ -142,9 +171,7 @@ def generate_post_optimization_merges(
             stats['attempted'] += 1
             
             # Get target configuration
-            target_config = configurations_df[
-                configurations_df['Config_ID'] == target_cluster['Config_ID']
-            ].iloc[0]
+            target_config = configs_indexed.loc[target_cluster['Config_ID']]
             
             # Check capacity compatibility
             if target_config['Capacity'] < small_config['Capacity']:
@@ -168,20 +195,13 @@ def generate_post_optimization_merges(
                 stats['valid'] += 1
                 
                 # Get merged customers data for centroid calculation
-                merged_customers = customers_df[
-                    customers_df['Customer_ID'].isin(
-                        target_cluster['Customers'] + small_cluster['Customers']
-                    )
-                ]
+                merged_customers = customers_indexed.loc[
+                    target_cluster['Customers'] + small_cluster['Customers']
+                ].reset_index()
                 
                 # Calculate new centroid
                 centroid_lat = merged_customers['Latitude'].mean()
                 centroid_lon = merged_customers['Longitude'].mean()
-                
-                # Get target configuration - we keep its goods and capacity
-                target_config = configurations_df[
-                    configurations_df['Config_ID'] == target_cluster['Config_ID']
-                ].iloc[0]
                 
                 # Create new cluster with core required fields
                 new_cluster = {
@@ -225,6 +245,11 @@ def validate_merged_cluster(
     params: Parameters
 ) -> Tuple[bool, float, Dict]:
     """Validate if two clusters can be merged."""
+    # Index customers for fast lookup
+    if customers_df.index.name != 'Customer_ID':
+        customers_indexed = customers_df.set_index('Customer_ID', drop=False)
+    else:
+        customers_indexed = customers_df
     # Check compartment compatibility
     merged_goods = {}
     for g in params.goods:
@@ -241,10 +266,8 @@ def validate_merged_cluster(
     cluster1_customers = cluster1['Customers'] if isinstance(cluster1['Customers'], list) else [cluster1['Customers']]
     cluster2_customers = cluster2['Customers'] if isinstance(cluster2['Customers'], list) else [cluster2['Customers']]
     
-    merged_customers = customers_df[
-        customers_df['Customer_ID'].isin(
-            cluster1_customers + cluster2_customers
-        )
+    merged_customers = customers_indexed.loc[
+        cluster1_customers + cluster2_customers
     ]
     
     # Validate customer locations
@@ -252,13 +275,8 @@ def validate_merged_cluster(
         merged_customers['Longitude'].isna().any()):
         return False, 0, {}
 
-    # Calculate new route time using BHH
-    new_route_time = _bhh_estimation(
-        merged_customers,
-        params.depot,
-        params.service_time,
-        params.avg_speed
-    )
+    # Estimate (and cache) new route time using the general estimator
+    new_route_time = _get_merged_route_time(merged_customers, params)
 
     if new_route_time > params.max_route_time:
         return False, 0, {}

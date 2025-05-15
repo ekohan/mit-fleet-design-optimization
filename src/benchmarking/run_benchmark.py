@@ -16,8 +16,8 @@ if project_root not in sys.path:
 from src.config.parameters import Parameters
 from src.utils.logging import setup_logging, ProgressTracker, Colors, Symbols
 from src.utils.data_processing import load_customer_demand
-from src.benchmarking.vrp_solver import VRPSolver, VRPSolution
-from src.benchmarking.benchmark_types import BenchmarkType
+from src.benchmarking.vrp_solver import VRPSolver
+from src.core_types import BenchmarkType, VRPSolution
 
 def parse_benchmark_args():
     """Parse command line arguments for benchmarking."""
