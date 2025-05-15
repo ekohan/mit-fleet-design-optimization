@@ -180,28 +180,24 @@ def get_cached_route_time(
     customers: pd.DataFrame,
     settings: ClusteringSettings,
     route_time_cache: Dict,
+    params: Parameters
 ) -> Tuple[float, List[str]]:
     """Get route time and sequence (if TSP) from cache or compute and cache it."""
-    # Create a hashable key using only customer IDs - same approach as demand cache
     key = tuple(sorted(customers['Customer_ID']))
-    
-    # Check if in cache
     result = route_time_cache.get(key, None)
     if result is not None:
-        # Result is now a tuple (time, sequence)
         return result
     
-    # Not in cache, compute it
     route_time, route_sequence = estimate_route_time(
         cluster_customers=customers,
         depot=settings.depot,
         service_time=settings.service_time,
         avg_speed=settings.avg_speed,
         method=settings.route_time_estimation,
-        max_route_time=settings.max_route_time
+        max_route_time=settings.max_route_time,
+        prune_tsp=params.prune_tsp
     )
     
-    # Store tuple in cache
     route_time_cache[key] = (route_time, route_sequence)
     return route_time, route_sequence
 
@@ -265,16 +261,16 @@ def generate_clusters_for_configurations(
         for settings_for_run in list_of_settings:
             logger.info(f"--- Running Configuration: {settings_for_run.method} (GeoW: {settings_for_run.geo_weight:.2f}, DemW: {settings_for_run.demand_weight:.2f}) ---")
 
-            # Run clustering for all configurations using these settings in parallel
-            # Use threading backend if models aren't releasing GIL effectively, but start with process-based
+            # Run clustering for all configurations using these settings in parallel, process-based
             clusters_by_config = Parallel(n_jobs=-1, backend='loky')(
                 delayed(process_configuration)(
-                    config=config,
-                    customers=customers,
-                    feasible_customers=feasible_customers,
-                    settings=settings_for_run,
-                    demand_cache=shared_demand_cache,
-                    route_time_cache=shared_route_time_cache
+                    config, 
+                    customers, 
+                    feasible_customers, 
+                    settings_for_run,
+                    shared_demand_cache,
+                    shared_route_time_cache,
+                    params  # Pass params
                 )
                 for _, config in configurations_df.iterrows()
             )
@@ -315,7 +311,8 @@ def process_configuration(
     feasible_customers: Dict,
     settings: ClusteringSettings,
     demand_cache: Dict = None,
-    route_time_cache: Dict = None
+    route_time_cache: Dict = None,
+    params: Parameters = None
 ) -> List[Cluster]:
     """Process a single vehicle configuration to generate feasible clusters."""
     # 1. Get customers that can be served by the configuration
@@ -323,11 +320,11 @@ def process_configuration(
     if customers_subset.empty:
         return []
     
-    # 2. Create initial clusters based on size
-    initial_clusters_df = create_initial_clusters(customers_subset, config, settings)
+    # 2. Create initial clusters (one large cluster for the subset)
+    initial_clusters_df = create_initial_clusters(customers_subset, config, settings, params)
     
     # 3. Process clusters recursively until constraints are satisfied
-    return process_clusters_recursively(initial_clusters_df, config, settings, demand_cache, route_time_cache)
+    return process_clusters_recursively(initial_clusters_df, config, settings, demand_cache, route_time_cache, params)
 
 def get_feasible_customers_subset(
     customers: pd.DataFrame, 
@@ -345,9 +342,10 @@ def get_feasible_customers_subset(
 def create_initial_clusters(
     customers_subset: pd.DataFrame, 
     config: pd.Series, 
-    settings: ClusteringSettings
+    settings: ClusteringSettings,
+    params: Parameters
 ) -> pd.DataFrame:
-    """Create initial clusters based on dataset size and settings."""
+    """Create initial clusters for the given customer subset."""
     # Create a working copy
     customers_copy = customers_subset.copy()
     
@@ -358,7 +356,7 @@ def create_initial_clusters(
     if len(customers_copy) <= 2:
         return create_small_dataset_clusters(customers_copy)
     else:
-        return create_normal_dataset_clusters(customers_copy, config, settings)
+        return create_normal_dataset_clusters(customers_copy, config, settings, params)
 
 def create_small_dataset_clusters(customers_subset: pd.DataFrame) -> pd.DataFrame:
     """Create clusters for small datasets (≤2 customers)."""
@@ -371,7 +369,8 @@ def create_small_dataset_clusters(customers_subset: pd.DataFrame) -> pd.DataFram
 def create_normal_dataset_clusters(
     customers_subset: pd.DataFrame, 
     config: pd.Series, 
-    settings: ClusteringSettings
+    settings: ClusteringSettings,
+    params: Parameters
 ) -> pd.DataFrame:
     """Create clusters for normal-sized datasets."""
     customers_copy = customers_subset.copy()
@@ -380,7 +379,8 @@ def create_normal_dataset_clusters(
     num_clusters = estimate_num_initial_clusters(
         customers_copy,
         config,
-        settings
+        settings,
+        params
     )
     
     # Get input data and cluster using weights from settings
@@ -405,7 +405,8 @@ def check_constraints(
     config: pd.Series,
     settings: ClusteringSettings,
     demand_cache: Dict,
-    route_time_cache: Dict
+    route_time_cache: Dict,
+    params: Parameters
 ) -> tuple[bool, bool]:
     """
     Check if cluster violates capacity or time constraints.
@@ -425,7 +426,8 @@ def check_constraints(
     route_time, _ = get_cached_route_time(
         cluster_customers,
         settings,
-        route_time_cache
+        route_time_cache,
+        params
     )
     
     capacity_violated = cluster_demand > config['Capacity']
@@ -439,7 +441,8 @@ def should_split_cluster(
     settings: ClusteringSettings, 
     depth: int,
     demand_cache: Dict,
-    route_time_cache: Dict
+    route_time_cache: Dict,
+    params: Parameters
 ) -> bool:
     """Determine if a cluster should be split based on constraints."""
     capacity_violated, time_violated = check_constraints(
@@ -447,7 +450,8 @@ def should_split_cluster(
         config, 
         settings,
         demand_cache,
-        route_time_cache
+        route_time_cache,
+        params
     )
     is_singleton_cluster = len(cluster_customers) <= 1
     
@@ -494,7 +498,8 @@ def create_cluster(
     cluster_id: int, 
     settings: ClusteringSettings,
     demand_cache: Dict,
-    route_time_cache: Dict
+    route_time_cache: Dict,
+    params: Parameters
 ) -> Cluster:
     """Create a Cluster object from customer data."""
     # Get demand from cache
@@ -508,7 +513,8 @@ def create_cluster(
     route_time, tsp_sequence = get_cached_route_time(
         cluster_customers,
         settings,
-        route_time_cache
+        route_time_cache,
+        params
     )
     
     cluster = Cluster(
@@ -530,7 +536,8 @@ def process_clusters_recursively(
     config: pd.Series, 
     settings: ClusteringSettings,
     demand_cache: Dict,
-    route_time_cache: Dict
+    route_time_cache: Dict,
+    params: Parameters = None
 ) -> List[Cluster]:
     """Process clusters recursively to ensure constraints are satisfied."""
     config_id = config['Config_ID']
@@ -561,7 +568,8 @@ def process_clusters_recursively(
                 config, 
                 settings,
                 demand_cache,
-                route_time_cache
+                route_time_cache,
+                params
             )
             
             if capacity_violated or time_violated:
@@ -572,7 +580,7 @@ def process_clusters_recursively(
                 continue  # Skip this cluster
         
         # Not at max depth, check if we should split
-        if not max_depth_reached and should_split_cluster(cluster_customers, config, settings, depth, demand_cache, route_time_cache):
+        if not max_depth_reached and should_split_cluster(cluster_customers, config, settings, depth, demand_cache, route_time_cache, params):
             split_count += 1
             logger.debug(f"Splitting cluster for config {config_id} (size {len(cluster_customers)}) at depth {depth}/{settings.max_depth}")
             # Split oversized clusters
@@ -587,7 +595,8 @@ def process_clusters_recursively(
                 cluster_id_base + current_cluster_id, 
                 settings,
                 demand_cache,
-                route_time_cache
+                route_time_cache,
+                params
             )
             clusters.append(cluster)
     
@@ -649,11 +658,17 @@ def _is_customer_feasible(
 def estimate_num_initial_clusters(
     customers: pd.DataFrame,
     config: pd.Series,
-    settings: ClusteringSettings
+    settings: ClusteringSettings,
+    params: Parameters = None
 ) -> int:
-    """Estimate the number of initial clusters needed based on capacity and time constraints."""
+    """
+    Estimate the number of initial clusters needed based on capacity and time constraints.
+    """
     if customers.empty:
         return 0
+
+    # Default prune_tsp flag if params not provided
+    prune_tsp_val = params.prune_tsp if params is not None else False
 
     # Calculate total demand for relevant goods
     total_demand = 0
@@ -680,9 +695,11 @@ def estimate_num_initial_clusters(
     avg_route_time, _ = estimate_route_time(
         cluster_customers=avg_cluster,
         depot=settings.depot,
-        service_time=settings.service_time,  # in minutes
+        service_time=settings.service_time, # in minutes
         avg_speed=settings.avg_speed,
-        method=settings.route_time_estimation
+        method=settings.route_time_estimation, # Use the specific method for estimation
+        max_route_time=settings.max_route_time, # Pass max_route_time
+        prune_tsp=prune_tsp_val # Use params.prune_tsp or default False
     )
 
     # Estimate clusters needed based on time

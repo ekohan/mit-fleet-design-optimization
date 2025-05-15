@@ -14,6 +14,26 @@ import logging # Added for logging
 
 logger = logging.getLogger(__name__) # Added logger
 
+def calculate_total_service_time_hours(num_customers: int, service_time_per_customer_minutes: float) -> float:
+    """
+    Calculates the total service time in hours for a given number of customers
+    and a per-customer service time in minutes.
+
+    Args:
+        num_customers: The number of customers.
+        service_time_per_customer_minutes: Service time for each customer in minutes.
+
+    Returns:
+        Total service time in hours.
+    """
+    if num_customers < 0:
+        logger.warning("Number of customers cannot be negative. Returning 0.0 hours service time.")
+        return 0.0
+    if service_time_per_customer_minutes < 0:
+        logger.warning("Service time per customer cannot be negative. Returning 0.0 hours service time.")
+        return 0.0
+    return (num_customers * service_time_per_customer_minutes) / 60.0
+
 # Global cache for distance and duration matrices (populated if TSP method is used)
 _matrix_cache = {
     'distance_matrix': None,
@@ -94,7 +114,8 @@ def estimate_route_time(
     service_time: float,
     avg_speed: float,
     method: str = 'Legacy',
-    max_route_time: float = None
+    max_route_time: float = None,
+    prune_tsp: bool = False
 ) -> Tuple[float, List[str]]:
     """
     Estimate route time using different methods. Return time and sequence (if TSP).
@@ -106,6 +127,7 @@ def estimate_route_time(
         avg_speed: Average vehicle speed (km/h)
         method: Route time estimation method
         max_route_time: Maximum route time in hours (optional)
+        prune_tsp: If True, skip TSP if BHH estimate exceeds max_route_time (optional)
         
     Returns:
         Tuple: (Estimated route time in hours, List of customer IDs in visit sequence or [])
@@ -121,6 +143,16 @@ def estimate_route_time(
         return time, [] # Return empty sequence
     
     elif method == 'TSP':
+        # Prune TSP computation based on BHH estimate if requested
+        logger.warning(f"Prune TSP: {prune_tsp}, Max Route Time: {max_route_time}")
+        if prune_tsp and max_route_time is not None:
+            bhh_time = _bhh_estimation(cluster_customers, depot, service_time, avg_speed)
+            # Add a 20% margin to account for BHH underestimation
+            if bhh_time > max_route_time * 1.2:
+                logger.warning(
+                    f"Cluster skipped TSP computation: BHH estimate {bhh_time:.2f}h greatly exceeds max_route_time {max_route_time}h"
+                )
+                return max_route_time * 1.01, []  # Slightly over max, empty sequence
         # Returns (time, sequence)
         return _pyvrp_tsp_estimation(
             cluster_customers, depot, service_time, avg_speed, max_route_time
@@ -131,7 +163,8 @@ def estimate_route_time(
 
 def _legacy_estimation(num_customers: int, service_time: float) -> float:
     """Original simple estimation method."""
-    return 1 + num_customers * service_time / 60  # Convert minutes to hours
+    # Convert minutes to hours for service_time component
+    return 1 + calculate_total_service_time_hours(num_customers, service_time)
 
 def _bhh_estimation(
     cluster_customers: pd.DataFrame,
@@ -144,10 +177,12 @@ def _bhh_estimation(
     L ≈ 0.765 * sqrt(n) * sqrt(A)
     """
     if len(cluster_customers) <= 1:
-        return service_time / 60
+        # For 0 or 1 customer, service time is the primary component.
+        # Assuming service_time is per customer.
+        return calculate_total_service_time_hours(len(cluster_customers), service_time)
         
     # Calculate service time component
-    service_time_total = len(cluster_customers) * service_time / 60  # hours
+    service_time_total = calculate_total_service_time_hours(len(cluster_customers), service_time)
     
     # Calculate depot travel component
     centroid_lat = cluster_customers['Latitude'].mean()
@@ -213,7 +248,7 @@ def _pyvrp_tsp_estimation(
         dist_to = haversine(depot_coord, cust_coord)
         dist_from = haversine(cust_coord, depot_coord)
         travel_time_hours = (dist_to + dist_from) / avg_speed
-        service_time_hours = service_time / 60.0
+        service_time_hours = calculate_total_service_time_hours(1, service_time)
         # Sequence for single customer: Depot -> Customer -> Depot
         sequence = ["Depot", cust_row['Customer_ID'], "Depot"]
         return travel_time_hours + service_time_hours, sequence

@@ -63,4 +63,28 @@ def test_get_parameter_overrides_filters_none():
     cli_args = parser.parse_args(['--avg-speed', '50', '--help-params'])
     overrides = get_parameter_overrides(cli_args)
     assert 'avg_speed' in overrides and overrides['avg_speed'] == 50
-    assert 'help_params' not in overrides 
+    assert 'help_params' not in overrides
+
+
+def test_small_cluster_size_overrides(tmp_path):
+    params = Parameters.from_yaml('src/config/default_config.yaml')
+    assert params.small_cluster_size == 7
+    assert params.nearest_merge_candidates == 10
+
+    # Create a minimal YAML with overridden values
+    yaml_content = (
+        "vehicles:\n  A:\n    capacity: 10\n    fixed_cost: 5\n"
+        "variable_cost_per_hour: 1.0\navg_speed: 30\nmax_route_time: 5\nservice_time: 10\n"
+        "depot:\n  latitude: 0.0\n  longitude: 0.0\n"
+        "goods:\n  - Dry\n"
+        "clustering:\n  geo_weight: 0.5\n  demand_weight: 0.5\n"
+        "demand_file: 'x.csv'\nlight_load_penalty: 0\nlight_load_threshold: 0.2\n"
+        "compartment_setup_cost: 50\nformat: 'excel'\n"
+        "small_cluster_size: 3\nnearest_merge_candidates: 5\n"
+    )
+    yaml_path = tmp_path / "test_override.yaml"
+    yaml_path.write_text(yaml_content)
+
+    params2 = Parameters.from_yaml(str(yaml_path))
+    assert params2.small_cluster_size == 3
+    assert params2.nearest_merge_candidates == 5 

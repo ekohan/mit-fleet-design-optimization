@@ -38,6 +38,8 @@ clustering:
   demand_weight: 0.3  # Weight for demand distance (composite-only)
   route_time_estimation: 'TSP'  # Options: TSP, BHH, Legacy
 
+prune_tsp: false  # New parameter to skip TSP based on BHH estimate
+
 
 # Data Files
 # See options in data/demand_profiles/
@@ -53,5 +55,11 @@ light_load_penalty: 0  # Adjust penalty value as needed -- 0 == don't penalize
 light_load_threshold: 0.20  # Threshold for light load (e.g., 0.2 for 20%) -- when to penalize
 compartment_setup_cost: 50  # Cost per additional compartment beyond the first one
 
+# Post-optimization
+post_optimization: true         # Enable iterative improvement phase
+small_cluster_size: 7           # ≤ customers per "small" cluster
+nearest_merge_candidates: 10    # max neighbour clusters to probe
+max_improvement_iterations: 8   # max iterations for iterative post-optimization
+
+# Output format
 format: 'excel'  # Output format (excel or json)
-post_optimization: true  # Enable post-optimization improvements
