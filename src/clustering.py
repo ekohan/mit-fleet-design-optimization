@@ -261,8 +261,7 @@ def generate_clusters_for_configurations(
         for settings_for_run in list_of_settings:
             logger.info(f"--- Running Configuration: {settings_for_run.method} (GeoW: {settings_for_run.geo_weight:.2f}, DemW: {settings_for_run.demand_weight:.2f}) ---")
 
-            # Run clustering for all configurations using these settings in parallel
-            # Use threading backend if models aren't releasing GIL effectively, but start with process-based
+            # Run clustering for all configurations using these settings in parallel, process-based
             clusters_by_config = Parallel(n_jobs=-1, backend='loky')(
                 delayed(process_configuration)(
                     config, 
