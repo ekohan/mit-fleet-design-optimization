@@ -57,6 +57,7 @@ compartment_setup_cost: 50  # Cost per additional compartment beyond the first o
 post_optimization: true         # Enable iterative improvement phase
 small_cluster_size: 7           # ≤ customers per "small" cluster
 nearest_merge_candidates: 10    # max neighbour clusters to probe
+max_improvement_iterations: 8   # max iterations for iterative post-optimization
 
 # Output format
 format: 'excel'  # Output format (excel or json)

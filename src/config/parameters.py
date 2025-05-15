@@ -23,6 +23,7 @@ class Parameters:
     expected_vehicles: int = -1
     small_cluster_size: int = 7
     nearest_merge_candidates: int = 10
+    max_improvement_iterations: int = 4
 
     @classmethod
     def from_yaml(cls, path: Path | str = None) -> 'Parameters':
@@ -54,4 +55,9 @@ class Parameters:
         if not isinstance(self.nearest_merge_candidates, int) or self.nearest_merge_candidates <= 0:
             raise ValueError(
                 f"nearest_merge_candidates must be a positive integer. Got: {self.nearest_merge_candidates}"
+            )
+        
+        if not isinstance(self.max_improvement_iterations, int) or self.max_improvement_iterations < 0:
+            raise ValueError(
+                f"max_improvement_iterations must be a non-negative integer. Got: {self.max_improvement_iterations}"
             ) 

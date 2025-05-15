@@ -5,6 +5,7 @@ from typing import Dict, Tuple
 import pandas as pd
 import numpy as np
 from haversine import haversine_vector, Unit
+from dataclasses import replace
 
 from src.utils.route_time import estimate_route_time, calculate_total_service_time_hours
 from src.config.parameters import Parameters
@@ -47,69 +48,75 @@ def improve_solution(
     customers_df: pd.DataFrame,
     params: Parameters
 ) -> Dict:
-    """Improve solution by merging small clusters and re-optimizing."""
-    # Import here to avoid circular dependency
+    """Iteratively improve solution by merging small clusters until no benefit, no merges, or iteration cap."""
     from src.fsm_optimizer import solve_fsm_problem
-    
-    MAX_ITERATIONS = 4
-    best_solution = initial_solution
-    
-    # Add a static counter to track total calls
-    if not hasattr(improve_solution, 'total_calls'):
-        improve_solution.total_calls = 0
-    improve_solution.total_calls += 1
-    
-    # If we've exceeded max total calls, return immediately
-    if improve_solution.total_calls > MAX_ITERATIONS:
-        return best_solution
-        
-    logger.info(f"\n{Symbols.CHECK} Attempting post-optimization improvements (call {improve_solution.total_calls}/{MAX_ITERATIONS})...")
-    
-    # Get original selected clusters
-    selected_clusters = best_solution.get('selected_clusters', best_solution.get('clusters'))
-    if selected_clusters is None:
-        logger.error("Cannot find clusters in solution.")
-        return best_solution
-    
-    # Ensure goods columns exist in selected_clusters
-    for good in params.goods:
-        if good not in selected_clusters.columns:
-            selected_clusters[good] = selected_clusters['Config_ID'].map(
-                lambda x: configurations_df[configurations_df['Config_ID'] == x].iloc[0][good]
-            )
-    
-    # Generate merged versions
-    merged_clusters = generate_post_optimization_merges(
-        selected_clusters,
-        configurations_df,
-        customers_df,
-        params
-    )
-    
-    if merged_clusters.empty:
-        logger.info("→ No valid merged clusters generated")
-        return best_solution
-    
-    logger.info(f"→ Generated {len(merged_clusters)} merged cluster options")
-    
-    # Get all columns from the master DataFrame (selected_clusters)
-    all_columns = selected_clusters.columns.tolist()
-    
-    # Combine clusters while preserving all columns from the master DataFrame
-    combined_clusters = pd.concat([
-        selected_clusters,
-        merged_clusters  # Allow merged_clusters to contribute all its columns
-    ], ignore_index=True)
-    
-    # Re-run optimization with combined set
-    improved_solution = solve_fsm_problem(
-        combined_clusters,
-        configurations_df,
-        customers_df,
-        params
-    )
-    
-    return improved_solution if improved_solution['total_cost'] < best_solution['total_cost'] else best_solution
+
+    best = initial_solution
+    best_cost = best.get('total_cost', float('inf'))
+    reason = ''
+    # Iterate with explicit counter to correctly log attempts
+    for iters in range(1, params.max_improvement_iterations + 1):
+        logger.info(f"\n{Symbols.CHECK} Post-opt iteration {iters}/{params.max_improvement_iterations}")
+        selected_clusters = best.get('selected_clusters', best.get('clusters'))
+        if selected_clusters is None:
+            logger.error("Cannot find clusters in solution.")
+            reason = "no clusters"
+            break
+
+        # Ensure goods columns exist
+        for good in params.goods:
+            if good not in selected_clusters.columns:
+                selected_clusters[good] = selected_clusters['Config_ID'].map(
+                    lambda x: configurations_df[configurations_df['Config_ID'] == x].iloc[0][good]
+                )
+        merged_clusters = generate_post_optimization_merges(
+            selected_clusters,
+            configurations_df,
+            customers_df,
+            params
+        )
+        if merged_clusters.empty:
+            logger.info("→ No valid merged clusters generated")
+            reason = "no candidate merges"
+            break
+
+        logger.info(f"→ Generated {len(merged_clusters)} merged cluster options")
+        combined_clusters = pd.concat([selected_clusters, merged_clusters], ignore_index=True)
+        # Call solver without triggering another post-optimization
+        internal_params = replace(params, post_optimization=False)
+        trial = solve_fsm_problem(
+            combined_clusters,
+            configurations_df,
+            customers_df,
+            internal_params
+        )
+        trial_cost = trial.get('total_cost', float('inf'))
+        cost_better = trial_cost < best_cost - 1e-6
+
+        same_choice = False
+        if 'selected_clusters' in trial and 'selected_clusters' in best:
+            trial_ids = set(trial['selected_clusters']['Cluster_ID'])
+            best_ids  = set(best['selected_clusters']['Cluster_ID'])
+            same_choice = (trial_ids == best_ids)
+
+        logger.info(f"→ Trial cost={trial_cost:.2f}, best cost={best_cost:.2f}, Δ={(trial_cost-best_cost):.2f}")
+        if not cost_better:
+            reason = "no cost improvement"
+            break
+        if same_choice:
+            reason = "same chosen clusters"
+            break
+
+        # Accept improvement and continue
+        best = trial
+        best_cost = trial_cost
+    else:
+        # Loop completed without breaks
+        reason = "iteration cap reached"
+        iters = params.max_improvement_iterations
+
+    logger.info(f"Post-opt finished after {iters} iteration(s): {reason}")
+    return best
 
 def generate_post_optimization_merges(
     selected_clusters: pd.DataFrame,
@@ -248,7 +255,9 @@ def generate_post_optimization_merges(
         'Total_Demand', 'Method', 'Centroid_Latitude', 'Centroid_Longitude', 'TSP_Sequence'
     ] + list(params.goods)
     
-    return pd.DataFrame(new_clusters, columns=minimal_columns)
+    # Build and dedupe merged clusters
+    df = pd.DataFrame(new_clusters, columns=minimal_columns)
+    return df.drop_duplicates('Cluster_ID')
 
 def validate_merged_cluster(
     cluster1: pd.Series,
