@@ -1,152 +1,66 @@
-# MIT Fleet Design Optimization
+# Fleet‑Size‑and‑Mix Optimizer (FSM‑Opt) for Multi-Compartment Vehicle Routing
 
-The project implements a multi-step strategy to solve the Fleet Size and Mix (FSM) problem for Multi-Compartment Vehicles (MCVs). To test our solution appoach, we use case study data from a large food distribution company.
+*Written for transparent research, hardened for production use.*
 
-## Methodology
+Fast, reproducible tooling for **multi‑compartment vehicle fleet design** in urban food distribution. 
+This repository provides a comprehensive Python implementation supporting our research paper on [Designing Multi-Compartment Vehicle Fleets for Last-Mile Food Distribution Systems](https://arxiv.org/search/?query=fleet+size+mix&searchtype=all&source=header).
 
-The optimization pipeline follows these steps:
 
-1. Data Processing
-   - Load customer demand data
-   - Generate feasible vehicle configurations
-   - Process geographic and demand constraints
+---
 
-2. Clustering
-   - Group customers based on location and demand patterns
-   - Consider vehicle capacities and time constraints
-   - Use parallel processing for efficient cluster generation
+## Why FSM‑Opt?
 
-3. Fleet Size and Mix Optimization
-   - Minimize total cost (fixed + variable)
-   - Ensure all customers are served
-   - Respect vehicle and compartment capacities
-   - Determine optimal number and type of vehicles
-   - Apply compartment setup costs
+* **Scales** — 1 000 + customers solved in seconds via a cluster‑first / MILP‑second approach.  
+* **Extensible** — modular parsers, clustering engines, and solver back‑ends.  
+* **Reproducible** — every experiment in the forthcoming journal article reruns with a single script.  
 
-4. Solution Validation and Results Export
-   - Validate solution feasibility
-   - Generate comprehensive reports
+---
 
-## Project Structure
+## Installation
 
-```
-mit-fleet-design-optimization/
-├── data/
-│   ├── queries/                    # SQL queries for data extraction
-│   │   ├── create_sales_table.sql
-│   │   ├── export_avg_daily_demand.sql
-│   │   ├── avg_daily_demand__2023_09.sql
-│   │   └── ...
-│   ├── raw/                        # Raw data files
-│   │   ├── sales_2023_transformed.sql
-│   │   └── sales_2024_transformed.sql
-│   ├── demand_profiles/            # Generated demand scenarios
-│   │   ├── sales_2023_avg_daily_demand.csv
-│   │   ├── sales_2023_high_demand_day.csv
-│   │   ├── sales_2023_low_demand_day.csv
-│   │   └── ...
-│   ├── import_data.py             # Creates a DB with sales data
-│   └── export_queries.py          # Generates csv files for each db query
-├── src/
-│   ├── main.py                    # Principal execution script
-│   ├── clustering.py              # Customer clustering implementation
-│   ├── fsm_optimizer.py           # Fleet Size and Mix main MILP model
-│   ├── post_optimization.py       # FSM post processeing optimization
-│   ├── benchmarking/              # Benchmarking implementations
-│   │   ├── run_benchmark.py       # VRP benchmark runner
-│   │   ├── vrp_solver.py         # Single-compartment VRP solver
-│   │   ├── vrp_to_fsm.py         # Unified VRP-to-FSM conversion CLI
-│   │   ├── vrp_interface.py      # Library interface for VRP-to-FSM
-│   │   ├── cvrp_converter.py     # CVRP-to-FSM conversion logic
-│   │   ├── mcvrp_to_fsm.py       # MCVRP-to-FSM conversion logic
-│   │   ├── convert_mcvrp_to_fsm.py # Deprecated CLI shim for MCVRP
-│   │   ├── cvrp_to_fsm.py        # Deprecated CLI shim for CVRP
-│   │   └── cvrp_parser.py        # CVRP instance file parser
-│   │   └── cvrp_instances/       # Standard CVRP benchmark instances
-│   ├── config/                    # Configuration files and parameters
-│   └── utils/                     # Helper modules
-├── results/                       # Optimization results storage
-├── tests/
-├── init.sh
-├── requirements.txt
-└── README.md
-```
-
-## Directory Structure Details
-
-### Data Directory
-The data directory contains utilities to process raw sales data into formats suitable for the optimization algorithm:
-
-- `export_queries.py`: A module that handles SQL query execution and CSV exports. 
-- `import.py`: Creates and populates a SQLite database (opperar.db) with sales data
-- `sales_2023_create_data.sql`: SQL script to create and populate the sales database
-
-### Source Directory (src/)
-- `main.py`: Principal execution script that runs the complete optimization pipeline
-- `clustering.py`: Implements customer clustering algorithms with capacity and time constraints
-- `fsm_optimizer.py`: Fleet Size and Mix optimization using integer programming
-- `benchmarking/`: Benchmarking implementations
-  - `run_benchmark.py`: VRP benchmark runner
-  - `vrp_solver.py`: Single-compartment VRP solver
-  - `vrp_to_fsm.py`: Unified VRP-to-FSM conversion CLI
-  - `vrp_interface.py`: Library interface for VRP-to-FSM
-  - `cvrp_converter.py`: CVRP-to-FSM conversion logic
-  - `mcvrp_to_fsm.py`: MCVRP-to-FSM conversion logic
-  - `convert_mcvrp_to_fsm.py`: Deprecated CLI shim for MCVRP
-  - `cvrp_to_fsm.py`: Deprecated CLI shim for CVRP
-  - `cvrp_parser.py`: CVRP instance file parser
-  - `cvrp_instances/`: Standard CVRP benchmark instances
-- `config/`: Configuration files and parameters
-- `utils/`: Helper modules for data processing, logging, and result management
-
-### Results Directory
-The results directory stores the output of each optimization execution:
-- Excel files (.xlsx) containing:
-  - Solution summary
-  - Vehicle configurations
-  - Selected clusters
-  - Vehicle usage statistics
-  - Other considerations
-  - Execution details
-- JSON files for programmatic access to the results
-
-### Tests Directory
-Contains test files for the project modules
-
-### TODO
-- Implement demand forecasting functionality
-- Add forecasting models and results storage
-
-## Requirements
-
-### Installation Steps
-
-1. Initialize the project environment:
 ```bash
-./init.sh
+git clone <repo> && cd fsm‑opt
+./init.sh            # creates `mit-fleet-env`, installs deps
 ```
 
-This script will:
-- Create a Python virtual environment
-- Install required dependencies
-- Create and populate the SQLite database with sales data from 2023
-- Generate initial customer demand data files
+Activate the Python environment:
 
-2. Activate the Python environment:
-
-For Mac/Linux:
 ```bash
 source mit-fleet-env/bin/activate
 ```
 
-For Windows:
-```bash
-mit-fleet-env\Scripts\activate
+---
+
+## Directory Map
+
 ```
+src/
+  clustering.py            # k‑means, sweep, grid‑grow...
+  fsm_optimizer.py         # MILP fleet‑selection core
+  benchmarking/
+    vrp_to_fsm.py          # unified CLI (CVRP & MCVRP → FSM)
+    parsers/               # VRPLIB, Henke .dat, geo helpers
+    run_all_mcvrp.py       # batch reproduce Henke results
+tests/                     # >150 unit / component / E2E tests
+docs/                      # algorithm notes, design drivers
+results/                   # auto‑generated outputs
+```
+
+---
+
+## Core Workflow
+
+```mermaid
+graph LR
+    A[Raw VRP instance] -->|convert| B[clusters.csv]
+    B -->|MILP| C[fleet.json + xlsx]
+```
+
+---
 
 ## Running the Optimization
 
-To run the fleet optimization pipeline:
+Execute the fleet optimization pipeline:
 ```bash
 python src/main.py
 ```
@@ -156,7 +70,7 @@ The optimization can be customized using command line arguments:
 
 ```bash
 # Show detailed parameter help
-python src/main.py --help-params
+python src/main.py --help-params TODO: check params
 
 # Use custom configuration
 python src/main.py --config my_config.yaml
@@ -218,189 +132,127 @@ This will generate and combine multiple clustering solutions to produce more rob
 
 The system supports multiple methods for estimating route times:
 
-1. **Legacy**: Simple estimation based on service time only
-2. **Clarke-Wright**: Based on savings algorithm
-3. **BHH**: Beardwood-Halton-Hammersley theorem approximation (Default)
-4. **CA**: Continuous approximation method
-5. **VRPSolver**: Detailed VRP solver-based estimation
+1. **BHH**: Beardwood-Halton-Hammersley theorem approximation (Default)
+2. **TSP**: Detailed VRP solver-based estimation
+3. **Quick & Dirty**: TODO, decide if relevant 
+
+## Results and Visualization
+
+Outputs include detailed Excel and JSON summaries with metrics:
+
+* Fleet size and cost breakdowns
+* Vehicle utilization rates
+* Computational performance (execution time, scalability)
+
+Interactive maps visualize solution structures:
+
+* Cluster assignments
+* Vehicle routes and compartment utilization
+* Geographic demand distribution
+
+## Solver Backend
+
+Default solver: Gurobi (fallback to CBC if unavailable). Set `FSM_SOLVER` to specify (`gurobi`, `cbc`, or `auto`).
+
+---
 
 ## Benchmarking
 
-The benchmarking module evaluates the Multi-Compartment Vehicle (MCV) Fleet Size and Mix (FSM) model against a classic single-compartment Vehicle Routing Problem (VRP) to ensure a fair comparison of operational efficiencies.
+### 1 · VRP → FSM Pipeline
 
-### VRP Benchmark
+Convert **any** supported VRP benchmark and immediately solve the corresponding FSM instance.
 
-The VRP benchmark feeds all customer data directly to the VRP solver without clustering, aligning with standard VRP practices. This approach:
-- Allows the VRP solver to optimize routes based on the entire customer dataset
-- Reflects the inherent efficiencies of single-compartment vehicles
-- Provides a fair baseline for comparing with the MCV approach
+The benchmarking pipeline:
 
-### VRP to FSM Conversion
+1. **VRP to FSM Conversion:** Adapts single-compartment (CVRP) and multi-compartment (MCVRP) benchmark datasets to the FSM model.
+2. **Optimization Execution:** Solves adapted FSM instances using MILP and clustering heuristics.
+3. **Performance Analysis:** Evaluates computational efficiency, scalability, and solution quality.
 
-The system provides a unified command-line interface for converting both CVRP and MCVRP instances to FSM format and running the optimization in one step.
+TODO: define CLI interface, module or independent script?
 
-Usage examples (script invocation):
-```bash
-# Convert a multi-compartment VRP instance (3 goods):
-python src/benchmarking/vrp_to_fsm.py \
-  --vrp-type mcvrp \
-  --instance 10_3_3_3_(01)
+#### VRP to FSM Conversion
 
-# Convert a classic CVRP instance with the 'normal' benchmark type:
-python src/benchmarking/vrp_to_fsm.py \
-  --vrp-type cvrp \
-  --instance X-n106-k14 \
-  --benchmark-type normal
+Converts standard VRP instances for fair comparison:
 
-# Save results in JSON format with 2 goods split:
-python src/benchmarking/vrp_to_fsm.py \
-  --vrp-type cvrp \
-  --instance X-n106-k14 \
-  --benchmark-type split \
-  --num-goods 2 \
-  --format json
+* **MCVRP Instances (Henke et al.):** Direct mapping without additional scaling.
+* **CVRP Instances (Uchoa et al.):** Adapted through several strategies:
 
-# Run all MCVRP benchmark instances and save results:
-python src/benchmarking/run_all_mcvrp.py
-
-# Parse all MCVRP JSON results and generate a CSV summary:
-python tools/parse_mcvrp_results.py
-```
-
-Key options:
-- `--vrp-type`: `cvrp` or `mcvrp` (required)
-- `--instance`: Instance name(s) without extension (`.vrp` for CVRP, `.dat` for MCVRP) (required)
-- `--benchmark-type`: CVRP benchmark variant (`normal`, `split`, `scaled`, `combined`)
-- `--num-goods`: Number of goods to consider for CVRP (`2` or `3`, default `3`)
-- `--format`: Output file format (`excel` or `json`, default `excel`)
-- `--verbose`: Enable verbose solver output
-- `--info`: Show detailed information and exit
-
-Results are saved to the `results/` directory with filenames following:
-```
-vrp_<vrp-type>_<instance(s)>_<benchmark-type>.<ext>
-```
-For MCVRP, the `<benchmark-type>` segment is omitted.
-
-### Running the Benchmark
+  * **Split:** Demand split across Dry, Chilled, Frozen.
+  * **Scaled:** Demands and capacities scaled proportionally.
+  * **Combined:** Multiple instances merged, each representing different product categories.
+  * **Spatial Differentiation:** Geographically varied product distribution.
 
 ```bash
-python src/benchmarking/run_benchmark.py [options]
+# Henke 10‑customer MCVRP
+python -m benchmarking.vrp_to_fsm \
+       --vrp-type mcvrp --instance 10_3_3_3_01
 
-# Options:
---config PATH         # Custom config file path
---time-limit SECONDS  # Solver time limit (default: 300)
---verbose            # Enable detailed output
---benchmark_type     # Type of benchmark to run (SCV or MCV)
+# Uchoa CVRP adapted via "split" strategy
+python -m benchmarking.vrp_to_fsm \
+       --vrp-type cvrp --instance X-n106-k14 \
+       --benchmark-type split --num-goods 3
 ```
 
-The benchmark system provides two solution approaches to establish bounds:
+Supported datasets
+: *Henke 15* MCVRP (bundled) · *Uchoa 17* CVRP (auto‑download via PyVRP).
 
-1. **Single Compartment Vehicle (SCV) - Upper Bound**
-   ```bash
-   python src/benchmarking/run_benchmark.py --benchmark_type single_compartment --verbose
-   ```
-   - Solves each product type independently with dedicated vehicles
-   - Provides an upper bound on fleet size and total cost
-   - Useful baseline for comparing against multi-compartment solutions
+### 2 · Reference Bounds (sanity checks)
 
-2. **Multi Compartment Vehicle (MCV) - Lower Bound**
-   ```bash
-   python src/benchmarking/run_benchmark.py --benchmark_type multi_compartment --verbose
-   ```
-   - Aggregates all product demands into a single problem
-   - Assumes perfect compartment flexibility
-   - Provides theoretical lower bound on fleet size and cost
+`run_benchmark.py` produces two fast baselines:
 
-### Implementation Details
+* **Upper Bound (Single-Compartment):** Solves each product type separately, establishing performance limits.
+* **Lower Bound (Multi-Compartment):** Aggregates all demands, providing theoretical optimal efficiency.
 
-The benchmark:
-1. Processes each product type (Frozen, Chilled, Dry) independently
-2. Uses parallel processing to solve product-specific VRPs efficiently
-3. Applies PyVRP solver with genetic algorithm optimization
-4. Considers vehicle capacities and route time constraints
-5. Provides detailed solution metrics:
-   - Total cost (fixed + variable)
-   - Total distance traveled
-   - Number of vehicles used
-   - Vehicle utilization rates
-   - Execution time
+Helpful for heuristic health‑checks; not required for routine usage.
 
-### Purpose and Benefits
-- Ensures both models operate at the same optimization level
-- Highlights cost and efficiency benefits of MCVs vs. single-compartment vehicles
-- Evaluates computational performance as problem size increases
-- Provides quantitative data for solution quality assessment
-- Enables testing against standard CVRP benchmark instances
+---
 
-## Visualization & Results Analysis
+## Reproducing Paper Results
 
-The optimization process generates several visualization and analysis outputs to help understand the solution:
+```bash
+# All 153 Henke instances
+python -m benchmarking.run_all_mcvrp
 
-### Interactive Maps
-The solution generates interactive HTML maps using Folium that show:
-- Customer locations colored by cluster assignment
-- Depot location and service radius
-- Cluster centroids and boundaries
-- Vehicle type assignments
-- Hover information showing:
-  - Customer demands by product type
-  - Route timing estimates
-  - Vehicle capacity utilization
-
-### Solution Analysis
-Each optimization run produces detailed analysis in multiple formats:
-
-#### Excel Reports (.xlsx)
-Comprehensive solution details including:
-- **Summary Metrics**
-  - Total cost breakdown (fixed + variable)
-  - Fleet composition
-  - Service level metrics
-  - Capacity utilization rates
-- **Vehicle Analysis**
-  - Configuration details
-  - Usage statistics
-  - Cost per vehicle type
-- **Cluster Details**
-  - Customer assignments
-  - Demand aggregation
-  - Route timing
-  - Capacity constraints
-
-#### JSON Output (Optional)
-Machine-readable format containing:
-- Complete solution data
-- Performance metrics
-- Configuration parameters
-- Execution details
-
-### Accessing Results
-Results are stored in the `results/` directory:
-```
-results/
-├── *.xlsx                 # Excel reports with detailed solution data
-├── *.json                 # JSON format results (if enabled in config)
-└── *.html                 # Interactive cluster visualization maps
+# Selected Uchoa adaptations
+python -m benchmarking.vrp_to_fsm \
+       --vrp-type cvrp --instance X-n101-k25 \
+       --benchmark-type split
 ```
 
-To view the interactive map, open the generated HTML file in a web browser.
+Artifacts appear in `results/` as
+`vrp_<type>_<instance>_<variant>.{json,xlsx}`.
 
-### Example Visualizations
+TODO: actually add a single tool to do this
 
-#### Cluster Map
-![Cluster Map](results_cluster_viz.png)
-*Interactive map showing customer clusters and vehicle assignments*
+---
 
-#### Results Summary
-![Results Summary](results_xlsx.png)
-*Detailed breakdown of solution metrics and performance*
+## Contribution Guidelines
 
-## Solver backend
-By default the code selects GUROBI if it is available; otherwise it uses CBC.
-Set the environment variable FSM_SOLVER to 'gurobi', 'cbc', or 'auto' to override.
-CI runs with FSM_SOLVER=cbc so contributors do not need a Gurobi licence.
+We welcome community contributions:
+
+* Fork the repository
+* Create a feature branch (`git checkout -b feature-name`)
+* Submit pull requests to the main branch
+
+Ensure all tests pass and follow established coding standards and documentation practices.
+
+## Citation
+
+If you use this work, please cite:
+
+```latex
+@article{YourPaper,
+  author = {Eric Kohan},
+  title = {Fleet Size and Mix Optimization for Multi-Compartment Vehicles},
+  journal = {Top Journal},
+  year = {2025},
+  volume = {},
+  number = {},
+  pages = {},
+  doi = {}
+}
+```
 
 ## License
 
-This project is licensed under the MIT License.
+This project is released under the MIT License.
