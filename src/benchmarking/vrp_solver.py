@@ -2,12 +2,11 @@
 Single-compartment VRP solver module using PyVRP.
 Provides baseline comparison for multi-compartment vehicle solutions.
 """
-from dataclasses import dataclass
 from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 from pyvrp import (
-    Model, GeneticAlgorithm, GeneticAlgorithmParams,
+    Model, GeneticAlgorithmParams,
     Depot, Client, VehicleType, ProblemData,
     PopulationParams, SolveParams
 )
@@ -285,7 +284,6 @@ class VRPSolver:
                 vehicle_loads=[],
                 execution_time=result.runtime,
                 solver_status="Infeasible",
-                customer_assignments={},
                 route_sequences=[],
                 vehicle_utilization=[],
                 vehicle_types=[],
@@ -340,7 +338,6 @@ class VRPSolver:
             vehicle_loads=vehicle_loads,
             execution_time=result.runtime,
             solver_status="Optimal" if solution.is_feasible() else "Infeasible",
-            customer_assignments={},
             route_sequences=[[str(i) for i in route] for route in feasible_routes],
             vehicle_utilization=vehicle_utilizations,
             vehicle_types=vehicle_types,
@@ -510,7 +507,6 @@ class VRPSolver:
             vehicle_loads=[base_solution.vehicle_loads[i] for i in valid_indices],
             execution_time=base_solution.execution_time,
             solver_status=base_solution.solver_status,
-            customer_assignments={},  # Will be filled if needed
             route_sequences=[[str(c) for c in base_solution.routes[i][1:]] for i in valid_indices],
             vehicle_utilization=[base_solution.vehicle_utilization[i] for i in valid_indices],
             vehicle_types=[base_solution.vehicle_types[i] for i in valid_indices],

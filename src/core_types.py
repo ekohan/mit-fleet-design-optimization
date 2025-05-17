@@ -14,7 +14,6 @@ class VRPSolution:
     vehicle_loads: List[float]
     execution_time: float
     solver_status: str
-    customer_assignments: Dict[str, int]  # customer_id -> route_id mapping
     route_sequences: List[List[str]]  # List of customer sequences per route
     vehicle_utilization: List[float]  # Capacity utilization per route
     vehicle_types: List[int]  # Vehicle type index per route

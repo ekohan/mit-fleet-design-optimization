@@ -1,4 +1,40 @@
-"""Post-optimization improvement module for the Fleet Size and Mix problem."""
+"""
+post_optimization.py
+
+Implements the **improvement phase** (Section 4.4 of the paper) that iteratively tries to merge
+small, neighbouring clusters after the core FSM model (Model 2) has been solved.
+
+Rationale
+~~~~~~~~~
+The MILP in ``fsm_optimizer.solve_fsm_problem`` chooses from a *fixed* pool of clusters.  Once an
+initial solution is available, additional cost savings can sometimes be obtained by *merging* two
+clusters and serving the combined demand with a larger vehicle—provided capacity and route‐time
+constraints remain feasible.
+
+Algorithm outline
+-----------------
+1. Identify "small" clusters (≤ ``params.small_cluster_size`` customers).
+2. For each small cluster *s* find the nearest candidate cluster *t* that is:
+   • compatible in product mix,  
+   • within capacity, and  
+   • likely feasible on route‐time (quick lower bound check).
+3. Evaluate the merged cluster precisely using :func:`utils.route_time.estimate_route_time` to
+   verify that the merged cluster's estimated route time does not exceed the vehicle's maximum route time.
+4. Collect all feasible merges, append them to the cluster pool, and re‐optimise the MILP **without
+   triggering a recursive improvement**.
+5. Repeat until no further cost reduction is achieved or the iteration cap
+   ``params.max_improvement_iterations`` is reached.
+
+Caching & performance
+---------------------
+Route‐time calculations for the same customer sets are memoised in the module‐level dict
+``_merged_route_time_cache``.
+
+Outcome
+-------
+Returns the *best* improved solution dictionary, identical in structure to the one produced by
+``fsm_optimizer.solve_fsm_problem`` but with potentially lower total cost.
+"""
 
 import logging
 from typing import Dict, Tuple
@@ -16,8 +52,6 @@ logger = logging.getLogger(__name__)
 
 # Cache for merged cluster route times
 _merged_route_time_cache: Dict[Tuple[str, ...], Tuple[float, list | None]] = {}
-
-# Proximity-based filtering constants and utilities
 
 def _get_merged_route_time(
     customers: pd.DataFrame,
@@ -49,7 +83,32 @@ def improve_solution(
     customers_df: pd.DataFrame,
     params: Parameters
 ) -> Dict:
-    """Iteratively improve solution by merging small clusters until no benefit, no merges, or iteration cap."""
+    """Iteratively merge small clusters to lower total cost.
+
+    Implements the *improvement phase* described in Section 4.4.  Starting from
+    an existing solution dictionary, the algorithm searches for pairs of
+    "small" clusters that can be feasibly served together by the same vehicle
+    configuration and whose merge reduces the overall objective value.
+
+    Args:
+        initial_solution: Solution dictionary returned by
+            :func:`src.fsm_optimizer.solve_fsm_problem`.
+        configurations_df: Vehicle configuration catalogue (same as used in the
+            optimisation step).
+        customers_df: Original customer dataframe; required for route-time
+            recalculation and centroid updates when evaluating merges.
+        params: Parameter object controlling thresholds such as
+            ``small_cluster_size``, ``max_improvement_iterations``, etc.
+
+    Returns:
+        Dict: Improved solution dictionary (same schema as *initial_solution*).
+        If no improving merge is found the original dictionary is returned.
+
+    Example:
+        >>> improved = improve_solution(sol, configs, customers, params)
+        >>> improved['total_cost'] <= sol['total_cost']
+        True
+    """
     from src.fsm_optimizer import solve_fsm_problem
 
     best = initial_solution

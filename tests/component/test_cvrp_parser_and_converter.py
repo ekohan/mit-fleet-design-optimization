@@ -2,7 +2,6 @@ import logging
 import sys
 import pytest
 import pandas as pd
-from io import StringIO
 from pathlib import Path
 
 from src.benchmarking.cvrp_parser import CVRPParser

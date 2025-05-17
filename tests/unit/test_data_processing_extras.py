@@ -3,7 +3,7 @@ import warnings
 import pytest
 from pathlib import Path
 
-from src.utils.data_processing import load_customer_demand, get_demand_profiles_dir
+from src.utils.data_processing import load_customer_demand
 
 
 def test_happy_path_and_zero_to_one(tmp_path, monkeypatch):

@@ -2,7 +2,7 @@ import pytest
 
 from src.benchmarking.cvrp_parser import CVRPParser
 
-def test_parse_instance_and_solution(small_vrp_path, small_sol_path):
+def test_parse_instance_and_solution(small_vrp_path):
     # Initialize parser
     parser = CVRPParser(str(small_vrp_path))
     instance = parser.parse()

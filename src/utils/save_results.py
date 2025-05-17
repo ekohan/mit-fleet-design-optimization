@@ -1,15 +1,28 @@
+"""
+save_results.py – centralised persistence + reporting utilities
+
+This module is the **single exit point** for anything that needs to hit disk after an optimisation
+run.  It intentionally concentrates all I/O – spreadsheets, JSON dumps, plots – so that the rest of
+the codebase can remain side-effect free and therefore easier to test.
+
+Key responsibilities
+• Convert rich in-memory Python/Pandas objects into human-readable artefacts (Excel/JSON).
+• Produce quick-look diagnostics such as demand/load histograms and interactive Folium maps.
+• Guarantee the results directory structure exists and file names are timestamp-safe.
+
+By funnelling output through one module we avoid scattered `to_excel` / `to_json` calls and keep the
+pipeline composable – exactly the kind of "one obvious place" Jeff Dean and John Ousterhout
+advocate for.
+"""
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
-import inspect
 from src.config.parameters import Parameters
 import json
 import numpy as np
-import matplotlib.pyplot as plt
 import seaborn as sns
 import ast
 import folium
-from folium import plugins
 from typing import Dict
 from src.core_types import BenchmarkType, VRPSolution
 import logging
