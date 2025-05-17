@@ -36,7 +36,6 @@ coverage/*
 coverage/coverage-summary.json
 
 # Etc
-*.txt
 *tex
 *.pdf
 *.docx
