@@ -1,5 +1,5 @@
 """
-fsm_optimizer.py
+merge_phase.py
 
 Solves the **Fleet Size-and-Mix with Heterogeneous Multi-Compartment Vehicles** optimisation
 problem, corresponding to Model (2) in Section 4.3 of the research paper.

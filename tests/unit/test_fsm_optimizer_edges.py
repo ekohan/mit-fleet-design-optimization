@@ -43,7 +43,7 @@ def test_capacity_infeasibility_injects_NoVehicle(toy_fsm_edge_data, caplog):
     assert f"Unserviceable_Cluster_1" in model.constraints
     # Use record_tuples for more robust log checking
     assert any(
-        (rec[0].startswith('fleetmix.fsm_optimizer') or rec[0].startswith('fleetmix.optimization.core')) and 
+        (rec[0].startswith('fleetmix.fsm_optimizer') or rec[0].startswith('fleetmix.optimization.merge_phase')) and 
         rec[1] == logging.WARNING and
         'serve' in rec[2].lower()
         for rec in caplog.record_tuples
