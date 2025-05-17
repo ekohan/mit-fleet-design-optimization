@@ -10,8 +10,8 @@ from typing import List, Dict, Union
 
 import pandas as pd
 
-from src.config.parameters import Parameters
-from src.utils.coordinate_converter import CoordinateConverter
+from fleetmix.config.parameters import Parameters
+from fleetmix.utils.coordinate_converter import CoordinateConverter
 
 class CVRPBenchmarkType(Enum):
     NORMAL = "normal"    # Type 1: Single instance, single good
@@ -57,7 +57,7 @@ def convert_cvrp_to_fsm(
     instances = []
     for name in instance_names:
         instance_path = Path(__file__).parent / 'cvrp_instances' / f'{name}.vrp'
-        from src.benchmarking.cvrp_to_fsm import CVRPParser
+        from fleetmix.benchmarking.cvrp_to_fsm import CVRPParser
         parser = CVRPParser(str(instance_path))
         instances.append(parser.parse())
         

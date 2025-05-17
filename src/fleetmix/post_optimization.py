@@ -43,10 +43,10 @@ import numpy as np
 from haversine import haversine_vector, Unit
 from dataclasses import replace
 
-from src.utils.route_time import estimate_route_time, calculate_total_service_time_hours
-from src.config.parameters import Parameters
+from fleetmix.utils.route_time import estimate_route_time, calculate_total_service_time_hours
+from fleetmix.config.parameters import Parameters
 
-from src.utils.logging import Colors, Symbols
+from fleetmix.utils.logging import Colors, Symbols
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ def improve_solution(
         >>> improved['total_cost'] <= sol['total_cost']
         True
     """
-    from src.fsm_optimizer import solve_fsm_problem
+    from fleetmix.fsm_optimizer import solve_fsm_problem
 
     best = initial_solution
     best_cost = best.get('total_cost', float('inf'))

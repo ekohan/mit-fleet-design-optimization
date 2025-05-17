@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.utils.data_processing import load_customer_demand
+from fleetmix.utils.data_processing import load_customer_demand
 
 
 def test_load_customer_demand(tmp_path, monkeypatch):
@@ -18,7 +18,7 @@ def test_load_customer_demand(tmp_path, monkeypatch):
     df.to_csv(csv_path, index=False)
 
     # Monkeypatch demand directory and file name
-    monkeypatch.setattr('src.utils.data_processing.get_demand_profiles_dir', lambda: profiles_dir)
+    monkeypatch.setattr('fleetmix.utils.data_processing.get_demand_profiles_dir', lambda: profiles_dir)
     result = load_customer_demand('test.csv')
 
     # Check columns and dtypes

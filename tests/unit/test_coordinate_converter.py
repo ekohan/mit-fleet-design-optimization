@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from src.utils.coordinate_converter import CoordinateConverter, GeoBounds
+from fleetmix.utils.coordinate_converter import CoordinateConverter, GeoBounds
 
 
 def test_geobounds_center_and_spans():

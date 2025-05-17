@@ -3,12 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from src.benchmarking.mcvrp_to_fsm import convert_mcvrp_to_fsm
-from src.benchmarking.mcvrp_parser import parse_mcvrp
+from fleetmix.benchmarking.mcvrp_to_fsm import convert_mcvrp_to_fsm
+from fleetmix.benchmarking.mcvrp_parser import parse_mcvrp
 
 def test_total_demand_preserved_and_expected_vehicles():
     # Path to a sample MCVRP instance
-    dat_path = Path(__file__).parent.parent.parent / 'src' / 'benchmarking' / 'mcvrp_instances' / '10_3_3_3_(01).dat'
+    dat_path = Path(__file__).parent.parent.parent / 'src' / 'fleetmix' / 'benchmarking' / 'mcvrp_instances' / '10_3_3_3_(01).dat'
     # Parse original instance
     instance = parse_mcvrp(dat_path)
     # Convert to FSM format
@@ -25,7 +25,7 @@ def test_total_demand_preserved_and_expected_vehicles():
 
 def test_dataframe_schema_and_vehicle_config():
     # Path to a sample MCVRP instance
-    dat_path = Path(__file__).parent.parent.parent / 'src' / 'benchmarking' / 'mcvrp_instances' / '10_3_3_3_(01).dat'
+    dat_path = Path(__file__).parent.parent.parent / 'src' / 'fleetmix' / 'benchmarking' / 'mcvrp_instances' / '10_3_3_3_(01).dat'
     # Parse original instance
     instance = parse_mcvrp(dat_path)
     # Convert to FSM format

@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from src.utils.route_time import _legacy_estimation, _bhh_estimation, estimate_route_time
+from fleetmix.utils.route_time import _legacy_estimation, _bhh_estimation, estimate_route_time
 
 
 def test_legacy_estimation_edge_cases():

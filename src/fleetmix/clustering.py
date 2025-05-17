@@ -100,8 +100,8 @@ from sklearn.metrics import pairwise_distances
 from sklearn_extra.cluster import KMedoids
 from joblib import Parallel, delayed
 from haversine import haversine
-from src.config.parameters import Parameters
-from src.utils.route_time import estimate_route_time, build_distance_duration_matrices
+from fleetmix.config.parameters import Parameters
+from fleetmix.utils.route_time import estimate_route_time, build_distance_duration_matrices
 from dataclasses import dataclass, replace, field
 from sklearn.mixture import GaussianMixture
 import itertools

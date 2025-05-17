@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    
+        <script>
+            L_NO_TOUCH = false;
+            L_DISABLE_3D = false;
+        </script>
+    
+    <style>html, body {width: 100%;height: 100%;margin: 0;padding: 0;}</style>
+    <style>#map {position:absolute;top:0;bottom:0;right:0;left:0;}</style>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_4ba94cd5d51256fbf2bfb216b056d06f {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_4ba94cd5d51256fbf2bfb216b056d06f" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_4ba94cd5d51256fbf2bfb216b056d06f = L.map(
+                "map_4ba94cd5d51256fbf2bfb216b056d06f",
+                {
+                    center: [4.65, -74.1],
+                    crs: L.CRS.EPSG3857,
+                    zoom: 11,
+                    zoomControl: true,
+                    preferCanvas: false,
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_9725108f89237477e25597e8d28d0ee2 = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {"attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e", "detectRetina": false, "maxNativeZoom": 20, "maxZoom": 20, "minZoom": 0, "noWrap": false, "opacity": 1, "subdomains": "abcd", "tms": false}
+            );
+        
+    
+            tile_layer_9725108f89237477e25597e8d28d0ee2.addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+        
+    
+            var marker_670685d2bd55ae29fe68654a97097590 = L.marker(
+                [4.7, -74.1],
+                {}
+            ).addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+        
+    
+            var icon_454aac507943e091fedea94fd97d9dba = L.AwesomeMarkers.icon(
+                {"extraClasses": "fa-rotate-0", "icon": "home", "iconColor": "white", "markerColor": "red", "prefix": "fa"}
+            );
+            marker_670685d2bd55ae29fe68654a97097590.setIcon(icon_454aac507943e091fedea94fd97d9dba);
+        
+    
+        var popup_640685b9f62bca6650e892e8f667380d = L.popup({"maxWidth": "100%"});
+
+        
+            
+                var html_c460f559d5c3e76d053d6c54124b0e7f = $(`<div id="html_c460f559d5c3e76d053d6c54124b0e7f" style="width: 100.0%; height: 100.0%;">Depot</div>`)[0];
+                popup_640685b9f62bca6650e892e8f667380d.setContent(html_c460f559d5c3e76d053d6c54124b0e7f);
+            
+        
+
+        marker_670685d2bd55ae29fe68654a97097590.bindPopup(popup_640685b9f62bca6650e892e8f667380d)
+        ;
+
+        
+    
+    
+            var circle_marker_41901e1d110f2c853a2260cda0405a91 = L.circleMarker(
+                [4.611169641054653, -74.11547397786326],
+                {"bubblingMouseEvents": true, "color": "#f77189", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#f77189", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 2}
+            ).addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+        
+    
+        var popup_2560696ca94ce1ce04cd6c1b4a1d6d4d = L.popup({"maxWidth": 300});
+
+        
+            
+                var html_2aca34dc5234d063cf41b7b5213adbbd = $(`<div id="html_2aca34dc5234d063cf41b7b5213adbbd" style="width: 100.0%; height: 100.0%;">             <b>Cluster ID:</b> 173<br>             <b>Config ID:</b> 4<br>             <b>Method:</b> kmedoids<br>             <b>Customers:</b> 12<br>             <b>Route Time:</b> 7.93 hrs<br>             <b>Total Demand:</b> 1,469 kg         </div>`)[0];
+                popup_2560696ca94ce1ce04cd6c1b4a1d6d4d.setContent(html_2aca34dc5234d063cf41b7b5213adbbd);
+            
+        
+
+        circle_marker_41901e1d110f2c853a2260cda0405a91.bindPopup(popup_2560696ca94ce1ce04cd6c1b4a1d6d4d)
+        ;
+
+        
+    
+    
+            var circle_marker_783fa9df5219258580793489e8e3c5b6 = L.circleMarker(
+                [4.862886667668563, -74.01463625853916],
+                {"bubblingMouseEvents": true, "color": "#d58c32", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#d58c32", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 2}
+            ).addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+        
+    
+        var popup_f05ecb18ed732dc57aab3c3ebe42a96a = L.popup({"maxWidth": 300});
+
+        
+            
+                var html_ef60d9443e7d33e160b4882182fdca98 = $(`<div id="html_ef60d9443e7d33e160b4882182fdca98" style="width: 100.0%; height: 100.0%;">             <b>Cluster ID:</b> 241<br>             <b>Config ID:</b> 6<br>             <b>Method:</b> kmedoids<br>             <b>Customers:</b> 11<br>             <b>Route Time:</b> 7.52 hrs<br>             <b>Total Demand:</b> 1,525 kg         </div>`)[0];
+                popup_f05ecb18ed732dc57aab3c3ebe42a96a.setContent(html_ef60d9443e7d33e160b4882182fdca98);
+            
+        
+
+        circle_marker_783fa9df5219258580793489e8e3c5b6.bindPopup(popup_f05ecb18ed732dc57aab3c3ebe42a96a)
+        ;
+
+        
+    
+    
+            var circle_marker_b2aec4ad10913de2fb32bfcfc9f2f188 = L.circleMarker(
+                [4.772165675367809, -74.17837958173381],
+                {"bubblingMouseEvents": true, "color": "#a4a031", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#a4a031", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 2}
+            ).addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+        
+    
+        var popup_7176303fd994f681efb1d74e9c6fae80 = L.popup({"maxWidth": 300});
+
+        
+            
+                var html_43bb901a99a668b535df3ea5aac2183b = $(`<div id="html_43bb901a99a668b535df3ea5aac2183b" style="width: 100.0%; height: 100.0%;">             <b>Cluster ID:</b> 285<br>             <b>Config ID:</b> 20<br>             <b>Method:</b> kmedoids<br>             <b>Customers:</b> 17<br>             <b>Route Time:</b> 9.83 hrs<br>             <b>Total Demand:</b> 3,454 kg         </div>`)[0];
+                popup_7176303fd994f681efb1d74e9c6fae80.setContent(html_43bb901a99a668b535df3ea5aac2183b);
+            
+        
+
+        circle_marker_b2aec4ad10913de2fb32bfcfc9f2f188.bindPopup(popup_7176303fd994f681efb1d74e9c6fae80)
+        ;
+
+        
+    
+    
+            var circle_marker_bfcd5086c6d9b4ca14cc21000ca0cd02 = L.circleMarker(
+                [4.681620765626659, -74.05697282948958],
+                {"bubblingMouseEvents": true, "color": "#50b131", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#50b131", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 2}
+            ).addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+        
+    
+        var popup_58508abf7fbdbd65c6ff5a341e02eff0 = L.popup({"maxWidth": 300});
+
+        
+            
+                var html_ea21f5f10cff8823428f996f623e53a5 = $(`<div id="html_ea21f5f10cff8823428f996f623e53a5" style="width: 100.0%; height: 100.0%;">             <b>Cluster ID:</b> 436<br>             <b>Config ID:</b> 4<br>             <b>Method:</b> gaussian_mixture<br>             <b>Customers:</b> 16<br>             <b>Route Time:</b> 7.55 hrs<br>             <b>Total Demand:</b> 1,926 kg         </div>`)[0];
+                popup_58508abf7fbdbd65c6ff5a341e02eff0.setContent(html_ea21f5f10cff8823428f996f623e53a5);
+            
+        
+
+        circle_marker_bfcd5086c6d9b4ca14cc21000ca0cd02.bindPopup(popup_58508abf7fbdbd65c6ff5a341e02eff0)
+        ;
+
+        
+    
+    
+            var circle_marker_a0f1d0da8bffc6707413a8326b615c08 = L.circleMarker(
+                [4.6622832447859635, -74.10743008200139],
+                {"bubblingMouseEvents": true, "color": "#34ae91", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#34ae91", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 2}
+            ).addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+        
+    
+        var popup_4660ae280d3c6273270bfde62a752c09 = L.popup({"maxWidth": 300});
+
+        
+            
+                var html_5ad389f2abd7b3248ac32501722c089f = $(`<div id="html_5ad389f2abd7b3248ac32501722c089f" style="width: 100.0%; height: 100.0%;">             <b>Cluster ID:</b> 718<br>             <b>Config ID:</b> 6<br>             <b>Method:</b> agglomerative<br>             <b>Customers:</b> 18<br>             <b>Route Time:</b> 8.84 hrs<br>             <b>Total Demand:</b> 2,537 kg         </div>`)[0];
+                popup_4660ae280d3c6273270bfde62a752c09.setContent(html_5ad389f2abd7b3248ac32501722c089f);
+            
+        
+
+        circle_marker_a0f1d0da8bffc6707413a8326b615c08.bindPopup(popup_4660ae280d3c6273270bfde62a752c09)
+        ;
+
+        
+    
+    
+            var circle_marker_1f6cd7af8fce66fa93c266ec455c317d = L.circleMarker(
+                [4.687679899327581, -74.05833229755385],
+                {"bubblingMouseEvents": true, "color": "#37abb5", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#37abb5", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 2}
+            ).addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+        
+    
+        var popup_90548232812ca570bad13edecd5439bf = L.popup({"maxWidth": 300});
+
+        
+            
+                var html_53c8f05af954a8e8d64d08febe050414 = $(`<div id="html_53c8f05af954a8e8d64d08febe050414" style="width: 100.0%; height: 100.0%;">             <b>Cluster ID:</b> 722_316<br>             <b>Config ID:</b> 6<br>             <b>Method:</b> merged_agglomerative<br>             <b>Customers:</b> 12<br>             <b>Route Time:</b> 6.66 hrs<br>             <b>Total Demand:</b> 2,010 kg         </div>`)[0];
+                popup_90548232812ca570bad13edecd5439bf.setContent(html_53c8f05af954a8e8d64d08febe050414);
+            
+        
+
+        circle_marker_1f6cd7af8fce66fa93c266ec455c317d.bindPopup(popup_90548232812ca570bad13edecd5439bf)
+        ;
+
+        
+    
+    
+            var circle_marker_f8f7258d53a20b62600d599d6fc31ad8 = L.circleMarker(
+                [4.724631607148774, -74.06652214990893],
+                {"bubblingMouseEvents": true, "color": "#3ba3ec", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#3ba3ec", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 2}
+            ).addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+        
+    
+        var popup_22dd72e47bf034dd17c987d3ba27b750 = L.popup({"maxWidth": 300});
+
+        
+            
+                var html_c0d8218a360bed34f7b35cdb1f9aee72 = $(`<div id="html_c0d8218a360bed34f7b35cdb1f9aee72" style="width: 100.0%; height: 100.0%;">             <b>Cluster ID:</b> 737_465<br>             <b>Config ID:</b> 7<br>             <b>Method:</b> merged_agglomerative<br>             <b>Customers:</b> 13<br>             <b>Route Time:</b> 8.58 hrs<br>             <b>Total Demand:</b> 2,648 kg         </div>`)[0];
+                popup_22dd72e47bf034dd17c987d3ba27b750.setContent(html_c0d8218a360bed34f7b35cdb1f9aee72);
+            
+        
+
+        circle_marker_f8f7258d53a20b62600d599d6fc31ad8.bindPopup(popup_22dd72e47bf034dd17c987d3ba27b750)
+        ;
+
+        
+    
+    
+            var circle_marker_45f6009e73b1f50363046657f98010c7 = L.circleMarker(
+                [4.696597428802046, -74.13096429707115],
+                {"bubblingMouseEvents": true, "color": "#bb83f4", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#bb83f4", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 2}
+            ).addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+        
+    
+        var popup_81afb5d9404f7c8616b68c92fd38c68f = L.popup({"maxWidth": 300});
+
+        
+            
+                var html_2b1297b1310271b4f30b0542c4ab311a = $(`<div id="html_2b1297b1310271b4f30b0542c4ab311a" style="width: 100.0%; height: 100.0%;">             <b>Cluster ID:</b> 839_699<br>             <b>Config ID:</b> 19<br>             <b>Method:</b> merged_agglomerative<br>             <b>Customers:</b> 4<br>             <b>Route Time:</b> 2.74 hrs<br>             <b>Total Demand:</b> 4,182 kg         </div>`)[0];
+                popup_81afb5d9404f7c8616b68c92fd38c68f.setContent(html_2b1297b1310271b4f30b0542c4ab311a);
+            
+        
+
+        circle_marker_45f6009e73b1f50363046657f98010c7.bindPopup(popup_81afb5d9404f7c8616b68c92fd38c68f)
+        ;
+
+        
+    
+    
+            var circle_marker_b7dbb886587758bd151f59a6f4a12cf4 = L.circleMarker(
+                [4.679291375784416, -74.10658510935158],
+                {"bubblingMouseEvents": true, "color": "#f564d4", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "#f564d4", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 8, "stroke": true, "weight": 2}
+            ).addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+        
+    
+        var popup_05513002eb41774bcce0eaf2b3088b11 = L.popup({"maxWidth": 300});
+
+        
+            
+                var html_066cc21f3788ada02a6813dadd1d22a9 = $(`<div id="html_066cc21f3788ada02a6813dadd1d22a9" style="width: 100.0%; height: 100.0%;">             <b>Cluster ID:</b> 872_740<br>             <b>Config ID:</b> 20<br>             <b>Method:</b> merged_agglomerative<br>             <b>Customers:</b> 14<br>             <b>Route Time:</b> 7.08 hrs<br>             <b>Total Demand:</b> 4,376 kg         </div>`)[0];
+                popup_05513002eb41774bcce0eaf2b3088b11.setContent(html_066cc21f3788ada02a6813dadd1d22a9);
+            
+        
+
+        circle_marker_b7dbb886587758bd151f59a6f4a12cf4.bindPopup(popup_05513002eb41774bcce0eaf2b3088b11)
+        ;
+
+        
+    
+    
+            var layer_control_cd8376941cfdf639a396ab4aa9d322f7_layers = {
+                base_layers : {
+                    "cartodbpositron" : tile_layer_9725108f89237477e25597e8d28d0ee2,
+                },
+                overlays :  {
+                },
+            };
+            let layer_control_cd8376941cfdf639a396ab4aa9d322f7 = L.control.layers(
+                layer_control_cd8376941cfdf639a396ab4aa9d322f7_layers.base_layers,
+                layer_control_cd8376941cfdf639a396ab4aa9d322f7_layers.overlays,
+                {"autoZIndex": true, "collapsed": true, "position": "topright"}
+            ).addTo(map_4ba94cd5d51256fbf2bfb216b056d06f);
+
+        
+</script>
+</html>

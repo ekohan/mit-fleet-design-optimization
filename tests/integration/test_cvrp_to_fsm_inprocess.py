@@ -1,6 +1,6 @@
 import sys
 import pytest
-from src.benchmarking.cvrp_to_fsm import main, CVRPBenchmarkType
+from fleetmix.benchmarking.cvrp_to_fsm import main, CVRPBenchmarkType
 from tests.utils.stubs import stub_vrplib, stub_vehicle_configurations, stub_benchmark_clustering, stub_solver, stub_save_results
 
 

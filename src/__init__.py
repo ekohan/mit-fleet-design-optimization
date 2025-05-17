@@ -19,3 +19,6 @@ Typical high-level workflow
 All core functions follow Google-style docstrings and are directly linked to the sections and
 equations of the paper so readers can cross-reference implementation with methodology.
 """
+
+# Export the fleetmix package
+from . import fleetmix

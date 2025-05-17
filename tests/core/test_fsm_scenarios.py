@@ -2,8 +2,8 @@
 
 import pandas as pd
 import pytest
-from src.fsm_optimizer import solve_fsm_problem
-from src.config.parameters import Parameters
+from fleetmix.fsm_optimizer import solve_fsm_problem
+from fleetmix.config.parameters import Parameters
 
 # Define geographic coordinates for test customers
 CUSTOMER_COORDS = {
@@ -428,7 +428,7 @@ def test_fsm_scenarios(name, clusters, configs, upd, exp):
     for k,v in upd.items():
         setattr(params, k, v)
     # Solve or validate infeasible
-    from src import fsm_optimizer
+    from fleetmix import fsm_optimizer
     if exp["missing_customers"]:
         # Infeasible: model should inject NoVehicle and warn
         model, y_vars, x_vars, c_vk = fsm_optimizer._create_model(

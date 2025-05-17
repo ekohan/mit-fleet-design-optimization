@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
-from src.benchmarking import parse_mcvrp
-from src.benchmarking.models import MCVRPInstance
+from fleetmix.benchmarking import parse_mcvrp
+from fleetmix.benchmarking.models import MCVRPInstance
 
 
 def test_parse_sample():

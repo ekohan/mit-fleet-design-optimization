@@ -15,10 +15,10 @@ from haversine import haversine
 from joblib import Parallel, delayed
 import logging
 
-from src.config.parameters import Parameters
-from src.utils.logging import Colors, Symbols
-from src.utils.route_time import estimate_route_time
-from src.core_types import BenchmarkType, VRPSolution
+from fleetmix.config.parameters import Parameters
+from fleetmix.utils.logging import Colors, Symbols
+from fleetmix.utils.route_time import estimate_route_time
+from fleetmix.core_types import BenchmarkType, VRPSolution
 
 # Add logging to track utilization
 logging.basicConfig(level=logging.WARNING)

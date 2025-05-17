@@ -11,7 +11,7 @@ from tests.utils.stubs import (
 
 
 def test_mcvrp_to_fsm_info_flag():
-    cmd = [sys.executable, '-m', 'src.benchmarking.convert_mcvrp_to_fsm', '--info']
+    cmd = [sys.executable, '-m', 'fleetmix.benchmarking.convert_mcvrp_to_fsm', '--info']
     result = subprocess.run(cmd, capture_output=True)
     assert result.returncode == 0
     out = result.stdout.decode('utf-8')
@@ -25,7 +25,7 @@ def test_mcvrp_to_fsm_smoke(tmp_path, monkeypatch):
          stub_solver(monkeypatch), \
          stub_save_results(monkeypatch, tmp_path):
         cmd = [
-            sys.executable, '-m', 'src.benchmarking.convert_mcvrp_to_fsm',
+            sys.executable, '-m', 'fleetmix.benchmarking.convert_mcvrp_to_fsm',
             '--instance', '10_3_3_3_(01)',
             '--format', 'json'
         ]

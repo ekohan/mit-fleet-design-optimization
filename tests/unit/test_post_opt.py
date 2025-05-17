@@ -1,9 +1,9 @@
 import pandas as pd
 import pytest
 
-import src.post_optimization as post_opt
-import src.fsm_optimizer as fsm
-from src.config.parameters import Parameters
+import fleetmix.post_optimization as post_opt
+import fleetmix.fsm_optimizer as fsm
+from fleetmix.config.parameters import Parameters
 
 # Helper to create a minimal clusters DataFrame with goods columns
 def make_cluster_df(cluster_id):

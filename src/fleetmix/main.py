@@ -1,23 +1,16 @@
 """
 Main module for the vehicle routing optimization problem.
 """
-import os
-import sys
 import time
 from pathlib import Path
 
-# Add project root to Python path
-project_root = str(Path(__file__).parent.parent)
-if project_root not in sys.path:
-    sys.path.append(project_root)
-
-from src.utils.cli import parse_args, load_parameters, print_parameter_help
-from src.utils.logging import setup_logging, ProgressTracker, Colors
-from src.utils.data_processing import load_customer_demand
-from src.utils.vehicle_configurations import generate_vehicle_configurations
-from src.utils.save_results import save_optimization_results
-from src.clustering import generate_clusters_for_configurations
-from src.fsm_optimizer import solve_fsm_problem
+from fleetmix.utils.cli import parse_args, load_parameters, print_parameter_help
+from fleetmix.utils.logging import setup_logging, ProgressTracker, Colors
+from fleetmix.utils.data_processing import load_customer_demand
+from fleetmix.utils.vehicle_configurations import generate_vehicle_configurations
+from fleetmix.utils.save_results import save_optimization_results
+from fleetmix.clustering import generate_clusters_for_configurations
+from fleetmix.fsm_optimizer import solve_fsm_problem
 
 def main():
     """Run the FSM optimization pipeline."""

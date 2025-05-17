@@ -2,8 +2,8 @@ import pytest
 import yaml
 from argparse import Namespace
 
-from src.utils.cli import parse_args, get_parameter_overrides, load_parameters
-from src.config.parameters import Parameters
+from fleetmix.utils.cli import parse_args, get_parameter_overrides, load_parameters
+from fleetmix.config.parameters import Parameters
 
 
 def test_get_parameter_overrides_filters_none_and_keys():

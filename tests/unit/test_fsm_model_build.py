@@ -2,8 +2,8 @@ import pandas as pd
 import pulp
 import pytest
 
-from src.fsm_optimizer import _create_model
-from src.config.parameters import Parameters
+from fleetmix.fsm_optimizer import _create_model
+from fleetmix.config.parameters import Parameters
 
 
 def test_create_model_basic(toy_fsm_model_build_data):

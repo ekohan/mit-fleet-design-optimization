@@ -1,20 +1,20 @@
 import pytest
 from argparse import Namespace
 
-from src.config.parameters import Parameters
-from src.utils.cli import load_parameters, get_parameter_overrides, parse_args
+from fleetmix.config.parameters import Parameters
+from fleetmix.utils.cli import load_parameters, get_parameter_overrides, parse_args
 
 
 def test_default_yaml_weights_sum_to_one():
     # Load default config
-    params = Parameters.from_yaml('src/config/default_config.yaml')
+    params = Parameters.from_yaml('src/fleetmix/config/default_config.yaml')
     geo = params.clustering['geo_weight']
     dem = params.clustering['demand_weight']
     assert pytest.approx(geo + dem, rel=1e-6) == 1.0
 
 
 def test_vrp_benchmark_yaml_weights_sum_to_one():
-    params = Parameters.from_yaml('src/config/vrp_benchmark_config.yaml')
+    params = Parameters.from_yaml('src/fleetmix/config/vrp_benchmark_config.yaml')
     geo = params.clustering['geo_weight']
     dem = params.clustering['demand_weight']
     assert pytest.approx(geo + dem, rel=1e-6) == 1.0
@@ -53,7 +53,7 @@ def test_load_parameters_overrides():
     params = load_parameters(args)
     assert params.avg_speed == 45.0
     # Other values remain defaults
-    default = Parameters.from_yaml('src/config/default_config.yaml')
+    default = Parameters.from_yaml('src/fleetmix/config/default_config.yaml')
     assert params.max_route_time == default.max_route_time
 
 
@@ -67,7 +67,7 @@ def test_get_parameter_overrides_filters_none():
 
 
 def test_small_cluster_size_overrides(tmp_path):
-    params = Parameters.from_yaml('src/config/default_config.yaml')
+    params = Parameters.from_yaml('src/fleetmix/config/default_config.yaml')
     assert params.small_cluster_size == 7
     assert params.nearest_merge_candidates == 10
 

@@ -43,13 +43,12 @@ import time
 from typing import Dict, Tuple, Set, Any
 import pandas as pd
 import pulp
-from haversine import haversine
 import sys
 
-from src.utils.logging import Colors, Symbols
-from src.config.parameters import Parameters
-from src.post_optimization import improve_solution
-from src.utils.solver import pick_solver
+from fleetmix.utils.logging import Colors, Symbols
+from fleetmix.config.parameters import Parameters
+from fleetmix.post_optimization import improve_solution
+from fleetmix.utils.solver import pick_solver
 
 logger = logging.getLogger(__name__)
 

@@ -17,14 +17,14 @@ advocate for.
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
-from src.config.parameters import Parameters
+from fleetmix.config.parameters import Parameters
 import json
 import numpy as np
 import seaborn as sns
 import ast
 import folium
 from typing import Dict
-from src.core_types import BenchmarkType, VRPSolution
+from fleetmix.core_types import BenchmarkType, VRPSolution
 import logging
 
 # Add logging to track load percentages

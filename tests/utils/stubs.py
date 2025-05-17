@@ -21,8 +21,8 @@ The stubs are designed to be composable, so you can use only what you need.
 import contextlib
 from pathlib import Path
 import pandas as pd
-import src.clustering as clustering_module
-import src.fsm_optimizer as fsm_module
+import fleetmix.clustering as clustering_module
+import fleetmix.fsm_optimizer as fsm_module
 
 @contextlib.contextmanager
 def stub_data_processing(monkeypatch):
@@ -39,7 +39,7 @@ def stub_data_processing(monkeypatch):
         ])
     
     # Patch at the module level to completely replace the function
-    monkeypatch.setattr("src.utils.data_processing.load_customer_demand", full_stub_customer_demand)
+    monkeypatch.setattr("fleetmix.utils.data_processing.load_customer_demand", full_stub_customer_demand)
     
     yield
 
@@ -86,7 +86,7 @@ def stub_solver(monkeypatch):
 def stub_save_results(monkeypatch, output_dir):
     """Stub save_optimization_results to write dummy output files."""
     # Import locally to avoid circular dependencies during test collection
-    import src.utils.save_results as save_module_local
+    import fleetmix.utils.save_results as save_module_local
 
     def fake_save(*args, **kwargs):
         # Get the format from kwargs or default to excel
@@ -103,7 +103,7 @@ def stub_save_results(monkeypatch, output_dir):
 @contextlib.contextmanager
 def stub_vrplib(monkeypatch):
     """Stub CVRPParser in src.benchmarking.cvrp_to_fsm and bypass missing-file guard for .vrp."""
-    import src.benchmarking.cvrp_to_fsm as mod
+    import fleetmix.benchmarking.cvrp_to_fsm as mod
     # Monkey-patch Path.exists to return True for .vrp under cvrp_instances
     from pathlib import Path
     orig_exists = Path.exists
@@ -133,7 +133,7 @@ def stub_vrplib(monkeypatch):
 def stub_vehicle_configurations(monkeypatch):
     """Stub generate_vehicle_configurations in src.benchmarking.cvrp_to_fsm."""
     import pandas as pd
-    import src.benchmarking.cvrp_to_fsm as mod
+    import fleetmix.benchmarking.cvrp_to_fsm as mod
     monkeypatch.setattr(
         mod,
         'generate_vehicle_configurations',
@@ -147,7 +147,7 @@ def stub_vehicle_configurations(monkeypatch):
 def stub_benchmark_clustering(monkeypatch):
     """Stub generate_clusters_for_configurations in src.benchmarking.cvrp_to_fsm."""
     import pandas as pd
-    import src.benchmarking.cvrp_to_fsm as mod
+    import fleetmix.benchmarking.cvrp_to_fsm as mod
     monkeypatch.setattr(
         mod,
         'generate_clusters_for_configurations',
@@ -175,14 +175,12 @@ def stub_demand(monkeypatch):
              'Dry_Demand': 5, 'Chilled_Demand': 0, 'Frozen_Demand': 0}
         ])
     
-    # Find all modules that might import this function
-    import src.main
-    import src.utils.data_processing
-    import src.benchmarking.run_benchmark
-    
-    # Patch all known imports
-    monkeypatch.setattr(src.utils.data_processing, "load_customer_demand", fake_demand)
-    monkeypatch.setattr(src.main, "load_customer_demand", fake_demand)
-    monkeypatch.setattr(src.benchmarking.run_benchmark, "load_customer_demand", fake_demand)
+    # Patch all known imports in fleetmix modules
+    import fleetmix.utils.data_processing as dp_mod
+    import fleetmix.main as main_mod
+    import fleetmix.benchmarking.run_benchmark as rb_mod
+    monkeypatch.setattr(dp_mod, "load_customer_demand", fake_demand)
+    monkeypatch.setattr(main_mod, "load_customer_demand", fake_demand)
+    monkeypatch.setattr(rb_mod, "load_customer_demand", fake_demand)
     
     yield 

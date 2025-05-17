@@ -13,11 +13,11 @@ project_root = str(Path(__file__).parent.parent.parent)
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from src.config.parameters import Parameters
-from src.utils.logging import setup_logging, ProgressTracker, Colors, Symbols
-from src.utils.data_processing import load_customer_demand
-from src.benchmarking.vrp_solver import VRPSolver
-from src.core_types import BenchmarkType, VRPSolution
+from fleetmix.config.parameters import Parameters
+from fleetmix.utils.logging import setup_logging, ProgressTracker, Colors, Symbols
+from fleetmix.utils.data_processing import load_customer_demand
+from fleetmix.benchmarking.vrp_solver import VRPSolver
+from fleetmix.core_types import BenchmarkType, VRPSolution
 
 def parse_benchmark_args():
     """Parse command line arguments for benchmarking."""
@@ -138,7 +138,7 @@ def main():
         print_solution_details(solution)
     
     # Step 3: Save results
-    from src.utils.save_results import save_benchmark_results
+    from fleetmix.utils.save_results import save_benchmark_results
     save_benchmark_results(
         solutions=solutions,
         parameters=params,

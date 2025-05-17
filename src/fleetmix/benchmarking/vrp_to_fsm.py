@@ -13,11 +13,11 @@ project_root = str(Path(__file__).parent.parent.parent)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from src.utils.logging import setup_logging
-from src.benchmarking.vrp_interface import VRPType, convert_to_fsm, run_optimization
-from src.benchmarking.cvrp_converter import CVRPBenchmarkType
-from src.benchmarking.convert_mcvrp_to_fsm import DEFAULT_INSTANCE as DEFAULT_MCVRP_INSTANCE
-from src.utils.save_results import save_optimization_results
+from fleetmix.utils.logging import setup_logging
+from fleetmix.benchmarking.vrp_interface import VRPType, convert_to_fsm, run_optimization
+from fleetmix.benchmarking.cvrp_converter import CVRPBenchmarkType
+from fleetmix.benchmarking.convert_mcvrp_to_fsm import DEFAULT_INSTANCE as DEFAULT_MCVRP_INSTANCE
+from fleetmix.utils.save_results import save_optimization_results
 
 
 def _build_parser() -> argparse.ArgumentParser:

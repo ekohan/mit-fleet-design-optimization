@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import pytest
 
-from src.clustering import compute_composite_distance, estimate_num_initial_clusters, ClusteringSettings
-from src.config.parameters import Parameters
+from fleetmix.clustering import compute_composite_distance, estimate_num_initial_clusters, ClusteringSettings
+from fleetmix.config.parameters import Parameters
 
 
 def make_customers(coords, demands, goods):

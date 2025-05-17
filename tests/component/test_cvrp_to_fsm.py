@@ -2,8 +2,8 @@ import pandas as pd
 import pytest
 from pathlib import Path
 
-from src.benchmarking.cvrp_to_fsm import convert_cvrp_to_fsm, CVRPBenchmarkType
-from src.benchmarking.cvrp_parser import CVRPParser
+from fleetmix.benchmarking.cvrp_to_fsm import convert_cvrp_to_fsm, CVRPBenchmarkType
+from fleetmix.benchmarking.cvrp_parser import CVRPParser
 
 @ pytest.mark.parametrize("btype, extra_kwargs, mult", [
     (CVRPBenchmarkType.NORMAL, {}, 1),

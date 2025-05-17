@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.clustering import _is_customer_feasible, get_cached_demand
+from fleetmix.clustering import _is_customer_feasible, get_cached_demand
 
 
 def test_is_customer_feasible_all_goods_fit():

@@ -1,6 +1,6 @@
 import logging
 import pytest
-from src.utils.logging import SimpleFormatter, ProgressTracker, Colors
+from fleetmix.utils.logging import SimpleFormatter, ProgressTracker, Colors
 
 class DummyRecord(logging.LogRecord):
     def __init__(self, levelname, msg):
@@ -37,7 +37,7 @@ def test_simple_formatter_colors(level, color):
 
 def test_progress_tracker_advance_and_close(monkeypatch):
     # Monkeypatch tqdm to return our DummyBar
-    import src.utils.logging as logging_utils
+    import fleetmix.utils.logging as logging_utils
     dummy = DummyBar()
     monkeypatch.setattr(logging_utils, 'tqdm', lambda total, desc, bar_format: dummy)
 

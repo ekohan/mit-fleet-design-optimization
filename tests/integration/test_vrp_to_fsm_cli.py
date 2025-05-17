@@ -12,7 +12,7 @@ from tests.utils.stubs import (
 
 
 def test_vrp_to_fsm_info_flag():
-    cmd = [sys.executable, '-m', 'src.benchmarking.vrp_to_fsm', '--info']
+    cmd = [sys.executable, '-m', 'fleetmix.benchmarking.vrp_to_fsm', '--info']
     result = subprocess.run(cmd, capture_output=True)
     assert result.returncode == 0
     out = result.stdout.decode('utf-8')
@@ -39,7 +39,7 @@ def test_vrp_to_fsm_smoke(tmp_path, monkeypatch, instance, extra_args, expected_
          stub_benchmark_clustering(monkeypatch), \
          stub_solver(monkeypatch), \
          stub_save_results(monkeypatch, tmp_path):
-        cmd = [sys.executable, '-m', 'src.benchmarking.vrp_to_fsm'] + extra_args + ['--instance'] + instance
+        cmd = [sys.executable, '-m', 'fleetmix.benchmarking.vrp_to_fsm'] + extra_args + ['--instance'] + instance
         result = subprocess.run(cmd, capture_output=True, check=True)
         out = result.stdout.decode('utf-8')
         assert expected_out in out 
@@ -47,12 +47,12 @@ def test_vrp_to_fsm_smoke(tmp_path, monkeypatch, instance, extra_args, expected_
 
 # --- Helper to build expected full path for missing file messages ---
 def _get_expected_path_fragment(filename: str, vrp_type: str) -> str:
-    base_path = Path("src/benchmarking/") # Relative to project root
+    base_path = Path("src/fleetmix/benchmarking/") # Relative to project root
     if vrp_type == "cvrp":
         return str((base_path / "cvrp_instances" / f"{filename}.vrp").resolve())
     elif vrp_type == "mcvrp": # For MCVRP, the parser error is simpler
         # The mcvrp_parser.py raises FileNotFoundError with the path it was given
-        # which is already <path_to_project>/src/benchmarking/mcvrp_instances/<filename>.dat
+        # which is already <path_to_project>/src/fleetmix/benchmarking/mcvrp_instances/<filename>.dat
         return str((base_path / "mcvrp_instances" / f"{filename}.dat").resolve())
     return filename # Fallback, should not happen with current test cases
 
@@ -89,7 +89,7 @@ def test_vrp_to_fsm_instance_not_found(
     instance_args = ["--instance"] + instance_names
     cmd = [
         sys.executable, 
-        "src/benchmarking/vrp_to_fsm.py", 
+        "-m", "fleetmix.benchmarking.vrp_to_fsm", 
         "--vrp-type", vrp_type
     ] + instance_args + benchmark_args
 

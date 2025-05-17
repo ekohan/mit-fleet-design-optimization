@@ -4,9 +4,9 @@ import pytest
 import pandas as pd
 from pathlib import Path
 
-from src.benchmarking.cvrp_parser import CVRPParser
-from src.benchmarking.cvrp_to_fsm import main as c2f_main, convert_cvrp_to_fsm, CVRPBenchmarkType
-from src.benchmarking.cvrp_parser import CVRPInstance
+from fleetmix.benchmarking.cvrp_parser import CVRPParser
+from fleetmix.benchmarking.cvrp_to_fsm import main as c2f_main, convert_cvrp_to_fsm, CVRPBenchmarkType
+from fleetmix.benchmarking.cvrp_parser import CVRPInstance
 
 # --- Parser tests -------------------------------------------------------------
 
@@ -25,8 +25,8 @@ def stub_vrplib(monkeypatch):
     def fake_read_solution(path):
         return {'routes': [[0, 1], [2]], 'cost': 123.4}
 
-    monkeypatch.setattr('src.benchmarking.cvrp_parser.vrplib.read_instance', fake_read_instance)
-    monkeypatch.setattr('src.benchmarking.cvrp_parser.vrplib.read_solution', fake_read_solution)
+    monkeypatch.setattr('fleetmix.benchmarking.cvrp_parser.vrplib.read_instance', fake_read_instance)
+    monkeypatch.setattr('fleetmix.benchmarking.cvrp_parser.vrplib.read_solution', fake_read_solution)
 
 
 def test_parse_fills_defaults(tmp_path):
@@ -98,7 +98,7 @@ def stub_parser(monkeypatch):
     class FakeParser:
         def __init__(self, path): pass
         def parse(self): return FakeParser.instance
-    monkeypatch.setattr('src.benchmarking.cvrp_to_fsm.CVRPParser', FakeParser)
+    monkeypatch.setattr('fleetmix.benchmarking.cvrp_to_fsm.CVRPParser', FakeParser)
     return FakeParser
 
 @pytest.mark.parametrize('btype,mult', [

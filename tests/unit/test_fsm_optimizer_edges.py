@@ -3,8 +3,8 @@ import logging
 import pulp
 import pytest
 
-from src.fsm_optimizer import _create_model, _extract_solution, _validate_solution
-from src.config.parameters import Parameters
+from fleetmix.fsm_optimizer import _create_model, _extract_solution, _validate_solution
+from fleetmix.config.parameters import Parameters
 
 
 def test_create_model_constraints(toy_fsm_edge_data):
@@ -43,7 +43,7 @@ def test_capacity_infeasibility_injects_NoVehicle(toy_fsm_edge_data, caplog):
     assert f"Unserviceable_Cluster_1" in model.constraints
     # Use record_tuples for more robust log checking
     assert any(
-        rec[0].startswith('src.fsm_optimizer') and 
+        rec[0].startswith('fleetmix.fsm_optimizer') and 
         rec[1] == logging.WARNING and
         'serve' in rec[2].lower()
         for rec in caplog.record_tuples

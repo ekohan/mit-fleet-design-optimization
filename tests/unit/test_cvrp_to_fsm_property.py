@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from src.benchmarking.cvrp_to_fsm import (
+from fleetmix.benchmarking.cvrp_to_fsm import (
     convert_cvrp_to_fsm,
     CVRPBenchmarkType
 )
@@ -17,7 +17,7 @@ class DummyInst:
 
 @pytest.fixture(autouse=True)
 def patch_parser(monkeypatch):
-    import src.benchmarking.cvrp_to_fsm as mod
+    import fleetmix.benchmarking.cvrp_to_fsm as mod
     # Bypass convert_cvrp_to_fsm file-existence check for unit tests
     orig_exists = Path.exists
     def fake_exists(self):
@@ -61,7 +61,7 @@ def test_combined_conversion_rows_and_vehicles():
 
 
 def test_info_flag_captures_output(capsys):
-    import src.benchmarking.cvrp_to_fsm as mod
+    import fleetmix.benchmarking.cvrp_to_fsm as mod
     # Call main with info
     mod.main_impl = mod.main  # alias
     import sys

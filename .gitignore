@@ -22,10 +22,10 @@ mit-fleet-env/
 .idea/
 
 # Results
-results/*.xlsx
-results/*.json
-results/*.html
-results/*.csv
+src/results/*.xlsx
+src/results/*.json
+src/results/*.html
+src/results/*.csv
 results_back
 back_results
 
@@ -40,4 +40,4 @@ coverage/coverage-summary.json
 *.pdf
 *.docx
 *.xml
-
+*.egg-info/

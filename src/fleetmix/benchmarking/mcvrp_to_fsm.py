@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Union
 
 import pandas as pd
-from src.benchmarking.mcvrp_parser import parse_mcvrp
-from src.config.parameters import Parameters
-from src.utils.coordinate_converter import CoordinateConverter
+from fleetmix.benchmarking.mcvrp_parser import parse_mcvrp
+from fleetmix.config.parameters import Parameters
+from fleetmix.utils.coordinate_converter import CoordinateConverter
 
 def convert_mcvrp_to_fsm(path: Union[str, Path]) -> tuple:
     """

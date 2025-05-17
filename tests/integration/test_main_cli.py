@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 from pathlib import Path
 
-import src.main as main_mod
+import fleetmix.main as main_mod
 from tests.utils.stubs import stub_clustering, stub_solver, stub_demand
 
 @pytest.fixture
@@ -19,9 +19,9 @@ def stub_dependencies(monkeypatch, tmp_results_dir):
 
 def test_main_generates_excel(tmp_results_dir, monkeypatch, stub_dependencies):
     """Test that the main CLI can generate Excel output."""
-    # Set CLI arguments
+    # Set CLI arguments - when directly calling main(), don't include interpreter args
     sys.argv = [
-        'src.main',
+        'fleetmix',  # Program name only
         '--config', 'tests/_assets/smoke/mini.yaml',
         '--format', 'excel',
         '--demand-file', 'smoke/mini_demand.csv'
@@ -41,9 +41,9 @@ def test_main_generates_excel(tmp_results_dir, monkeypatch, stub_dependencies):
 
 def test_main_generates_json(tmp_results_dir, monkeypatch, stub_dependencies):
     """Test that the main CLI can generate JSON output."""
-    # Set CLI arguments
+    # Set CLI arguments - when directly calling main(), don't include interpreter args
     sys.argv = [
-        'src.main',
+        'fleetmix',  # Program name only
         '--config', 'tests/_assets/smoke/mini.yaml',
         '--format', 'json',
         '--demand-file', 'smoke/mini_demand.csv'

@@ -16,15 +16,15 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 import pandas as pd
-from src.benchmarking.cvrp_parser import CVRPParser
-from src.config.parameters import Parameters
-from src.utils.logging import setup_logging
-from src.main import solve_fsm_problem
-from src.utils.vehicle_configurations import generate_vehicle_configurations
-from src.clustering import generate_clusters_for_configurations
-from src.utils.coordinate_converter import CoordinateConverter, GeoBounds
-from src.utils.save_results import save_optimization_results
-from src.benchmarking.cvrp_converter import convert_cvrp_to_fsm, CVRPBenchmarkType
+from fleetmix.benchmarking.cvrp_parser import CVRPParser
+from fleetmix.config.parameters import Parameters
+from fleetmix.utils.logging import setup_logging
+from fleetmix.main import solve_fsm_problem
+from fleetmix.utils.vehicle_configurations import generate_vehicle_configurations
+from fleetmix.clustering import generate_clusters_for_configurations
+from fleetmix.utils.coordinate_converter import CoordinateConverter, GeoBounds
+from fleetmix.utils.save_results import save_optimization_results
+from fleetmix.benchmarking.cvrp_converter import convert_cvrp_to_fsm, CVRPBenchmarkType
 
 def main():
     """Main function to run CVRP to FSM conversion and optimization."""

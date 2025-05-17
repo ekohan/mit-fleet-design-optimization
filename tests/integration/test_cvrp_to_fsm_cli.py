@@ -8,8 +8,8 @@ from tests.utils.stubs import (
 
 
 def test_cvrp_to_fsm_info_flag():
-    cmd = [sys.executable, '-m', 'src.benchmarking.cvrp_to_fsm', '--info']
-    result = subprocess.run(cmd, capture_output=True)
+    cmd = [sys.executable, '-m', 'fleetmix.benchmarking.cvrp_to_fsm', '--info']
+    result = subprocess.run(cmd, capture_output=True, check=False)
     assert result.returncode == 0
     out = result.stdout.decode('utf-8')
     assert 'CVRP to FSM Conversion Tool' in out
@@ -24,7 +24,7 @@ def test_cvrp_to_fsm_normal_smoke(tmp_path, monkeypatch):
          stub_save_results(monkeypatch, tmp_path):
         # Run through subprocess
         cmd = [
-            sys.executable, '-m', 'src.benchmarking.cvrp_to_fsm',
+            sys.executable, '-m', 'fleetmix.benchmarking.cvrp_to_fsm',
             '--instance', 'X-n101-k25',
             '--benchmark-type', 'normal'
         ]
