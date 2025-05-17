@@ -63,7 +63,7 @@ def _print_info() -> None:
         f"--instance {DEFAULT_INSTANCE}"
     )
     print("\nAvailable instances:")
-    inst_dir = Path(__file__).parent / "mcvrp_instances"
+    inst_dir = Path(__file__).parent / "datasets" / "mcvrp"
     for p in sorted(inst_dir.glob("*.dat")):
         print(f"  {p.stem}")
     print("=" * 80)
@@ -79,8 +79,9 @@ def main() -> None:
 
     # Convert the instance
     instance_path = (
-        Path(__file__).parent
-        / "mcvrp_instances"
+        Path(__file__).parent   
+        / "datasets"
+        / "mcvrp"
         / f"{args.instance}.dat"
     )
     logger.info("Converting instance %s", instance_path.name)

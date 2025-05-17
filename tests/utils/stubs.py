@@ -130,6 +130,37 @@ def stub_vrplib(monkeypatch):
     yield
 
 @contextlib.contextmanager
+def stub_mcvrp_parser(monkeypatch):
+    """Stub MCVRP parser to return a dummy instance."""
+    from fleetmix.benchmarking.models import MCVRPInstance
+    from pathlib import Path
+    
+    def stub_parse_mcvrp(path):
+        # Create a dummy MCVRP instance
+        return MCVRPInstance(
+            name="stub_instance",
+            source_file=Path("stub_path"),
+            dimension=3,
+            capacity=100,
+            vehicles=2,
+            depot_id=1,
+            coords={1: (0, 0), 2: (1, 1), 3: (2, 2)},
+            demands={1: (0, 0, 0), 2: (10, 0, 0), 3: (0, 5, 5)}
+        )
+    
+    monkeypatch.setattr("fleetmix.benchmarking.mcvrp_parser.parse_mcvrp", stub_parse_mcvrp)
+    
+    # Also patch Path.exists to return True for the MCVRP instance
+    orig_exists = Path.exists
+    def fake_exists(self):
+        if self.name.endswith('.dat') and 'mcvrp' in str(self):
+            return True
+        return orig_exists(self)
+    monkeypatch.setattr(Path, 'exists', fake_exists)
+    
+    yield
+
+@contextlib.contextmanager
 def stub_vehicle_configurations(monkeypatch):
     """Stub generate_vehicle_configurations in src.benchmarking.cvrp_to_fsm."""
     import pandas as pd

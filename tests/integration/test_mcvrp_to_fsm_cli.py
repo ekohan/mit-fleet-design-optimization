@@ -6,7 +6,8 @@ from tests.utils.stubs import (
     stub_vehicle_configurations,
     stub_benchmark_clustering,
     stub_solver,
-    stub_save_results
+    stub_save_results,
+    stub_mcvrp_parser
 )
 
 
@@ -23,6 +24,7 @@ def test_mcvrp_to_fsm_smoke(tmp_path, monkeypatch):
     with stub_vehicle_configurations(monkeypatch), \
          stub_benchmark_clustering(monkeypatch), \
          stub_solver(monkeypatch), \
+         stub_mcvrp_parser(monkeypatch), \
          stub_save_results(monkeypatch, tmp_path):
         cmd = [
             sys.executable, '-m', 'fleetmix.benchmarking.convert_mcvrp_to_fsm',
