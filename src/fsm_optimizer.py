@@ -1,7 +1,41 @@
 """
-Fleet Size and Mix (FSM) Optimizer module.
-Handles the optimization model creation, solving, and solution validation
-for the vehicle routing problem with multiple compartments.
+fsm_optimizer.py
+
+Solves the **Fleet Size-and-Mix with Heterogeneous Multi-Compartment Vehicles** optimisation
+problem, corresponding to Model (2) in Section 4.3 of the research paper.
+
+Given a pool of candidate clusters K (created in ``clustering.py``) and a catalogue of
+vehicle configurations V, this module builds and solves an integer linear programme that
+selects a subset of clusters and assigns exactly one vehicle configuration to each selected
+cluster.
+
+Mathematical formulation (paper Eq. (1)–(4))
+-------------------------------------------
+Objective: minimise  Σ_{v∈V} Σ_{k∈K_v} c_vk · x_vk
+
+subject to
+* Coverage – every customer appears in **at least** one chosen cluster (Eq. 2)  
+* Uniqueness – each cluster is selected **at most** once (Eq. 3)  
+* Binary decision variables x_vk and y_k (Eq. 4)
+
+Key symbols
+~~~~~~~~~~~
+``x_vk``  Binary var, 1 if config *v* serves cluster *k*.
+``y_k``   Binary var, 1 if cluster *k* is selected (handy for warm-starts).
+``c_vk``  Total cost of dispatching configuration *v* on cluster *k* (fixed + variable).
+
+Solver interface
+----------------
+• Defaults to CBC via ``pulp`` but can fall back to Gurobi/CPLEX if the corresponding environment
+  variables are set (see ``utils/solver.py``).
+• Post-solution **improvement phase** is optionally triggered (Section 4.4) via
+  :func:`post_optimization.improve_solution`.
+
+Typical usage
+-------------
+>>> clusters = clustering.generate_clusters_for_configurations(customers, configs, params)
+>>> solution = fsm_optimizer.solve_fsm_problem(clusters, configs, customers, params)
+>>> print(solution['objective_cost'])
 """
 
 import logging
@@ -27,19 +61,44 @@ def solve_fsm_problem(
     solver=None,
     verbose: bool = False
 ) -> Dict:
-    """
-    Solve the Fleet Size and Mix optimization problem.
-    
+    """Solve the Fleet Size-and-Mix MILP (Model 2).
+
+    This is the tactical optimisation layer described in Section 4.3 of the
+    paper.  It takes the candidate clusters produced during the cluster-first
+    phase and decides how many vehicles of each configuration to deploy and
+    which cluster each vehicle will serve.
+
     Args:
-        clusters_df: DataFrame containing generated clusters
-        configurations_df: DataFrame containing vehicle configurations
-        customers_df: DataFrame containing customer demands
-        parameters: Parameters object containing optimization parameters
-        solver: Optional solver to use instead of pick_solver
-        verbose: Whether to enable verbose output to screen
-    
+        clusters_df: Output of the clustering stage. Must contain at least the
+            columns ``['Cluster_ID', 'Customers', 'Config_ID', 'Total_Demand',
+            'Route_Time']``.
+        configurations_df: Catalogue of vehicle configurations (one row per
+            ``Config_ID``) with capacity, fixed cost, and boolean columns per
+            good.
+        customers_df: Original customer data used for validation—ensures every
+            customer is covered in the final solution.
+        parameters: Fully populated :class:`src.config.parameters.Parameters`
+            object with cost coefficients, penalty thresholds, etc.
+        solver: Optional explicit `pulp` solver instance.  If *None*,
+            :func:`src.utils.solver.pick_solver` chooses CBC/Gurobi/CPLEX based
+            on environment variables.
+        verbose: If *True* prints solver progress to stdout.
+
     Returns:
-        Dictionary containing optimization results.
+        Dict: A dictionary with keys
+            ``total_cost``, ``total_fixed_cost``, ``total_variable_cost``,
+            ``total_penalties``, ``selected_clusters`` (DataFrame),
+            ``vehicles_used`` (dict), and solver metadata.
+
+    Example:
+        >>> sol = solve_fsm_problem(clusters, configs, customers, params)
+        >>> sol['total_cost']
+        10543.75
+
+    Note:
+        If ``parameters.post_optimization`` is *True* the solution may be further
+        refined by :func:`src.post_optimization.improve_solution` before being
+        returned.
     """
     # Create optimization model
     model, y_vars, x_vars, c_vk = _create_model(clusters_df, configurations_df, parameters)

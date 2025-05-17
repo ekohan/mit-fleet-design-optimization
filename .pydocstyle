@@ -1,0 +1,4 @@
+[pydocstyle]
+convention = google
+add-ignore = D104,D107  # init and __repr__ may omit
+author = MIT Capstone Team 

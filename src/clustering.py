@@ -1,5 +1,94 @@
 """
-Module for generating clusters from customer data.
+clustering.py
+
+Generates capacity- and time-feasible customer clusters for the **cluster-first, fleet-design second**
+heuristic described in Section 4.2 of the accompanying research paper.
+
+The clustering phase is responsible for creating the set K of candidate clusters that can
+be served by a single vehicle configuration. Because the optimisation model in
+`fsm_optimizer.py` will later decide which of these clusters to actually use, the goal here is to
+produce a **rich yet tractable** pool of feasible options.
+
+High-level algorithmic steps
+----------------------------
+1. For each vehicle configuration ``config`` (rows of the dataframe produced by
+   ``vehicle_configurations.generate_vehicle_configurations``)
+
+   a. **Filter** the customer set to those whose product mix is compatible with the configuration.
+
+   b. Run one of several clustering algorithms—*MiniBatch k-means*, *k-medoids*, *Agglomerative*,
+      or *Gaussian Mixture*—on either raw coordinates or a *composite distance matrix* that blends
+      geography and product-mix similarity (Eq. (⋆) in the paper).
+
+   c. Recursively **split** clusters that violate capacity or maximum-route-time constraints
+      (Algorithm 1, paper) until every leaf cluster satisfies:
+
+          • The total demand of each product in the cluster does not exceed the vehicle's capacity  
+          • The estimated route time for the cluster does not exceed the vehicle's maximum route time
+
+2. Return a list of :class:`Cluster` dataclass instances ready for optimisation.
+
+Performance notes
+-----------------
+• The "small dataset" shortcut avoids unnecessary splitting when the total customer count is
+  below ``params.small_dataset_threshold``.
+
+• A *memoised* distance/cache layer prevents recomputation of per-cluster demand and TSP‐based
+  route times.
+
+Key symbols (cf. Section 3 of the paper)
+---------------------------------------
+* ``K`` – set of clusters; ``K_v`` those feasible for vehicle configuration *v*  
+* ``V`` – set of vehicle configurations  
+* ``Q_v`` – capacity of vehicle configuration *v*  
+* ``T_v`` – maximum route duration for configuration *v*
+
+This module is the entry-point for the *clustering* stage and is imported by the public function
+:func:`generate_clusters_for_configurations`.
+
+Generate clusters for **every** vehicle configuration.
+
+Wrapper for the *cluster-first* phase (see Section 4.2).
+
+The procedure:
+  1. Build a feasibility map K_v → customers.
+  2. For each combination of clustering hyper-parameters specified in
+     ``params.clustering`` run the selected algorithm (k-means, k-medoids,
+     agglomerative, GMM) to obtain coarse clusters.
+  3. Recursively split clusters that violate either capacity ``Q_v`` or
+     maximum route time ``T_v`` until constraints are met or
+     ``params.clustering.max_depth`` is reached.
+  4. Deduplicate identical customer sets and validate that every customer is
+     covered by *at least* one cluster.
+
+Args:
+    customers: DataFrame with columns ``['Customer_ID', 'Latitude',
+        'Longitude', '<good>_Demand', ...]`` where ``<good>`` enumerates the
+        product types specified in ``params.goods``.
+    configurations_df: DataFrame representing the vehicle configuration
+        catalogue with a unique ``Config_ID``, boolean columns per good, and
+        a numeric ``Capacity``.
+    params: Parsed :class:`src.config.parameters.Parameters` instance holding
+        all tuning knobs (goods, depot, speed, clustering options, etc.).
+
+Returns:
+    pd.DataFrame: One row per *unique* cluster with at least the following
+    columns
+    ``['Cluster_ID', 'Config_ID', 'Customers', 'Total_Demand',
+    'Centroid_Latitude', 'Centroid_Longitude', 'Route_Time', 'Method']`` and
+    one boolean column per good.
+
+Raises:
+    ValueError: If the input dataframes are empty or lack required columns.
+
+Example:
+    >>> clusters = generate_clusters_for_configurations(customers, configs, params)
+    >>> clusters.head(3)[['Cluster_ID', 'Config_ID', 'Route_Time']]
+    
+Note:
+    The function uses `joblib.Parallel` and may spawn as many workers as
+    CPU cores.  Set the environment variable ``JOBLIB_NUM_JOBS`` to control
+    parallelism.
 """
 
 import logging

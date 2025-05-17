@@ -36,12 +36,9 @@ coverage/*
 coverage/coverage-summary.json
 
 # Etc
-Notes_Eric.txt
-2023-CIE-Districting.pdf
-cheat_sheet.txt
-fatorres.xlsx
-api_0.10.1.txt
 *.txt
+*tex
 *.pdf
 *.docx
-repomix-output.xml
+*.xml
+

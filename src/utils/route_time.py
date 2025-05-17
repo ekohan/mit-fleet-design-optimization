@@ -117,20 +117,39 @@ def estimate_route_time(
     max_route_time: float = None,
     prune_tsp: bool = False
 ) -> Tuple[float, List[str]]:
-    """
-    Estimate route time using different methods. Return time and sequence (if TSP).
-    
+    """Estimate total route duration for a customer cluster.
+
+    Three alternative heuristics are implemented (select via *method*):
+
+    ``'Legacy'``  – constant 1 h travel + service time component.
+    ``'BHH'``     – Beardwood–Halton–Hammersley continuous-space approximation.
+    ``'TSP'``     – Solve an exact TSP with *PyVRP* using either cached distance
+                    matrices or on-the-fly computation.
+
     Args:
-        cluster_customers: DataFrame containing customer data
-        depot: Depot location coordinates
-        service_time: Service time per customer (minutes)
-        avg_speed: Average vehicle speed (km/h)
-        method: Route time estimation method
-        max_route_time: Maximum route time in hours (optional)
-        prune_tsp: If True, skip TSP if BHH estimate exceeds max_route_time (optional)
-        
+        cluster_customers: DataFrame with ``Latitude``/``Longitude`` columns and
+            a unique ``Customer_ID`` per row.
+        depot: Mapping ``{'latitude': float, 'longitude': float}``.
+        service_time: Per-customer service time in **minutes**.
+        avg_speed: Vehicle speed in **km/h** used to convert distances to time.
+        method: One of ``'Legacy'``, ``'BHH'``, ``'TSP'``.
+        max_route_time: Optional hard limit (hours) to speed-prune expensive TSP
+            evaluations; only relevant when ``method='TSP'``.
+        prune_tsp: If *True* and ``method='TSP'`` the BHH estimate is used as a
+            quick lower bound to skip TSP calls that are guaranteed infeasible.
+
     Returns:
-        Tuple: (Estimated route time in hours, List of customer IDs in visit sequence or [])
+        Tuple[float, list[str]]: (estimated route time in **hours**, visit
+        sequence).  The sequence is non-empty only for the TSP method; for other
+        heuristics an empty list is returned.
+
+    Raises:
+        ValueError: If *method* is not recognised.
+
+    Example:
+        >>> t, seq = estimate_route_time(cluster, depot, 20, 30, method='BHH')
+        >>> t < 8  # hours
+        True
     """
     if method == 'Legacy':
         time = _legacy_estimation(len(cluster_customers), service_time)
@@ -144,8 +163,8 @@ def estimate_route_time(
     
     elif method == 'TSP':
         # Prune TSP computation based on BHH estimate if requested
-        logger.warning(f"Prune TSP: {prune_tsp}, Max Route Time: {max_route_time}")
         if prune_tsp and max_route_time is not None:
+            logger.warning(f"Prune TSP: {prune_tsp}, Max Route Time: {max_route_time}")
             bhh_time = _bhh_estimation(cluster_customers, depot, service_time, avg_speed)
             # Add a 20% margin to account for BHH underestimation
             if bhh_time > max_route_time * 1.2:

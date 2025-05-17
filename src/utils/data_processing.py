@@ -1,3 +1,14 @@
+"""
+data_processing.py
+
+Light-weight helpers for locating and loading demand CSVs.  The idea is to
+keep any filesystem assumptions (paths, encodings, column renames) away from
+business logic.  This way, the core optimisation code can operate on clean
+DataFrames without ever touching `Path` or `pd.read_csv`.
+
+If tomorrow the sales team decides to move files or change headers, you only
+need to patch this module.
+"""
 import pandas as pd
 from pathlib import Path
 
