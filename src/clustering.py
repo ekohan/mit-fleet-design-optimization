@@ -115,8 +115,6 @@ class Symbols:
     CHECKMARK = "✓"
     CROSS = "✗"
 
-PRODUCT_WEIGHTS = {'Frozen': 0.5, 'Chilled': 0.3, 'Dry': 0.2}
-
 @dataclass
 class Cluster:
     """Represents a cluster of customers that can be served by a vehicle configuration."""
@@ -162,7 +160,6 @@ class ClusteringSettings:
     route_time_estimation: str
     geo_weight: float
     demand_weight: float
-    distance_metric: str # 'euclidean' or 'composite'
 
 def compute_cluster_metric_input(
     customers: pd.DataFrame,
@@ -768,13 +765,6 @@ def estimate_num_initial_clusters(
     # Estimate clusters needed based on capacity
     clusters_by_capacity = np.ceil(total_demand / config['Capacity'])
 
-    # Calculate average distance from depot to customers
-    depot_coord = (settings.depot['latitude'], settings.depot['longitude'])
-    avg_distance = np.mean([
-        haversine(depot_coord, (lat, lon))
-        for lat, lon in zip(customers['Latitude'], customers['Longitude'])
-    ])
-
     # Estimate time for an average route
     avg_customers_per_cluster = len(customers) / clusters_by_capacity
     # Ensure sample size doesn't exceed population size and is at least 1 if possible
@@ -842,8 +832,7 @@ def _get_clustering_settings_list(params: Parameters) -> List[ClusteringSettings
         max_depth=params.clustering['max_depth'],
         route_time_estimation=params.clustering['route_time_estimation'],
         geo_weight=params.clustering['geo_weight'],
-        demand_weight=params.clustering['demand_weight'],
-        distance_metric=params.clustering['distance']
+        demand_weight=params.clustering['demand_weight']
     )
 
     if base_settings.method == 'combine':

@@ -312,7 +312,6 @@ def _pyvrp_tsp_estimation(
     # --- Use sliced matrices from global cache if available, otherwise compute on-the-fly ---
     distance_matrix = None
     duration_matrix = None
-    cluster_indices_map = {} # Map relative indices (0..N) in the sliced matrix back to global indices
 
     # Check if cache is populated
     cache_ready = (

@@ -50,7 +50,7 @@ def test_estimate_num_initial_clusters_by_capacity():
         depot={'latitude':0, 'longitude':0}, avg_speed=1,
         service_time=0, max_route_time=100,
         max_depth=1, route_time_estimation='Legacy',
-        geo_weight=1.0, demand_weight=0.0, distance_metric='euclidean'
+        geo_weight=1.0, demand_weight=0.0
     )
 
     num = estimate_num_initial_clusters(df, config, settings)

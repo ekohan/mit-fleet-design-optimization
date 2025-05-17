@@ -187,7 +187,6 @@ def _create_model(
     # Sets
     N = set(clusters_df['Customers'].explode().unique())  # Customers
     K = set(clusters_df['Cluster_ID'])  # Clusters
-    V = set(configurations_df['Config_ID'])  # Vehicle configurations
 
     # Initialize decision variables dictionaries
     x_vars = {}
@@ -359,100 +358,6 @@ def _validate_solution(
             )
         
     return missing_customers
-
-def _print_solution_details(
-    selected_clusters: pd.DataFrame,
-    configurations_df: pd.DataFrame,
-    solution_stats: Dict,
-    parameters: Parameters
-) -> None:
-    """Print summarized information about the solution."""
-    logger = logging.getLogger(__name__)
-    from utils.logging import Colors, Symbols
-    
-    # Warnings first (if any)
-    if solution_stats.get('missing_customers'):
-        logger.warning(
-            f"{Symbols.CROSS} Some customers are not served!\n"
-            f"{Colors.YELLOW}→ Unserved customers: {len(solution_stats['missing_customers'])}{Colors.RESET}"
-        )
-    
-    # Cost Summary
-    logger.info(f"\n{Symbols.CHART} Solution Summary")
-    logger.info("=" * 50)
-    logger.info(
-        f"{Colors.CYAN}Total Fixed Cost:  ${Colors.BOLD}"
-        f"{solution_stats['total_fixed_cost']:>10,.2f}{Colors.RESET}"
-    )
-    logger.info(
-        f"{Colors.CYAN}Total Variable Cost:${Colors.BOLD}"
-        f"{solution_stats['total_variable_cost']:>10,.2f}{Colors.RESET}"
-    )
-    logger.info(
-        f"{Colors.CYAN}Total Light Load Penalties:${Colors.BOLD}"
-        f"{solution_stats['total_light_load_penalties']:>10,.2f}{Colors.RESET}"
-    )
-    logger.info(
-        f"{Colors.CYAN}Total Compartment Penalties:${Colors.BOLD}"
-        f"{solution_stats['total_compartment_penalties']:>10,.2f}{Colors.RESET}"
-    )
-    logger.info(
-        f"{Colors.CYAN}Total Cost:         ${Colors.BOLD}"
-        f"{solution_stats['total_cost']:>10,.2f}{Colors.RESET}"
-    )
-
-    # Vehicle Usage Summary
-    logger.info(f"\n{Symbols.TRUCK} Vehicles by Type")
-    for vehicle_type in sorted(solution_stats['vehicles_used']):
-        vehicle_count = solution_stats['vehicles_used'][vehicle_type]
-        logger.info(
-            f"{Colors.BLUE}→ Type {vehicle_type}:{Colors.BOLD}"
-            f"{vehicle_count:>4}{Colors.RESET}"
-        )
-
-    # Calculate cluster statistics
-    cluster_stats = selected_clusters.copy()
-    
-    # Customer statistics
-    customers_per_cluster = cluster_stats['Customers'].apply(len)
-    logger.info(f"\n{Symbols.PACKAGE} Customers per Cluster")
-    logger.info(
-        f"{Colors.MAGENTA}  Min:    {Colors.BOLD}{customers_per_cluster.min():>4.0f}{Colors.RESET}\n"
-        f"{Colors.MAGENTA}  Max:    {Colors.BOLD}{customers_per_cluster.max():>4.0f}{Colors.RESET}\n"
-        f"{Colors.MAGENTA}  Avg:    {Colors.BOLD}{customers_per_cluster.mean():>4.1f}{Colors.RESET}\n"
-        f"{Colors.MAGENTA}  Median: {Colors.BOLD}{customers_per_cluster.median():>4.1f}{Colors.RESET}"
-    )
-
-    # Calculate truck load percentages
-    load_percentages = []
-    for _, cluster in cluster_stats.iterrows():
-        config = configurations_df[
-            configurations_df['Config_ID'] == cluster['Config_ID']
-        ].iloc[0]
-        max_load_pct = max(
-            cluster['Total_Demand'][good] / config['Capacity'] * 100 
-            for good in parameters.goods
-            if config[good] == 1
-        )
-        load_percentages.append(max_load_pct)
-    
-    load_percentages = pd.Series(load_percentages)
-    logger.info(f"\n{Symbols.GEAR} Truck Load Percentages")
-    logger.info(
-        f"{Colors.CYAN}  Min:    {Colors.BOLD}{load_percentages.min():>4.1f}%{Colors.RESET}\n"
-        f"{Colors.CYAN}  Max:    {Colors.BOLD}{load_percentages.max():>4.1f}%{Colors.RESET}\n"
-        f"{Colors.CYAN}  Avg:    {Colors.BOLD}{load_percentages.mean():>4.1f}%{Colors.RESET}\n"
-        f"{Colors.CYAN}  Median: {Colors.BOLD}{load_percentages.median():>4.1f}%{Colors.RESET}"
-    )
-
-    # Print warnings if any cluster exceeds capacity
-    overloaded = load_percentages[load_percentages > 100]
-    if not overloaded.empty:
-        logger.warning(
-            f"\n{Symbols.CROSS} {len(overloaded)} clusters exceed vehicle capacity!\n"
-            f"{Colors.YELLOW}→ Maximum overload: {Colors.BOLD}"
-            f"{overloaded.max():.1f}%{Colors.RESET}"
-        )
 
 def _calculate_solution_statistics(
     selected_clusters: pd.DataFrame,

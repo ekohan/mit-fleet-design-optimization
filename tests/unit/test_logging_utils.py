@@ -1,6 +1,6 @@
 import logging
 import pytest
-from src.utils.logging import SimpleFormatter, ProgressTracker, Colors, Symbols
+from src.utils.logging import SimpleFormatter, ProgressTracker, Colors
 
 class DummyRecord(logging.LogRecord):
     def __init__(self, levelname, msg):

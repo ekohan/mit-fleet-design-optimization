@@ -2,7 +2,7 @@ import sqlite3
 import pandas as pd
 from pathlib import Path
 import logging
-from typing import Dict, Optional
+from typing import Optional
 import numpy as np
 
 # Configure logging

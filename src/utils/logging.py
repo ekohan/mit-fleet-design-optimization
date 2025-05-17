@@ -23,7 +23,6 @@ class Symbols:
     PACKAGE = '📦'
     TRUCK = '🚛'
     CHART = '📊'
-    SAVE = '💾'
 
 class SimpleFormatter(logging.Formatter):
     """Clean formatter with colors for better readability."""

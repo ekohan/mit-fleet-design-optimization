@@ -17,15 +17,12 @@ advocate for.
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
-import inspect
 from src.config.parameters import Parameters
 import json
 import numpy as np
-import matplotlib.pyplot as plt
 import seaborn as sns
 import ast
 import folium
-from folium import plugins
 from typing import Dict
 from src.core_types import BenchmarkType, VRPSolution
 import logging

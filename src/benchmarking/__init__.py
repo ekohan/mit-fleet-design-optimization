@@ -8,6 +8,7 @@ Key entry points
 ----------------
 • `run_benchmark.py`      – batch runner for synthetic CVRP → FSM tests.
 • `run_all_mcvrp.py`      – runs Henke & Hübner (2015) instances through the pipeline.
+• `run_all_cvrp.py`       – runs Uchoa et al. (2017) instances through the pipeline.
 • `vrp_solver.py`         – thin wrapper around PyVRP to obtain lower/upper bounds.
 
 All helper functions are re-exported via `__all__` for convenience.

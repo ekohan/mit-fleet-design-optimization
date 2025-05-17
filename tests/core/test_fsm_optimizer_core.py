@@ -1,7 +1,5 @@
 import logging
 import pandas as pd
-import pytest
-import importlib
 
 import src.fsm_optimizer as fsm
 from src.config.parameters import Parameters

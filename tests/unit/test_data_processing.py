@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.utils.data_processing import load_customer_demand, get_demand_profiles_dir
+from src.utils.data_processing import load_customer_demand
 
 
 def test_load_customer_demand(tmp_path, monkeypatch):
