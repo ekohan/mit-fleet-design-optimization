@@ -132,7 +132,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Construct file path
-    instance_path = Path(__file__).parent / 'cvrp_instances' / f'{args.instance}.vrp'
+    instance_path = Path(__file__).parent / 'datasets' / 'cvrp' / f'{args.instance}.vrp'
     
     # Parse instance and solution
     try:

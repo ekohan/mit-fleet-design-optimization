@@ -7,12 +7,12 @@ repo_root = Path(__file__).resolve().parent.parent
 @pytest.fixture(scope="session")
 def small_vrp_path():
     """Path to a small CVRP instance file for component tests"""
-    return repo_root / "src" / "fleetmix" / "benchmarking" / "cvrp_instances" / "X-n101-k25.vrp"
+    return repo_root / "src" / "fleetmix" / "benchmarking" / "datasets" / "cvrp" / "X-n101-k25.vrp"
 
 @pytest.fixture(scope="session")
 def small_sol_path():
     """Path to the solution file for the small CVRP instance"""
-    return repo_root / "src" / "fleetmix" / "benchmarking" / "cvrp_instances" / "X-n101-k25.sol"
+    return repo_root / "src" / "fleetmix" / "benchmarking" / "datasets" / "cvrp" / "X-n101-k25.sol"
 
 @pytest.fixture(scope="session")
 def mini_yaml():

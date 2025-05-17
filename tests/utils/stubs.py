@@ -104,11 +104,11 @@ def stub_save_results(monkeypatch, output_dir):
 def stub_vrplib(monkeypatch):
     """Stub CVRPParser in src.benchmarking.cvrp_to_fsm and bypass missing-file guard for .vrp."""
     import fleetmix.benchmarking.cvrp_to_fsm as mod
-    # Monkey-patch Path.exists to return True for .vrp under cvrp_instances
+    # Monkey-patch Path.exists to return True for .vrp under datasets/cvrp
     from pathlib import Path
     orig_exists = Path.exists
     def fake_exists(self):
-        if self.suffix == '.vrp' and 'cvrp_instances' in str(self):
+        if self.suffix == '.vrp' and 'datasets/cvrp' in str(self):
             return True
         return orig_exists(self)
     monkeypatch.setattr(Path, 'exists', fake_exists)

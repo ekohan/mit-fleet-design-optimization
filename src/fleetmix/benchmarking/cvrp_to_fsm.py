@@ -92,7 +92,7 @@ def main():
         
         print("\nAvailable Instances:")
         print("-" * 80)
-        instance_dir = Path(__file__).parent / 'cvrp_instances'
+        instance_dir = Path(__file__).parent / 'datasets' / 'cvrp'
         instances = sorted([f.stem for f in instance_dir.glob('*.vrp')])
         print("  " + "\n  ".join(instances))
         

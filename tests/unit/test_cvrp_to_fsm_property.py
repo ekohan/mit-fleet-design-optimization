@@ -21,7 +21,7 @@ def patch_parser(monkeypatch):
     # Bypass convert_cvrp_to_fsm file-existence check for unit tests
     orig_exists = Path.exists
     def fake_exists(self):
-        if self.suffix == '.vrp' and 'cvrp_instances' in str(self):
+        if self.suffix == '.vrp' and 'datasets/cvrp' in str(self):
             return True
         return orig_exists(self)
     monkeypatch.setattr(Path, 'exists', fake_exists)

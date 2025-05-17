@@ -32,7 +32,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--instance",
         default=DEFAULT_INSTANCE,
-        help="Instance stem under src/benchmarking/mcvrp_instances/ (omit .dat)",
+        help="Instance stem under src/benchmarking/datasets/mcvrp/ (omit .dat)",
     )
     p.add_argument(
         "--format",

@@ -34,8 +34,8 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs='+',
         default=[DEFAULT_MCVRP_INSTANCE],
         help=(
-            "Instance name(s) (without extension). For mcvrp, stems under mcvrp_instances; "
-            "for cvrp, stems under cvrp_instances."
+            "Instance name(s) (without extension). For mcvrp, stems under datasets/mcvrp; "
+            "for cvrp, stems under datasets/cvrp."
         ),
     )
     p.add_argument(
@@ -119,7 +119,7 @@ def main() -> None:
             instance = instances[0]
             # Path resolution for MCVRP is handled here as it's simpler (always one file)
             # The actual FileNotFoundError for MCVRP will be raised by mcvrp_parser.py if file doesn't exist
-            instance_path = Path(__file__).parent / "mcvrp_instances" / f"{instance}.dat"
+            instance_path = Path(__file__).parent / "datasets" / "mcvrp" / f"{instance}.dat"
             customers_df, params = convert_to_fsm(
                 vrp_type,
                 instance_path=instance_path, # mcvrp_to_fsm expects instance_path

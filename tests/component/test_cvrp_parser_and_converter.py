@@ -86,7 +86,7 @@ def stub_parser(monkeypatch):
     # Contents are never parsed (we stub out CVRPParser).
     instances_dir = (
         Path(__file__).resolve().parents[2]  # project root
-        / "src" / "benchmarking" / "cvrp_instances"
+        / "src" / "fleetmix" / "benchmarking" / "datasets" / "cvrp"
     )
     instances_dir.mkdir(parents=True, exist_ok=True)
     for name in ("dummy", "a", "b"):

@@ -49,11 +49,11 @@ def test_vrp_to_fsm_smoke(tmp_path, monkeypatch, instance, extra_args, expected_
 def _get_expected_path_fragment(filename: str, vrp_type: str) -> str:
     base_path = Path("src/fleetmix/benchmarking/") # Relative to project root
     if vrp_type == "cvrp":
-        return str((base_path / "cvrp_instances" / f"{filename}.vrp").resolve())
+        return str((base_path / "datasets" / "cvrp" / f"{filename}.vrp").resolve())
     elif vrp_type == "mcvrp": # For MCVRP, the parser error is simpler
         # The mcvrp_parser.py raises FileNotFoundError with the path it was given
-        # which is already <path_to_project>/src/fleetmix/benchmarking/mcvrp_instances/<filename>.dat
-        return str((base_path / "mcvrp_instances" / f"{filename}.dat").resolve())
+        # which is already <path_to_project>/src/fleetmix/benchmarking/datasets/mcvrp/<filename>.dat
+        return str((base_path / "datasets" / "mcvrp" / f"{filename}.dat").resolve())
     return filename # Fallback, should not happen with current test cases
 
 @pytest.mark.parametrize(
