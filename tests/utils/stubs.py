@@ -22,7 +22,7 @@ import contextlib
 from pathlib import Path
 import pandas as pd
 import fleetmix.clustering as clustering_module
-import fleetmix.fsm_optimizer as fsm_module
+import fleetmix.optimization as optimization_module
 
 @contextlib.contextmanager
 def stub_data_processing(monkeypatch):
@@ -65,7 +65,7 @@ def stub_clustering(monkeypatch):
 def stub_solver(monkeypatch):
     """Stub FSM solver to return empty but valid solution."""
     monkeypatch.setattr(
-        fsm_module,
+        optimization_module,
         "solve_fsm_problem",
         lambda *args, **kwargs: {
             "selected_clusters": pd.DataFrame(),

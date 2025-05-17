@@ -2,12 +2,12 @@ import logging
 import pandas as pd
 import pytest
 
-import fleetmix.fsm_optimizer as fsm
+import fleetmix.optimization as optimization
 from fleetmix.config.parameters import Parameters
 
 def test_create_model_counts(toy_fsm_core_data):
     clusters_df, config_df, customers_df, params = toy_fsm_core_data
-    model, y_vars, x_vars, c_vk = fsm._create_model(clusters_df, config_df, params)
+    model, y_vars, x_vars, c_vk = optimization._create_model(clusters_df, config_df, params)
     # Exactly one cluster variable and one assignment x-var
     assert len(y_vars) == 1, "Should create one y var"
     assert len(x_vars) == 1, "Should create one x var per vehicle-cluster"
@@ -36,7 +36,7 @@ def test_extract_solution():
     xA1.varValue = 1
     xB2.varValue = 1
     x_vars = {(10, 1): xA1, (20, 2): xB2}
-    selected = fsm._extract_solution(clusters_df, y_vars, x_vars)
+    selected = optimization._extract_solution(clusters_df, y_vars, x_vars)
     # Only cluster 1 should be selected, with Config_ID mapped to 10
     assert list(selected['Cluster_ID']) == [1]
     assert list(selected['Config_ID']) == [10]
@@ -47,25 +47,24 @@ def test_capacity_violation_model_warning(toy_fsm_core_data, caplog):
     # Build base data and violate capacity so no config is feasible
     clusters_df.at[0, 'Total_Demand'] = {'Dry': 100, 'Chilled': 0, 'Frozen': 0}
     # Capture warnings from model construction
-    caplog.set_level(logging.WARNING, logger='fleetmix.fsm_optimizer')
+    caplog.set_level(logging.WARNING, logger='fleetmix.optimization.core')
     # Create model
-    model, y_vars, x_vars, c_vk = fsm._create_model(clusters_df, config_df, params)
+    model, y_vars, x_vars, c_vk = optimization._create_model(clusters_df, config_df, params)
     # Assert that 'NoVehicle' variable was injected for unserviceable cluster
     assert any(v == 'NoVehicle' for v, k in x_vars.keys()), "Should inject NoVehicle for infeasible cluster"
     # Check warning about unserviceable cluster
     assert any(
-        rec[0] == 'fleetmix.fsm_optimizer' and 
+        rec[0] == 'fleetmix.optimization.core' and 
         rec[1] == logging.WARNING and
         'serve' in rec[2].lower()
         for rec in caplog.record_tuples
     ), "Expected warning about unserviceable cluster"
     
     # Check logs for specific messages
-    caplog.set_level(logging.WARNING, logger='fleetmix.fsm_optimizer')
     
     # Use pytest's raises to catch the expected sys.exit(1) call
     with pytest.raises(SystemExit) as excinfo:
-        fsm.solve_fsm_problem(clusters_df, config_df, customers_df, params)
+        optimization.solve_fsm_problem(clusters_df, config_df, customers_df, params)
     
     # Verify that the exit code is 1 as expected
     assert excinfo.value.code == 1

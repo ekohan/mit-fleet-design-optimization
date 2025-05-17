@@ -109,7 +109,7 @@ def improve_solution(
         >>> improved['total_cost'] <= sol['total_cost']
         True
     """
-    from fleetmix.fsm_optimizer import solve_fsm_problem
+    from fleetmix.optimization import solve_fsm_problem
 
     best = initial_solution
     best_cost = best.get('total_cost', float('inf'))

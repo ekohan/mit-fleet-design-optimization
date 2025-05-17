@@ -2,7 +2,7 @@ import pandas as pd
 import pulp
 import pytest
 
-from fleetmix.fsm_optimizer import _create_model
+from fleetmix.optimization import _create_model
 from fleetmix.config.parameters import Parameters
 
 

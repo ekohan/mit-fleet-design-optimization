@@ -10,7 +10,7 @@ from fleetmix.utils.data_processing import load_customer_demand
 from fleetmix.utils.vehicle_configurations import generate_vehicle_configurations
 from fleetmix.utils.save_results import save_optimization_results
 from fleetmix.clustering import generate_clusters_for_configurations
-from fleetmix.fsm_optimizer import solve_fsm_problem
+from fleetmix.optimization import solve_fsm_problem
 
 def main():
     """Run the FSM optimization pipeline."""

@@ -10,9 +10,9 @@ This repository provides a comprehensive Python implementation supporting our re
 
 ## Why FSM‑Opt?
 
-* **Scales** — 1 000 + customers solved in seconds via a cluster‑first / MILP‑second approach.  
-* **Extensible** — modular parsers, clustering engines, and solver back‑ends.  
-* **Reproducible** — every experiment in the forthcoming journal article reruns with a single script.  
+* **Scales** — 1 000 + customers solved in seconds via a cluster‑first / MILP‑second approach.  
+* **Extensible** — modular parsers, clustering engines, and solver back‑ends.  
+* **Reproducible** — every experiment in the forthcoming journal article reruns with a single script.  
 
 ---
 
@@ -45,6 +45,13 @@ tests/                     # >150 unit / component / E2E tests
 docs/                      # algorithm notes, design drivers
 results/                   # auto‑generated outputs
 ```
+
+> **Migration Note:** The codebase is being refactored to a more modular structure. The following files are deprecated and will be removed in v1.0.0:
+> - `src/fleetmix/clustering.py` → moved to `src/fleetmix/clustering/core.py`
+> - `src/fleetmix/fsm_optimizer.py` → moved to `src/fleetmix/optimization/core.py`
+> - `src/fleetmix/post_optimization.py` → moved to `src/fleetmix/post_optimization/core.py`
+>
+> Please update your imports to use the new module paths. Backward compatibility is maintained through shims during the transition period.
 
 ---
 
@@ -158,7 +165,7 @@ Default solver: Gurobi (fallback to CBC if unavailable). Set `FSM_SOLVER` to spe
 
 ## Benchmarking
 
-### 1 · VRP → FSM Pipeline
+### 1 · VRP → FSM Pipeline
 
 Convert **any** supported VRP benchmark and immediately solve the corresponding FSM instance.
 
