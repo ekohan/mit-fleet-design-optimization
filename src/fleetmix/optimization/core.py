@@ -1,5 +1,5 @@
 """
-merge_phase.py
+core.py
 
 Solves the **Fleet Size-and-Mix with Heterogeneous Multi-Compartment Vehicles** optimisation
 problem, corresponding to Model (2) in Section 4.3 of the research paper.
@@ -29,7 +29,7 @@ Solver interface
 • Defaults to CBC via ``pulp`` but can fall back to Gurobi/CPLEX if the corresponding environment
   variables are set (see ``utils/solver.py``).
 • Post-solution **improvement phase** is optionally triggered (Section 4.4) via
-  :func:`post_optimization.improve_solution`.
+  :func:`merge_phase.improve_solution`.
 
 Typical usage
 -------------
@@ -47,7 +47,7 @@ import sys
 
 from fleetmix.utils.logging import Colors, Symbols
 from fleetmix.config.parameters import Parameters
-from fleetmix.post_optimization import improve_solution
+from fleetmix.merge_phase import improve_solution
 from fleetmix.utils.solver import pick_solver
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ def solve_fsm_problem(
 
     Note:
         If ``parameters.post_optimization`` is *True* the solution may be further
-        refined by :func:`src.post_optimization.improve_solution` before being
+        refined by :func:`src.merge_phase.improve_solution` before being
         returned.
     """
     # Create optimization model
@@ -457,4 +457,4 @@ def _calculate_cluster_cost(
     # Total cost
     total_cost = fixed_cost + variable_cost + compartment_cost
     
-    return total_cost
+    return total_cost 

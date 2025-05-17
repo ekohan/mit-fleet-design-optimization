@@ -1,5 +1,5 @@
 """
-post_optimization.py
+merge_phase.py
 
 Implements the **improvement phase** (Section 4.4 of the paper) that iteratively tries to merge
 small, neighbouring clusters after the core FSM model (Model 2) has been solved.
@@ -116,7 +116,7 @@ def improve_solution(
     reason = ''
     # Iterate with explicit counter to correctly log attempts
     for iters in range(1, params.max_improvement_iterations + 1):
-        logger.info(f"\n{Symbols.CHECK} Post-opt iteration {iters}/{params.max_improvement_iterations}")
+        logger.info(f"\n{Symbols.CHECK} Merge phase iteration {iters}/{params.max_improvement_iterations}")
         selected_clusters = best.get('selected_clusters', best.get('clusters'))
         if selected_clusters is None:
             logger.error("Cannot find clusters in solution.")
@@ -129,7 +129,7 @@ def improve_solution(
                 selected_clusters[good] = selected_clusters['Config_ID'].map(
                     lambda x: configurations_df[configurations_df['Config_ID'] == x].iloc[0][good]
                 )
-        merged_clusters = generate_post_optimization_merges(
+        merged_clusters = generate_merge_phase_clusters(
             selected_clusters,
             configurations_df,
             customers_df,
@@ -142,7 +142,7 @@ def improve_solution(
 
         logger.info(f"→ Generated {len(merged_clusters)} merged cluster options")
         combined_clusters = pd.concat([selected_clusters, merged_clusters], ignore_index=True)
-        # Call solver without triggering another post-optimization
+        # Call solver without triggering another merge phase
         internal_params = replace(params, post_optimization=False)
         trial = solve_fsm_problem(
             combined_clusters,
@@ -175,10 +175,10 @@ def improve_solution(
         reason = "iteration cap reached"
         iters = params.max_improvement_iterations
 
-    logger.info(f"Post-opt finished after {iters} iteration(s): {reason}")
+    logger.info(f"Merge phase finished after {iters} iteration(s): {reason}")
     return best
 
-def generate_post_optimization_merges(
+def generate_merge_phase_clusters(
     selected_clusters: pd.DataFrame,
     configurations_df: pd.DataFrame,
     customers_df: pd.DataFrame,
