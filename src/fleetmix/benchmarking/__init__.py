@@ -20,8 +20,8 @@ from .models import MCVRPInstance, CVRPInstance, CVRPSolution
 # Import parser functions and converter functions
 from .parsers.mcvrp_parser import parse_mcvrp
 from .parsers.cvrp_parser import CVRPParser
-from .mcvrp_to_fsm import convert_mcvrp_to_fsm
-from .cvrp_converter import convert_cvrp_to_fsm, CVRPBenchmarkType
+from .converters.mcvrp_to_fsm import convert_mcvrp_to_fsm
+from .converters.cvrp_to_fsm import convert_cvrp_to_fsm, CVRPBenchmarkType
 from .vrp_interface import VRPType, convert_to_fsm
 
 __all__ = [

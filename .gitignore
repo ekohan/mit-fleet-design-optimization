@@ -26,6 +26,7 @@ src/results/*.xlsx
 src/results/*.json
 src/results/*.html
 src/results/*.csv
+results/*.csv
 results_back
 back_results
 

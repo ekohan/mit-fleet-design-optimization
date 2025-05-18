@@ -15,7 +15,7 @@ if project_root not in sys.path:
 
 from fleetmix.utils.logging import setup_logging
 from fleetmix.benchmarking.vrp_interface import VRPType, convert_to_fsm, run_optimization
-from fleetmix.benchmarking.cvrp_converter import CVRPBenchmarkType
+from fleetmix.benchmarking.converters.cvrp_to_fsm import CVRPBenchmarkType
 from fleetmix.benchmarking.convert_mcvrp_to_fsm import DEFAULT_INSTANCE as DEFAULT_MCVRP_INSTANCE
 from fleetmix.utils.save_results import save_optimization_results
 

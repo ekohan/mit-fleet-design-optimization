@@ -38,7 +38,7 @@ def convert_cvrp_to_fsm(
     # --- BEGIN MODIFICATION: Pre-check for missing instance files ---
     missing_files = []
     for name in instance_names:
-        instance_path_check = Path(__file__).parent / 'datasets' / 'cvrp' / f'{name}.vrp'
+        instance_path_check = Path(__file__).parent.parent / 'datasets' / 'cvrp' / f'{name}.vrp'
         if not instance_path_check.exists():
             missing_files.append(str(instance_path_check.resolve()))
     
@@ -56,7 +56,7 @@ def convert_cvrp_to_fsm(
     # Parse instances (import parser locally to allow test stubbing and avoid circular import)
     instances = []
     for name in instance_names:
-        instance_path = Path(__file__).parent / 'datasets' / 'cvrp' / f'{name}.vrp'
+        instance_path = Path(__file__).parent.parent / 'datasets' / 'cvrp' / f'{name}.vrp'
         from fleetmix.benchmarking.parsers.cvrp_parser import CVRPParser
         parser = CVRPParser(str(instance_path))
         instances.append(parser.parse())

@@ -24,7 +24,7 @@ from fleetmix.utils.vehicle_configurations import generate_vehicle_configuration
 from fleetmix.clustering import generate_clusters_for_configurations
 from fleetmix.utils.coordinate_converter import CoordinateConverter, GeoBounds
 from fleetmix.utils.save_results import save_optimization_results
-from fleetmix.benchmarking.cvrp_converter import convert_cvrp_to_fsm, CVRPBenchmarkType
+from fleetmix.benchmarking.converters.cvrp_to_fsm import convert_cvrp_to_fsm, CVRPBenchmarkType
 
 def main():
     """Main function to run CVRP to FSM conversion and optimization."""
