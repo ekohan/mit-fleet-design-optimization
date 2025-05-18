@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Union
 
 import pandas as pd
-from fleetmix.benchmarking.mcvrp_parser import parse_mcvrp
+from fleetmix.benchmarking.parsers.mcvrp_parser import parse_mcvrp
 from fleetmix.config.parameters import Parameters
 from fleetmix.utils.coordinate_converter import CoordinateConverter
 

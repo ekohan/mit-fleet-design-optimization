@@ -14,10 +14,12 @@ class DummyInst:
         self.num_vehicles = 2
         self.coordinates = {1:(0,0),2:(1,1),3:(2,2)}
         self.depot_id = 1
+        self.name = 'dummy'
+        self.edge_weight_type = 'EUC_2D'
+        self.dimension = 3
 
 @pytest.fixture(autouse=True)
 def patch_parser(monkeypatch):
-    import fleetmix.benchmarking.cvrp_to_fsm as mod
     # Bypass convert_cvrp_to_fsm file-existence check for unit tests
     orig_exists = Path.exists
     def fake_exists(self):
@@ -25,11 +27,26 @@ def patch_parser(monkeypatch):
             return True
         return orig_exists(self)
     monkeypatch.setattr(Path, 'exists', fake_exists)
+    
+    # Create a dummy parser that returns our test instance
     class DummyParser:
         def __init__(self, path): pass
         def parse(self): return DummyInst()
         def parse_solution(self): pass
-    monkeypatch.setattr(mod, 'CVRPParser', DummyParser)
+    
+    # Make sure datasets directory exists
+    import os
+    os.makedirs('src/fleetmix/benchmarking/datasets/cvrp', exist_ok=True)
+    
+    # Create dummy test files
+    for name in ['A', 'B', 'X']:
+        p = Path(f'src/fleetmix/benchmarking/datasets/cvrp/{name}.vrp')
+        if not p.exists():
+            p.touch()
+    
+    # Patch the right import path
+    monkeypatch.setattr('fleetmix.benchmarking.parsers.cvrp_parser.CVRPParser', DummyParser)
+
 
 @pytest.mark.parametrize("btype,mult", [
     (CVRPBenchmarkType.NORMAL, 1),

@@ -1,10 +1,11 @@
 import math
 from pathlib import Path
+import pandas as pd
 
 import pytest
 
 from fleetmix.benchmarking.mcvrp_to_fsm import convert_mcvrp_to_fsm
-from fleetmix.benchmarking.mcvrp_parser import parse_mcvrp
+from fleetmix.benchmarking.parsers.mcvrp_parser import parse_mcvrp
 
 def test_total_demand_preserved_and_expected_vehicles():
     # Path to a sample MCVRP instance

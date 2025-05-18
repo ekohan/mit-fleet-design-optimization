@@ -57,7 +57,7 @@ def convert_cvrp_to_fsm(
     instances = []
     for name in instance_names:
         instance_path = Path(__file__).parent / 'datasets' / 'cvrp' / f'{name}.vrp'
-        from fleetmix.benchmarking.cvrp_to_fsm import CVRPParser
+        from fleetmix.benchmarking.parsers.cvrp_parser import CVRPParser
         parser = CVRPParser(str(instance_path))
         instances.append(parser.parse())
         

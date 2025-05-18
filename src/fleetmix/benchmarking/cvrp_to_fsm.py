@@ -16,7 +16,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 import pandas as pd
-from fleetmix.benchmarking.cvrp_parser import CVRPParser
+from fleetmix.benchmarking.parsers.cvrp_parser import CVRPParser
 from fleetmix.config.parameters import Parameters
 from fleetmix.utils.logging import setup_logging
 from fleetmix.main import solve_fsm_problem
