@@ -12,7 +12,7 @@ import pandas as pd
 
 from fleetmix.config.parameters import Parameters
 from fleetmix.utils.coordinate_converter import CoordinateConverter
-from fleetmix.benchmarking.parsers.cvrp import CVRPParser
+import fleetmix.benchmarking.parsers.cvrp as cvrp_parser
 
 class CVRPBenchmarkType(Enum):
     NORMAL = "normal"    # Type 1: Single instance, single good
@@ -58,7 +58,7 @@ def convert_cvrp_to_fsm(
     instances = []
     for name in instance_names:
         instance_path = Path(__file__).parent.parent / 'datasets' / 'cvrp' / f'{name}.vrp'
-        parser = CVRPParser(str(instance_path))
+        parser = cvrp_parser.CVRPParser(str(instance_path))
         instances.append(parser.parse())
         
     # Convert based on benchmark type
@@ -237,3 +237,6 @@ def _create_base_params(instance) -> Parameters:
     params.max_route_time = float('inf')
     
     return params 
+
+# Expose CVRPParser alias for test monkeypatching on converter module
+CVRPParser = cvrp_parser.CVRPParser 

@@ -5,8 +5,6 @@ import pandas as pd
 from pathlib import Path
 from unittest import mock
 
-import fleetmix
-from fleetmix.benchmarking.models import CVRPInstance
 from fleetmix.benchmarking.parsers.cvrp import CVRPParser
 from fleetmix.benchmarking.cvrp_to_fsm import main as c2f_main, convert_cvrp_to_fsm, CVRPBenchmarkType
 
