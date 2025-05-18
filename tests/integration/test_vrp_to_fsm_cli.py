@@ -78,8 +78,8 @@ def _get_expected_path_fragment(filename: str, vrp_type: str) -> str:
             "mcvrp",
             ["NonExistentMCVRP"],
             [], # No benchmark type for MCVRP
-            "MCVRP instance file not found:", # This is the prefix from mcvrp_parser.py
-            "NonExistentMCVRP" # mcvrp_parser itself includes the .dat part in its error
+            "MCVRP instance file not found:", # This is the prefix from mcvrp.py
+            "NonExistentMCVRP" # mcvrp.py includes the .dat part in its error
         ),
     ]
 )
@@ -100,7 +100,7 @@ def test_vrp_to_fsm_instance_not_found(
     assert "usage:" in stderr_output, "Error output should include usage information"
 
     if vrp_type == "mcvrp":
-        # The mcvrp_parser.py raises: FileNotFoundError(f"MCVRP instance file not found: {path}")
+        # The mcvrp.py raises: FileNotFoundError(f"MCVRP instance file not found: {path}")
         # The vrp_to_fsm.py CLI calls parser.error(str(e)), which results in:
         # vrp_to_fsm.py: error: MCVRP instance file not found: /full/path/to/file.dat
         expected_path_str = _get_expected_path_fragment(missing_file_stem, vrp_type)

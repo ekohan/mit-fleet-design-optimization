@@ -201,7 +201,7 @@ EOF"""
     
     # Patch both the old and new paths for backward compatibility
     monkeypatch.setattr("fleetmix.benchmarking.cvrp_to_fsm.CVRPParser", DummyParser)
-    monkeypatch.setattr("fleetmix.benchmarking.parsers.cvrp_parser.CVRPParser", DummyParser)
+    monkeypatch.setattr("fleetmix.benchmarking.parsers.cvrp.CVRPParser", DummyParser)
     
     yield
 
@@ -224,7 +224,7 @@ def stub_mcvrp_parser(monkeypatch):
             demands={1: (0, 0, 0), 2: (10, 0, 0), 3: (0, 5, 5)}
         )
     
-    monkeypatch.setattr("fleetmix.benchmarking.parsers.mcvrp_parser.parse_mcvrp", stub_parse_mcvrp)
+    monkeypatch.setattr("fleetmix.benchmarking.parsers.mcvrp.parse_mcvrp", stub_parse_mcvrp)
     
     # Also patch Path.exists to return True for the MCVRP instance
     orig_exists = Path.exists
@@ -298,4 +298,4 @@ def stub_parse_mcvrp(path):
 
 def mock_parsers(monkeypatch):
     """Mock out all instance parsers for testing."""
-    monkeypatch.setattr("fleetmix.benchmarking.parsers.mcvrp_parser.parse_mcvrp", stub_parse_mcvrp) 
+    monkeypatch.setattr("fleetmix.benchmarking.parsers.mcvrp.parse_mcvrp", stub_parse_mcvrp) 

@@ -7,7 +7,7 @@ from unittest import mock
 
 import fleetmix
 from fleetmix.benchmarking.models import CVRPInstance
-from fleetmix.benchmarking.parsers.cvrp_parser import CVRPParser
+from fleetmix.benchmarking.parsers.cvrp import CVRPParser
 from fleetmix.benchmarking.cvrp_to_fsm import main as c2f_main, convert_cvrp_to_fsm, CVRPBenchmarkType
 
 # --- Parser tests -------------------------------------------------------------
@@ -27,8 +27,9 @@ def stub_vrplib(monkeypatch):
     def fake_read_solution(path):
         return {'routes': [[0, 1], [2]], 'cost': 123.4}
 
-    monkeypatch.setattr('fleetmix.benchmarking.parsers.cvrp_parser.vrplib.read_instance', fake_read_instance)
-    monkeypatch.setattr('fleetmix.benchmarking.parsers.cvrp_parser.vrplib.read_solution', fake_read_solution)
+    import vrplib # Import vrplib to patch it directly
+    monkeypatch.setattr(vrplib, 'read_instance', fake_read_instance)
+    monkeypatch.setattr(vrplib, 'read_solution', fake_read_solution)
 
 
 def test_parse_fills_defaults(tmp_path):
@@ -102,7 +103,9 @@ def stub_parser(monkeypatch):
         def __init__(self, path): pass
         def parse(self): return FakeParser.instance
         
-    monkeypatch.setattr('fleetmix.benchmarking.parsers.cvrp_parser.CVRPParser', FakeParser)
+    monkeypatch.setattr('fleetmix.benchmarking.parsers.cvrp.CVRPParser', FakeParser)
+    # Also patch converter's imported CVRPParser
+    monkeypatch.setattr('fleetmix.benchmarking.converters.cvrp.CVRPParser', FakeParser)
     
     return FakeParser
 
@@ -177,7 +180,8 @@ def mock_vrplib(monkeypatch):
         'routes': [[1, 2]]
     })
     
-    monkeypatch.setattr('fleetmix.benchmarking.parsers.cvrp_parser.vrplib.read_instance', fake_read_instance)
-    monkeypatch.setattr('fleetmix.benchmarking.parsers.cvrp_parser.vrplib.read_solution', fake_read_solution)
+    import vrplib # Import vrplib to patch it directly
+    monkeypatch.setattr(vrplib, 'read_instance', fake_read_instance)
+    monkeypatch.setattr(vrplib, 'read_solution', fake_read_solution)
     
     return fake_read_instance, fake_read_solution 

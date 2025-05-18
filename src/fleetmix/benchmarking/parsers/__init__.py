@@ -1,7 +1,7 @@
 """Parsers for various VRP file formats."""
 
-from .cvrp_parser import CVRPParser, CVRPInstance, CVRPSolution
-from .mcvrp_parser import parse_mcvrp
+from .cvrp import CVRPParser, CVRPInstance, CVRPSolution
+from .mcvrp import parse_mcvrp
 
 __all__ = [
     "CVRPParser",

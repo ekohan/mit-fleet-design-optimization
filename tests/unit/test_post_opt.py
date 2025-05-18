@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 import sys
 
-import fleetmix.merge_phase as merge_phase
+import fleetmix.post_optimization.merge_phase as merge_phase
 import fleetmix.optimization
 from fleetmix.config.parameters import Parameters
 
@@ -52,9 +52,9 @@ def test_no_merges(monkeypatch):
         return {'selected_clusters': make_cluster_df('m'), 'total_cost': 50}
 
     # Patch the imported function directly 
-    import fleetmix.merge_phase.core
-    original_gen = fleetmix.merge_phase.core.generate_merge_phase_clusters
-    monkeypatch.setattr(fleetmix.merge_phase.core, "generate_merge_phase_clusters", fake_gen)
+    import fleetmix.post_optimization.merge_phase
+    original_gen = fleetmix.post_optimization.merge_phase.generate_merge_phase_clusters
+    monkeypatch.setattr(fleetmix.post_optimization.merge_phase, "generate_merge_phase_clusters", fake_gen)
     
     # Patch the imported solve_fsm_problem
     original_solve = fleetmix.optimization.solve_fsm_problem
@@ -71,7 +71,7 @@ def test_no_merges(monkeypatch):
         assert calls['solve'] == 0
     finally:
         # Restore the original functions to avoid affecting other tests
-        fleetmix.merge_phase.core.generate_merge_phase_clusters = original_gen
+        fleetmix.post_optimization.merge_phase.generate_merge_phase_clusters = original_gen
         fleetmix.optimization.solve_fsm_problem = original_solve
 
 
@@ -90,9 +90,9 @@ def test_single_merge_then_no_more(monkeypatch):
         return {'selected_clusters': make_cluster_df('m1'), 'total_cost': 90}
 
     # Patch the imported function directly 
-    import fleetmix.merge_phase.core
-    original_gen = fleetmix.merge_phase.core.generate_merge_phase_clusters
-    monkeypatch.setattr(fleetmix.merge_phase.core, "generate_merge_phase_clusters", fake_gen)
+    import fleetmix.post_optimization.merge_phase
+    original_gen = fleetmix.post_optimization.merge_phase.generate_merge_phase_clusters
+    monkeypatch.setattr(fleetmix.post_optimization.merge_phase, "generate_merge_phase_clusters", fake_gen)
     
     # Patch the imported solve_fsm_problem
     original_solve = fleetmix.optimization.solve_fsm_problem
@@ -109,7 +109,7 @@ def test_single_merge_then_no_more(monkeypatch):
         assert calls['solve'] == 1
     finally:
         # Restore the original functions to avoid affecting other tests
-        fleetmix.merge_phase.core.generate_merge_phase_clusters = original_gen
+        fleetmix.post_optimization.merge_phase.generate_merge_phase_clusters = original_gen
         fleetmix.optimization.solve_fsm_problem = original_solve
 
 
@@ -130,9 +130,9 @@ def test_iteration_cap(monkeypatch):
         return {'selected_clusters': make_cluster_df(f'g{calls["solve"]}'), 'total_cost': cost}
 
     # Patch the imported function directly 
-    import fleetmix.merge_phase.core
-    original_gen = fleetmix.merge_phase.core.generate_merge_phase_clusters
-    monkeypatch.setattr(fleetmix.merge_phase.core, "generate_merge_phase_clusters", fake_gen)
+    import fleetmix.post_optimization.merge_phase
+    original_gen = fleetmix.post_optimization.merge_phase.generate_merge_phase_clusters
+    monkeypatch.setattr(fleetmix.post_optimization.merge_phase, "generate_merge_phase_clusters", fake_gen)
     
     # Patch the imported solve_fsm_problem
     original_solve = fleetmix.optimization.solve_fsm_problem
@@ -149,5 +149,5 @@ def test_iteration_cap(monkeypatch):
         assert result['total_cost'] == 100 - 3
     finally:
         # Restore the original functions to avoid affecting other tests
-        fleetmix.merge_phase.core.generate_merge_phase_clusters = original_gen
+        fleetmix.post_optimization.merge_phase.generate_merge_phase_clusters = original_gen
         fleetmix.optimization.solve_fsm_problem = original_solve 

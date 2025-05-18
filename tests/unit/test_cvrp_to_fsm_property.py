@@ -45,7 +45,7 @@ def patch_parser(monkeypatch):
             p.touch()
     
     # Patch the right import path
-    monkeypatch.setattr('fleetmix.benchmarking.parsers.cvrp_parser.CVRPParser', DummyParser)
+    monkeypatch.setattr('fleetmix.benchmarking.parsers.cvrp.CVRPParser', DummyParser)
 
 
 @pytest.mark.parametrize("btype,mult", [

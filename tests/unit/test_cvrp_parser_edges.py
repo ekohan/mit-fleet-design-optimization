@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 
 from fleetmix.benchmarking.models import CVRPInstance, CVRPSolution
-from fleetmix.benchmarking.parsers.cvrp_parser import CVRPParser
+from fleetmix.benchmarking.parsers.cvrp import CVRPParser
 
 # Stub out vrplib
 class DummyVRPLib:
@@ -25,7 +25,7 @@ class DummyVRPLib:
 @pytest.fixture(autouse=True)
 def patch_vrplib(monkeypatch):
     # Monkey-patch the vrplib module in cvrp_parser
-    import fleetmix.benchmarking.parsers.cvrp_parser as parser_mod
+    import fleetmix.benchmarking.parsers.cvrp as parser_mod
     monkeypatch.setattr(parser_mod, 'vrplib', DummyVRPLib)
     yield
 
@@ -73,7 +73,7 @@ def test_parse_solution_logs_warning(tmp_path, caplog):
     # Should log a warning about differing k
     # Use record_tuples to check for warning messages more robustly
     assert any(
-        rec[0] == 'fleetmix.benchmarking.parsers.cvrp_parser' and 
+        rec[0] == 'fleetmix.benchmarking.parsers.cvrp' and 
         rec[1] == logging.WARNING and
         'differs' in rec[2].lower()
         for rec in caplog.record_tuples

@@ -118,7 +118,8 @@ def main() -> None:
         else:  # MCVRP
             instance = instances[0]
             # Path resolution for MCVRP is handled here as it's simpler (always one file)
-            # The actual FileNotFoundError for MCVRP will be raised by mcvrp_parser.py if file doesn't exist
+            # We use FileExistsError for CVRP files since we do explicit check above
+            # The actual FileNotFoundError for MCVRP will be raised by mcvrp.py if file doesn't exist
             instance_path = Path(__file__).parent / "datasets" / "mcvrp" / f"{instance}.dat"
             customers_df, params = convert_to_fsm(
                 vrp_type,

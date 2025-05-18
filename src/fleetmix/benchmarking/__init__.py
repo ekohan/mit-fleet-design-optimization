@@ -18,8 +18,8 @@ All helper functions are re-exported via `__all__` for convenience.
 from .models import MCVRPInstance, CVRPInstance, CVRPSolution
 
 # Import parser functions and converter functions
-from .parsers.mcvrp_parser import parse_mcvrp
-from .parsers.cvrp_parser import CVRPParser
+from .parsers.mcvrp import parse_mcvrp
+from .parsers.cvrp import CVRPParser
 from .converters.mcvrp import convert_mcvrp_to_fsm
 from .converters.cvrp import convert_cvrp_to_fsm, CVRPBenchmarkType
 from .vrp_interface import VRPType, convert_to_fsm
