@@ -16,7 +16,7 @@ if project_root not in sys.path:
 from fleetmix.config.parameters import Parameters
 from fleetmix.utils.logging import setup_logging, ProgressTracker, Colors, Symbols
 from fleetmix.utils.data_processing import load_customer_demand
-from fleetmix.benchmarking.vrp_solver import VRPSolver
+from fleetmix.benchmarking.solvers.vrp_solver import VRPSolver
 from fleetmix.core_types import BenchmarkType, VRPSolution
 
 def parse_benchmark_args():

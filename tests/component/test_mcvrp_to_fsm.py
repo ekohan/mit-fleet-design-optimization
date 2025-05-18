@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 import numpy as np
 
-from fleetmix.benchmarking.converters.mcvrp_to_fsm import convert_mcvrp_to_fsm
+from fleetmix.benchmarking.converters.mcvrp import convert_mcvrp_to_fsm
 from fleetmix.benchmarking.parsers.mcvrp_parser import parse_mcvrp
 from fleetmix.config.parameters import Parameters
 

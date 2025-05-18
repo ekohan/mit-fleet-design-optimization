@@ -3,8 +3,8 @@ from pathlib import Path
 import time
 import pandas as pd
 
-from fleetmix.benchmarking.converters.mcvrp_to_fsm import convert_mcvrp_to_fsm
-from fleetmix.benchmarking.converters.cvrp_to_fsm import convert_cvrp_to_fsm, CVRPBenchmarkType
+from fleetmix.benchmarking.converters.mcvrp import convert_mcvrp_to_fsm
+from fleetmix.benchmarking.converters.cvrp import convert_cvrp_to_fsm, CVRPBenchmarkType
 from fleetmix.config.parameters import Parameters
 from fleetmix.utils.vehicle_configurations import generate_vehicle_configurations
 from fleetmix.clustering import generate_clusters_for_configurations

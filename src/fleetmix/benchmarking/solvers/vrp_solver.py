@@ -507,18 +507,14 @@ class VRPSolver:
             vehicle_loads=[base_solution.vehicle_loads[i] for i in valid_indices],
             execution_time=base_solution.execution_time,
             solver_status=base_solution.solver_status,
-            route_sequences=[[str(c) for c in base_solution.routes[i][1:]] for i in valid_indices],
+            route_sequences=[base_solution.route_sequences[i] for i in valid_indices],
             vehicle_utilization=[base_solution.vehicle_utilization[i] for i in valid_indices],
             vehicle_types=[base_solution.vehicle_types[i] for i in valid_indices],
-            route_times=base_solution.route_times,  # Keep all route times
+            route_times=[base_solution.route_times[i] for i in valid_indices],
             route_distances=[base_solution.route_distances[i] for i in valid_indices],
-            route_feasibility=[base_solution.route_feasibility[i] for i in valid_indices]  # Keep all route feasibility
+            route_feasibility=[base_solution.route_feasibility[i] for i in valid_indices]
         )
         
-        # Store compartment configurations
-        mc_solution.compartment_configurations = route_configurations
-        
-        # Print solution if verbose
         if verbose:
             self._print_solution(
                 total_cost=mc_solution.total_cost,
@@ -527,71 +523,94 @@ class VRPSolver:
                 routes=mc_solution.routes,
                 execution_time=mc_solution.execution_time,
                 utilization=mc_solution.vehicle_utilization,
-                benchmark_type=self.benchmark_type,
+                benchmark_type=BenchmarkType.MULTI_COMPARTMENT,
                 compartment_configs=route_configurations
             )
         
-        return {'multi_compartment': mc_solution}
+        return {"multi": mc_solution, "compartment_configs": route_configurations}
     
     def _print_diagnostic_information(self, customers: pd.DataFrame) -> None:
-        """Print diagnostic information about the problem instance."""
-        print("\nCustomer Diagnostic Information:")
-        print(f"Total customers: {len(customers)}")
+        """Print diagnostic information about the input data."""
+        print(f"\n{Symbols.INFO} VRP Solver Diagnostic Information:")
         
-        # Demand information for each product type
+        # Count customers by product type
+        customers_by_product = {}
         for good in self.params.goods:
-            mask = customers[f'{good}_Demand'] > 0
-            demands = customers[f'{good}_Demand']
-            print(f"\n{good} demand statistics:")
-            print(f"Customers with demand: {mask.sum()}")
-            if mask.sum() > 0:
-                print(f"Min demand: {demands[demands > 0].min():.2f}")
-                print(f"Max demand: {demands.max():.2f}")
-                print(f"Mean demand: {demands[demands > 0].mean():.2f}")
-                print(f"Total demand: {demands.sum():.2f}")
+            demand_col = f'{good}_Demand'
+            if demand_col in customers.columns:
+                count = customers[customers[demand_col] > 0].shape[0]
+                customers_by_product[good] = count
         
-        # Location spread
-        print("\nLocation spread:")
-        print(f"Latitude range: {customers['Latitude'].min():.4f} to {customers['Latitude'].max():.4f}")
-        print(f"Longitude range: {customers['Longitude'].min():.4f} to {customers['Longitude'].max():.4f}")
+        # Print customer counts
+        print(f"\nCustomers by Product Type:")
+        for product, count in customers_by_product.items():
+            print(f"{Colors.BLUE}→ {product}: {Colors.BOLD}{count}{Colors.RESET}")
         
-        # Distance to depot
-        depot_coords = (self.params.depot['latitude'], self.params.depot['longitude'])
-        distances = []
-        for _, row in customers.iterrows():
-            if any(row[f'{good}_Demand'] > 0 for good in self.params.goods):
-                dist = haversine((row['Latitude'], row['Longitude']), depot_coords)
-                distances.append(dist)
+        # Calculate total demand by product type
+        demand_by_product = {}
+        for good in self.params.goods:
+            demand_col = f'{good}_Demand'
+            if demand_col in customers.columns:
+                total_demand = customers[demand_col].sum()
+                demand_by_product[good] = total_demand
         
-        if distances:
-            print("\nDistance to depot (km):")
-            print(f"Min distance: {min(distances):.2f}")
-            print(f"Max distance: {max(distances):.2f}")
-            print(f"Mean distance: {sum(distances)/len(distances):.2f}")
+        # Print demand information
+        print(f"\nTotal Demand by Product Type:")
+        for product, demand in demand_by_product.items():
+            print(f"{Colors.BLUE}→ {product}: {Colors.BOLD}{demand:.1f}{Colors.RESET}")
         
-        # Vehicle information
-        print("\nVehicle Types Available:")
-        for vtype, vinfo in self.params.vehicles.items():
-            print(f"Type {vtype}:")
-            print(f"  Capacity: {vinfo['capacity']}")
-            print(f"  Fixed cost: {vinfo['fixed_cost']}")
-
-        print(f"\nMax route time: {self.params.max_route_time} hours")
-        print(f"Average speed: {self.params.avg_speed} km/h")
-        print(f"Service time: {self.params.service_time} minutes")
-        print("\nStarting solver...\n")
-
+        # Calculate minimum vehicles needed (assuming single compartment)
+        min_vehicles_by_product = {}
+        for good, demand in demand_by_product.items():
+            # Get vehicle with smallest capacity that can handle this product
+            compatible_vehicles = []
+            for vehicle_name, vehicle_info in self.params.vehicles.items():
+                compartments = vehicle_info.get('compartments', {})
+                if compartments.get(good, False):
+                    compatible_vehicles.append((vehicle_name, vehicle_info))
+            
+            if compatible_vehicles:
+                # Sort by capacity
+                compatible_vehicles.sort(key=lambda x: x[1]['capacity'])
+                smallest_vehicle = compatible_vehicles[0]
+                capacity = smallest_vehicle[1]['capacity']
+                min_vehicles = np.ceil(demand / capacity)
+                min_vehicles_by_product[good] = min_vehicles
+        
+        # Print minimum vehicles needed
+        print(f"\nMinimum Vehicles Needed (Single Compartment):")
+        for product, count in min_vehicles_by_product.items():
+            print(f"{Colors.BLUE}→ {product}: {Colors.BOLD}{count:.0f}{Colors.RESET}")
+        
+        # Print total for all products
+        total_vehicles = sum(min_vehicles_by_product.values())
+        print(f"{Colors.BLUE}→ Total: {Colors.BOLD}{total_vehicles:.0f}{Colors.RESET}")
+        
+        # Print expected vehicle count
+        if hasattr(self.params, 'expected_vehicles'):
+            print(f"\n{Colors.BLUE}Expected Vehicles: {Colors.BOLD}{self.params.expected_vehicles}{Colors.RESET}")
+        
     def solve(self, verbose: bool = False) -> Dict[str, VRPSolution]:
-        """
-        Solve VRP instance based on benchmark type.
-        Returns solutions for all product types in parallel for single compartment case.
-        """
+        """Solve VRP using appropriate strategy based on benchmark type."""
         if verbose:
             self._print_diagnostic_information(self.customers)
-        
+            
         if self.benchmark_type == BenchmarkType.SINGLE_COMPARTMENT:
-            return self.solve_scv_parallel(verbose=verbose)
-        elif self.benchmark_type == BenchmarkType.MULTI_COMPARTMENT:
-            return self.solve_mcv(verbose=verbose)
+            # Solve single-compartment VRP with separate vehicles for each product
+            result = self.solve_scv_parallel(verbose=verbose)
+            
+            # Calculate combined metrics
+            total_cost = sum(s.total_cost for s in result.values())
+            total_distance = sum(s.total_distance for s in result.values())
+            total_vehicles = sum(s.num_vehicles for s in result.values())
+            
+            if verbose:
+                print(f"\n{Symbols.SUCCESS} Combined Results:")
+                print(f"{Colors.BLUE}→ Total Cost: ${Colors.BOLD}{total_cost:,.2f}{Colors.RESET}")
+                print(f"{Colors.BLUE}→ Total Distance: {Colors.BOLD}{total_distance:.1f} km{Colors.RESET}")
+                print(f"{Colors.BLUE}→ Total Vehicles: {Colors.BOLD}{total_vehicles}{Colors.RESET}")
+            
+            return result
         else:
-            raise ValueError(f"Unknown benchmark type: {self.benchmark_type}")
+            # Solve multi-compartment VRP
+            return self.solve_mcv(verbose=verbose) 
