@@ -6,7 +6,7 @@ small, neighbouring clusters after the core FSM model (Model 2) has been solved.
 
 Rationale
 ~~~~~~~~~
-The MILP in ``fsm_optimizer.solve_fsm_problem`` chooses from a *fixed* pool of clusters.  Once an
+The MILP in ``fleetmix.optimization.solve_fsm_problem`` chooses from a *fixed* pool of clusters.  Once an
 initial solution is available, additional cost savings can sometimes be obtained by *merging* two
 clusters and serving the combined demand with a larger vehicle—provided capacity and route‐time
 constraints remain feasible.
@@ -33,7 +33,7 @@ Route‐time calculations for the same customer sets are memoised in the module�
 Outcome
 -------
 Returns the *best* improved solution dictionary, identical in structure to the one produced by
-``fsm_optimizer.solve_fsm_problem`` but with potentially lower total cost.
+``fleetmix.optimization.solve_fsm_problem`` but with potentially lower total cost.
 """
 
 import logging
@@ -92,7 +92,7 @@ def improve_solution(
 
     Args:
         initial_solution: Solution dictionary returned by
-            :func:`src.fsm_optimizer.solve_fsm_problem`.
+            :func:`fleetmix.optimization.solve_fsm_problem`.
         configurations_df: Vehicle configuration catalogue (same as used in the
             optimisation step).
         customers_df: Original customer dataframe; required for route-time

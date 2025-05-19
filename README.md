@@ -34,24 +34,23 @@ source mit-fleet-env/bin/activate
 ## Directory Map
 
 ```
-src/
-  clustering.py            # k‑means, sweep, grid‑grow...
-  fsm_optimizer.py         # MILP fleet‑selection core
-  benchmarking/
-    vrp_to_fsm.py          # unified CLI (CVRP & MCVRP → FSM)
-    parsers/               # VRPLIB, Henke .dat, geo helpers
-    run_all_mcvrp.py       # batch reproduce Henke results
+src/fleetmix/
+  clustering/              # heuristic & ML-based customer grouping
+  optimization/            # MILP fleet-selection core (Model 2)
+  post_optimization/       # improvement / merge phase
+  converters/              # VRP → FSM adapters
+  cli/                     # command-line entry points
 tests/                     # >150 unit / component / E2E tests
 docs/                      # algorithm notes, design drivers
-results/                   # auto‑generated outputs
+results/                   # auto-generated outputs
 ```
 
-> **Migration Note:** The codebase is being refactored to a more modular structure. The following files are deprecated and will be removed in v1.0.0:
-> - `src/fleetmix/clustering.py` → moved to `src/fleetmix/clustering/core.py`
-> - `src/fleetmix/fsm_optimizer.py` → moved to `src/fleetmix/optimization/core.py`
-> - `src/fleetmix/post_optimization.py` → moved to `src/fleetmix/post_optimization/core.py`
->
-> Please update your imports to use the new module paths. Backward compatibility is maintained through shims during the transition period.
+> **Migration Note:** Legacy flat-module imports have been migrated to the package structure above.  Import using, e.g.:
+> ```python
+> from fleetmix.clustering import generate_clusters_for_configurations
+> from fleetmix.optimization import solve_fsm_problem
+> ```
+> Lightweight shims remain for backward compatibility until v1.0.0.
 
 ---
 
@@ -69,7 +68,7 @@ graph LR
 
 Execute the fleet optimization pipeline:
 ```bash
-python src/main.py
+python -m fleetmix.cli.main
 ```
 
 ### Command Line Options
@@ -77,19 +76,19 @@ The optimization can be customized using command line arguments:
 
 ```bash
 # Show detailed parameter help
-python src/main.py --help-params TODO: check params
+python -m fleetmix.cli.main --help
 
 # Use custom configuration
-python src/main.py --config my_config.yaml
+python -m fleetmix.cli.main --config my_config.yaml
 
 # Override specific parameters
-python src/main.py --avg-speed 45 --max-route-time 12 --service-time 15
+python -m fleetmix.cli.main --avg-speed 45 --max-route-time 12 --service-time 15
 
 # Change clustering method and distance metric
-python src/main.py --clustering-method agglomerative --clustering-distance composite --geo-weight 0.5 --demand-weight 0.5
+python -m fleetmix.cli.main --clustering-method agglomerative --clustering-distance composite --geo-weight 0.5 --demand-weight 0.5
 
 # Combine all clustering methods at once
-python src/main.py --clustering-method combine --verbose
+python -m fleetmix.cli.main --clustering-method combine --verbose
 ```
 
 #### Core Parameters
@@ -190,12 +189,12 @@ Converts standard VRP instances for fair comparison:
   * **Spatial Differentiation:** Geographically varied product distribution.
 
 ```bash
-# Henke 10‑customer MCVRP
-python -m benchmarking.vrp_to_fsm \
+# Henke 10-customer MCVRP
+python -m fleetmix.cli.vrp_to_fsm \
        --vrp-type mcvrp --instance 10_3_3_3_01
 
 # Uchoa CVRP adapted via "split" strategy
-python -m benchmarking.vrp_to_fsm \
+python -m fleetmix.cli.vrp_to_fsm \
        --vrp-type cvrp --instance X-n106-k14 \
        --benchmark-type split --num-goods 3
 ```
@@ -218,10 +217,10 @@ Helpful for heuristic health‑checks; not required for routine usage.
 
 ```bash
 # All 153 Henke instances
-python -m benchmarking.run_all_mcvrp
+python -m fleetmix.cli.run_all_mcvrp
 
 # Selected Uchoa adaptations
-python -m benchmarking.vrp_to_fsm \
+python -m fleetmix.cli.vrp_to_fsm \
        --vrp-type cvrp --instance X-n101-k25 \
        --benchmark-type split
 ```

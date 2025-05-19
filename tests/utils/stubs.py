@@ -68,6 +68,7 @@ def stub_solver(monkeypatch):
         optimization_module,
         "solve_fsm_problem",
         lambda *args, **kwargs: {
+            "total_cost": 0,
             "selected_clusters": pd.DataFrame(),
             "missing_customers": set(),
             "vehicles_used": {},
@@ -224,7 +225,9 @@ def stub_mcvrp_parser(monkeypatch):
             demands={1: (0, 0, 0), 2: (10, 0, 0), 3: (0, 5, 5)}
         )
     
+    # Patch parser in both parser and converter modules
     monkeypatch.setattr("fleetmix.benchmarking.parsers.mcvrp.parse_mcvrp", stub_parse_mcvrp)
+    monkeypatch.setattr("fleetmix.benchmarking.converters.mcvrp.parse_mcvrp", stub_parse_mcvrp)
     
     # Also patch Path.exists to return True for the MCVRP instance
     orig_exists = Path.exists
@@ -238,9 +241,9 @@ def stub_mcvrp_parser(monkeypatch):
 
 @contextlib.contextmanager
 def stub_vehicle_configurations(monkeypatch):
-    """Stub generate_vehicle_configurations in src.benchmarking.cvrp_to_fsm."""
+    """Stub generate_vehicle_configurations in fleetmix.cli.cvrp_to_fsm."""
     import pandas as pd
-    import fleetmix.benchmarking.cvrp_to_fsm as mod
+    import fleetmix.cli.cvrp_to_fsm as mod
     monkeypatch.setattr(
         mod,
         'generate_vehicle_configurations',
@@ -252,9 +255,9 @@ def stub_vehicle_configurations(monkeypatch):
 
 @contextlib.contextmanager
 def stub_benchmark_clustering(monkeypatch):
-    """Stub generate_clusters_for_configurations in src.benchmarking.cvrp_to_fsm."""
+    """Stub generate_clusters_for_configurations in fleetmix.cli.cvrp_to_fsm."""
     import pandas as pd
-    import fleetmix.benchmarking.cvrp_to_fsm as mod
+    import fleetmix.cli.cvrp_to_fsm as mod
     monkeypatch.setattr(
         mod,
         'generate_clusters_for_configurations',
@@ -284,8 +287,8 @@ def stub_demand(monkeypatch):
     
     # Patch all known imports in fleetmix modules
     import fleetmix.utils.data_processing as dp_mod
-    import fleetmix.main as main_mod
-    import fleetmix.benchmarking.run_benchmark as rb_mod
+    import fleetmix.cli.main as main_mod
+    import fleetmix.cli.run_benchmark as rb_mod
     monkeypatch.setattr(dp_mod, "load_customer_demand", fake_demand)
     monkeypatch.setattr(main_mod, "load_customer_demand", fake_demand)
     monkeypatch.setattr(rb_mod, "load_customer_demand", fake_demand)

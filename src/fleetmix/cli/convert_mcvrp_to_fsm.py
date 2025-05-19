@@ -17,10 +17,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from fleetmix.utils.logging import setup_logging
-from fleetmix.benchmarking.converters.mcvrp import convert_mcvrp_to_fsm
-from fleetmix.utils.vehicle_configurations import generate_vehicle_configurations
-from fleetmix.clustering import generate_clusters_for_configurations
-from fleetmix.main import solve_fsm_problem
+from fleetmix.pipeline.vrp_interface import VRPType, convert_to_fsm, run_optimization
 from fleetmix.utils.save_results import save_optimization_results
 
 DEFAULT_INSTANCE = "10_3_3_3_(01)"
@@ -77,31 +74,21 @@ def main() -> None:
         _print_info()
         return
 
-    # Convert the instance
+    # Convert and run optimization using shared pipeline
+    start_time = time.time()
     instance_path = (
-        Path(__file__).parent   
+        Path(__file__).parent
         / "datasets"
         / "mcvrp"
         / f"{args.instance}.dat"
     )
-    logger.info("Converting instance %s", instance_path.name)
-    customers_df, params = convert_mcvrp_to_fsm(instance_path)
-
-    # Generate vehicle configurations & clusters
-    configs_df = generate_vehicle_configurations(params.vehicles, params.goods)
-    clusters_df = generate_clusters_for_configurations(
-        customers=customers_df,
-        configurations_df=configs_df,
-        params=params,
+    customers_df, params = convert_to_fsm(
+        VRPType.MCVRP,
+        instance_path=instance_path,
     )
-
-    # Solve FSM optimization
-    start_time = time.time()
-    solution = solve_fsm_problem(
-        clusters_df=clusters_df,
-        configurations_df=configs_df,
+    solution, configs_df = run_optimization(
         customers_df=customers_df,
-        parameters=params,
+        params=params,
         verbose=args.verbose,
     )
 

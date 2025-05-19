@@ -12,7 +12,7 @@ from fleetmix.utils.logging import setup_logging
 from fleetmix.benchmarking.converters.mcvrp import convert_mcvrp_to_fsm
 from fleetmix.utils.vehicle_configurations import generate_vehicle_configurations
 from fleetmix.clustering import generate_clusters_for_configurations
-from fleetmix.main import solve_fsm_problem
+from fleetmix.cli.main import solve_fsm_problem
 from fleetmix.utils.save_results import save_optimization_results
 
 def main():

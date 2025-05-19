@@ -14,9 +14,9 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from fleetmix.utils.logging import setup_logging
-from fleetmix.benchmarking.vrp_interface import VRPType, convert_to_fsm, run_optimization
+from fleetmix.pipeline.vrp_interface import VRPType, convert_to_fsm, run_optimization
 from fleetmix.benchmarking.converters.cvrp import CVRPBenchmarkType
-from fleetmix.benchmarking.convert_mcvrp_to_fsm import DEFAULT_INSTANCE as DEFAULT_MCVRP_INSTANCE
+from fleetmix.cli.convert_mcvrp_to_fsm import DEFAULT_INSTANCE as DEFAULT_MCVRP_INSTANCE
 from fleetmix.utils.save_results import save_optimization_results
 
 
@@ -120,7 +120,7 @@ def main() -> None:
             # Path resolution for MCVRP is handled here as it's simpler (always one file)
             # We use FileExistsError for CVRP files since we do explicit check above
             # The actual FileNotFoundError for MCVRP will be raised by mcvrp.py if file doesn't exist
-            instance_path = Path(__file__).parent / "datasets" / "mcvrp" / f"{instance}.dat"
+            instance_path = Path(__file__).parent.parent / "benchmarking" / "datasets" / "mcvrp" / f"{instance}.dat"
             customers_df, params = convert_to_fsm(
                 vrp_type,
                 instance_path=instance_path, # mcvrp_to_fsm expects instance_path

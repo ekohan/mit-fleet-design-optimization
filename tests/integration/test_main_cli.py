@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 from pathlib import Path
 
-import fleetmix.main as main_mod
+import fleetmix.cli.main as main_mod
 from tests.utils.stubs import stub_clustering, stub_solver, stub_demand
 
 @pytest.fixture

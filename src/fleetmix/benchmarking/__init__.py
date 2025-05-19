@@ -22,7 +22,6 @@ from .parsers.mcvrp import parse_mcvrp
 from .parsers.cvrp import CVRPParser
 from .converters.mcvrp import convert_mcvrp_to_fsm
 from .converters.cvrp import convert_cvrp_to_fsm, CVRPBenchmarkType
-from .vrp_interface import VRPType, convert_to_fsm
 from .solvers import VRPSolver
 
 __all__ = [
@@ -37,8 +36,6 @@ __all__ = [
     "convert_mcvrp_to_fsm",
     "convert_cvrp_to_fsm",
     "CVRPBenchmarkType",
-    "VRPType",
-    "convert_to_fsm",
     # Solvers
     "VRPSolver"
 ]

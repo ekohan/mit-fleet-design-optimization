@@ -4,7 +4,8 @@ core.py
 Solves the **Fleet Size-and-Mix with Heterogeneous Multi-Compartment Vehicles** optimisation
 problem, corresponding to Model (2) in Section 4.3 of the research paper.
 
-Given a pool of candidate clusters K (created in ``clustering.py``) and a catalogue of
+Given a pool of candidate clusters K (created in ``fleetmix.clustering`` via
+:func:`generate_clusters_for_configurations`) and a catalogue of
 vehicle configurations V, this module builds and solves an integer linear programme that
 selects a subset of clusters and assigns exactly one vehicle configuration to each selected
 cluster.
@@ -33,9 +34,11 @@ Solver interface
 
 Typical usage
 -------------
->>> clusters = clustering.generate_clusters_for_configurations(customers, configs, params)
->>> solution = fsm_optimizer.solve_fsm_problem(clusters, configs, customers, params)
->>> print(solution['objective_cost'])
+>>> from fleetmix.clustering import generate_clusters_for_configurations
+>>> from fleetmix.optimization import solve_fsm_problem
+>>> clusters = generate_clusters_for_configurations(customers, configs, params)
+>>> solution = solve_fsm_problem(clusters, configs, customers, params)
+>>> print(solution['total_cost'])
 """
 
 import logging
@@ -76,10 +79,10 @@ def solve_fsm_problem(
             good.
         customers_df: Original customer data used for validation—ensures every
             customer is covered in the final solution.
-        parameters: Fully populated :class:`src.config.parameters.Parameters`
+        parameters: Fully populated :class:`fleetmix.config.parameters.Parameters`
             object with cost coefficients, penalty thresholds, etc.
         solver: Optional explicit `pulp` solver instance.  If *None*,
-            :func:`src.utils.solver.pick_solver` chooses CBC/Gurobi/CPLEX based
+            :func:`fleetmix.utils.solver.pick_solver` chooses CBC/Gurobi/CPLEX based
             on environment variables.
         verbose: If *True* prints solver progress to stdout.
 
@@ -96,7 +99,7 @@ def solve_fsm_problem(
 
     Note:
         If ``parameters.post_optimization`` is *True* the solution may be further
-        refined by :func:`src.post_optimization.improve_solution` before being
+        refined by :func:`fleetmix.post_optimization.improve_solution` before being
         returned.
     """
     # Create optimization model

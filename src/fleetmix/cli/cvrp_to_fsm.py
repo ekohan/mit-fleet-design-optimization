@@ -9,22 +9,17 @@ import time
 from enum import Enum
 from typing import List, Dict, Union
 import argparse
+import pandas
 
 # Add project root to Python path
 project_root = str(Path(__file__).parent.parent.parent)
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-import pandas as pd
-from fleetmix.benchmarking.parsers.cvrp import CVRPParser
-from fleetmix.config.parameters import Parameters
 from fleetmix.utils.logging import setup_logging
-from fleetmix.main import solve_fsm_problem
-from fleetmix.utils.vehicle_configurations import generate_vehicle_configurations
-from fleetmix.clustering import generate_clusters_for_configurations
-from fleetmix.utils.coordinate_converter import CoordinateConverter, GeoBounds
+from fleetmix.pipeline.vrp_interface import VRPType, convert_to_fsm, run_optimization, generate_vehicle_configurations, generate_clusters_for_configurations
+from fleetmix.benchmarking.converters.cvrp import CVRPBenchmarkType, convert_cvrp_to_fsm
 from fleetmix.utils.save_results import save_optimization_results
-from fleetmix.benchmarking.converters.cvrp import convert_cvrp_to_fsm, CVRPBenchmarkType
 
 def main():
     """Main function to run CVRP to FSM conversion and optimization."""
@@ -113,43 +108,26 @@ def main():
     
     start_time = time.time()
     
-    # Convert CVRP to FSM format
-    logger.info(f"Converting CVRP instance: {args.instance}")
-    customers_df, params = convert_cvrp_to_fsm(
+    # Run shared conversion + optimization pipeline
+    customers_df, params = convert_to_fsm(
+        VRPType.CVRP,
         instance_names=args.instance,
         benchmark_type=CVRPBenchmarkType(args.benchmark_type),
-        num_goods=args.num_goods
+        num_goods=args.num_goods,
     )
-    
-    # Generate vehicle configurations
-    configs_df = generate_vehicle_configurations(params.vehicles, params.goods)
-    logger.info(f"Generated {len(configs_df)} vehicle configurations")
-    
-    # Generate clusters
-    clusters_df = generate_clusters_for_configurations(
-        customers=customers_df,
-        configurations_df=configs_df,
-        params=params
+    # Summary of the conversion
+    total_converted = (
+        customers_df.get('Dry_Demand', pandas.Series()).sum()
+        + customers_df.get('Chilled_Demand', pandas.Series()).sum()
+        + customers_df.get('Frozen_Demand', pandas.Series()).sum()
     )
-    logger.info(f"Generated {len(clusters_df)} clusters")
-    
-    # Solve optimization problem
-    solution = solve_fsm_problem(
-        clusters_df=clusters_df,
-        configurations_df=configs_df,
+    print(f"Total converted demand: {total_converted}")
+    print(f"Minimum theoretical vehicles: {params.expected_vehicles}")
+    solution, configs_df = run_optimization(
         customers_df=customers_df,
-        parameters=params,
-        verbose=True
+        params=params,
+        verbose=True,
     )
-    
-    # Print results
-    print("\nOptimization Results:")
-    print(f"Total Cost: ${solution['total_cost']:,.2f}")
-    print(f"Number of Vehicles Used: {sum(solution['vehicles_used'].values())}")
-    print(f"Expected Vehicles: {params.expected_vehicles}")
-    
-    if solution['missing_customers']:
-        print(f"\nWarning: {len(solution['missing_customers'])} customers not served!")
     
     # Save results
     file_name = f"cvrp_{args.instance}_{args.benchmark_type}"

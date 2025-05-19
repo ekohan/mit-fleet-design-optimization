@@ -3,7 +3,6 @@ pandas
 matplotlib
 scikit-learn
 gurobipy
-prophet
 geopy
 scipy
 jupyter
