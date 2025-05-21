@@ -14,6 +14,7 @@ from fleetmix.benchmarking.converters.cvrp import CVRPBenchmarkType
 from fleetmix.utils.save_results import save_optimization_results
 
 DEFAULT_MCVRP_INSTANCE = "10_3_3_3_(01)"
+DEFAULT_CVRP_INSTANCE = "X-n106-k14"
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -27,10 +28,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--instance",
         nargs='+',
-        default=[DEFAULT_MCVRP_INSTANCE],
+        default=None,
         help=(
             "Instance name(s) (without extension). For mcvrp, stems under datasets/mcvrp; "
-            "for cvrp, stems under datasets/cvrp."
+            "for cvrp, stems under datasets/cvrp. If not provided, a default instance is used based on the VRP type."
         ),
     )
     p.add_argument(
@@ -71,13 +72,16 @@ def _print_info() -> None:
     print("  # Multi-compartment VRP (MCVRP)")
     print(f"  python -m fleetmix.cli --vrp-type mcvrp --instance {DEFAULT_MCVRP_INSTANCE}")
     print("\n  # Classic VRP (CVRP) normal benchmark")
-    print("  python -m fleetmix.cli --vrp-type cvrp --instance X-n106-k14 --benchmark-type normal")
+    print(f"  python -m fleetmix.cli --vrp-type cvrp --instance {DEFAULT_CVRP_INSTANCE} --benchmark-type normal")
     print("\n  # CVRP split benchmark (2 goods)")
-    print("  python -m fleetmix.cli --vrp-type cvrp --instance X-n106-k14 --benchmark-type split --num-goods 2")
+    print(f"  python -m fleetmix.cli --vrp-type cvrp --instance {DEFAULT_CVRP_INSTANCE} --benchmark-type split --num-goods 2")
     print("\n  # CVRP scaled benchmark (3 goods)")
-    print("  python -m fleetmix.cli --vrp-type cvrp --instance X-n106-k14 --benchmark-type scaled --num-goods 3")
+    print(f"  python -m fleetmix.cli --vrp-type cvrp --instance {DEFAULT_CVRP_INSTANCE} --benchmark-type scaled --num-goods 3")
     print("\n  # CVRP combined benchmark (multiple instances)")
-    print("  python -m fleetmix.cli --vrp-type cvrp --instance X-n106-k14 Y-n54-k6 --benchmark-type combined")
+    print(f"  python -m fleetmix.cli --vrp-type cvrp --instance {DEFAULT_CVRP_INSTANCE} Y-n54-k6 --benchmark-type combined")
+    print("\nDefault instances:")
+    print(f"  MCVRP: {DEFAULT_MCVRP_INSTANCE}")
+    print(f"  CVRP: {DEFAULT_CVRP_INSTANCE}")
     print("\nUse --help to see all available options.")
 
 
@@ -95,6 +99,12 @@ def main() -> None:
         parser.error("argument --vrp-type is required")
 
     vrp_type = VRPType(args.vrp_type)
+    if args.instance is None:
+        if vrp_type == VRPType.MCVRP:
+            args.instance = [DEFAULT_MCVRP_INSTANCE]
+        elif vrp_type == VRPType.CVRP:
+            args.instance = [DEFAULT_CVRP_INSTANCE]
+
     instances = args.instance
 
     try:
