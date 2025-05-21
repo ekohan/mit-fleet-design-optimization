@@ -3,10 +3,6 @@ import time
 from pathlib import Path
 
 import sys
-# Ensure project root is on PYTHONPATH when executed as script
-project_root = str(Path(__file__).parent.parent.parent)
-if project_root not in sys.path:
-    sys.path.append(project_root)
 
 from fleetmix.utils.logging import setup_logging
 from fleetmix.benchmarking.converters.mcvrp import convert_mcvrp_to_fsm

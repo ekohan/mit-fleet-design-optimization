@@ -3,15 +3,9 @@ import json
 import csv
 from pathlib import Path
 
-# Import PROJECT_ROOT from the utils module
-# This assumes the script will be run in an environment where fleetmix is importable
-# or that PYTHONPATH is set up correctly.
-# If running as a completely standalone script, you might need to adjust sys.path
-# or make the project_root.py logic self-contained here (less ideal).
 from fleetmix.utils import PROJECT_ROOT
 
 def main():
-    # Use PROJECT_ROOT to define results_dir
     results_dir = PROJECT_ROOT / "results"
     out_csv = results_dir / "summary_mcvrp.csv"
     rows = []

@@ -8,11 +8,6 @@ import sys
 import time
 from pathlib import Path
 
-# Ensure project root is on PYTHONPATH when executed as script
-project_root = str(Path(__file__).parent.parent.parent)
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
 from fleetmix.utils.logging import setup_logging
 from fleetmix.pipeline.vrp_interface import VRPType, convert_to_fsm, run_optimization
 from fleetmix.benchmarking.converters.cvrp import CVRPBenchmarkType

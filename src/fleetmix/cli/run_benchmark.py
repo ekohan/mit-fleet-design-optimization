@@ -8,11 +8,6 @@ import time
 import argparse
 import numpy as np
 
-# Add project root to Python path
-project_root = str(Path(__file__).parent.parent.parent)
-if project_root not in sys.path:
-    sys.path.append(project_root)
-
 from fleetmix.config.parameters import Parameters
 from fleetmix.utils.logging import setup_logging, ProgressTracker, Colors, Symbols
 from fleetmix.utils.data_processing import load_customer_demand

@@ -8,11 +8,6 @@ from pathlib import Path
 import sys
 import vrplib
 
-# Add project root to Python path
-project_root = str(Path(__file__).parent.parent.parent.parent)
-if project_root not in sys.path:
-    sys.path.append(project_root)
-
 from fleetmix.config.parameters import Parameters
 from ..models import CVRPInstance, CVRPSolution
 
