@@ -4,8 +4,6 @@ import time
 import pandas as pd
 
 from fleetmix.benchmarking.converters.vrp import convert_vrp_to_fsm
-from fleetmix.benchmarking.converters.cvrp import convert_cvrp_to_fsm
-from fleetmix.benchmarking.converters.mcvrp import convert_mcvrp_to_fsm
 from fleetmix.config.parameters import Parameters
 from fleetmix.utils.vehicle_configurations import generate_vehicle_configurations
 from fleetmix.clustering import generate_clusters_for_configurations

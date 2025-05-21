@@ -4,7 +4,8 @@ Unified converter for both CVRP and MCVRP instances to FSM format.
 from pathlib import Path
 from typing import Union, List, Dict
 import pandas as pd
-import importlib  # for dynamic dispatch through pipeline module
+from fleetmix.benchmarking.converters import cvrp as _cvrp
+from fleetmix.benchmarking.converters import mcvrp as _mcvrp
 
 from fleetmix.config.parameters import Parameters
 
@@ -29,13 +30,10 @@ def convert_vrp_to_fsm(
     if not isinstance(vrp_type, VRPType):
         vrp_type = VRPType(vrp_type)
 
-    # Dynamic import of pipeline interface to use potentially stubbed converters
-    pipeline = importlib.import_module('fleetmix.pipeline.vrp_interface')
-
     if vrp_type == VRPType.MCVRP:
-        return pipeline.convert_mcvrp_to_fsm(instance_path)
+        return _mcvrp.convert_mcvrp_to_fsm(instance_path)
     else:
-        return pipeline.convert_cvrp_to_fsm(
+        return _cvrp.convert_cvrp_to_fsm(
             instance_names=instance_names,
             benchmark_type=benchmark_type,
             num_goods=num_goods,

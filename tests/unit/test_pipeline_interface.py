@@ -28,11 +28,11 @@ class DummySolution(dict):
 def stub_everything(monkeypatch):
     # Stub converters in pipeline module
     monkeypatch.setattr(
-        'fleetmix.pipeline.vrp_interface.convert_cvrp_to_fsm',
+        'fleetmix.benchmarking.converters.cvrp.convert_cvrp_to_fsm',
         lambda *args, **kw: (pd.DataFrame(), DummyParams())
     )
     monkeypatch.setattr(
-        'fleetmix.pipeline.vrp_interface.convert_mcvrp_to_fsm',
+        'fleetmix.benchmarking.converters.mcvrp.convert_mcvrp_to_fsm',
         lambda *args, **kw: (pd.DataFrame(), DummyParams())
     )
     # Stub pipeline helper functions
