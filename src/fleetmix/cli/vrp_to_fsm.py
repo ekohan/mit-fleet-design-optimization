@@ -130,7 +130,7 @@ def main() -> None:
         parser.error(str(e))
         return # Should not be strictly necessary as parser.error exits, but good for clarity
 
-    results_dir = Path(__file__).parent.parent.parent / "results"
+    results_dir = Path(__file__).parent.parent.parent.parent / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
     ext = "xlsx" if args.format == "excel" else "json"
     results_path = results_dir / f"{filename_stub}.{ext}"

@@ -22,13 +22,10 @@ mit-fleet-env/
 .idea/
 
 # Results
-src/results/*.xlsx
-src/results/*.json
-src/results/*.html
-src/results/*.csv
+results/*.xlsx
+results/*.json
+results/*.html
 results/*.csv
-results_back
-back_results
 
 # Testing
 .hypothesis/

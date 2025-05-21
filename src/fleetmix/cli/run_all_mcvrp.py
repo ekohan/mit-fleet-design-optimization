@@ -17,8 +17,8 @@ from fleetmix.utils.save_results import save_optimization_results
 
 def main():
     setup_logging()
-    inst_dir = Path(__file__).parent / "mcvrp_instances"
-    results_dir = Path(__file__).parent.parent.parent / "results"
+    inst_dir = Path(__file__).parent.parent / "benchmarking" / "datasets" / "mcvrp"
+    results_dir = Path(__file__).parent.parent.parent.parent / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
 
     for dat_path in sorted(inst_dir.glob("*.dat")):
