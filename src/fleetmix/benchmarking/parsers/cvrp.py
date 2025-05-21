@@ -1,14 +1,9 @@
 """Parser for CVRP instance files."""
 
 import logging
-from typing import Tuple, Dict, List
-from dataclasses import dataclass
-import pandas as pd
 from pathlib import Path
-import sys
 import vrplib
 
-from fleetmix.config.parameters import Parameters
 from ..models import CVRPInstance, CVRPSolution
 
 logger = logging.getLogger(__name__)

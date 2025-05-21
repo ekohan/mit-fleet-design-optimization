@@ -13,7 +13,6 @@ import pandas as pd
 from pathlib import Path
 
 def data_dir():
-    # Traverse up to project root (src/fleetmix/utils -> src/fleetmix -> src -> project)
     return Path(__file__).resolve().parents[3] / "data"
 
 def get_demand_profiles_dir() -> Path:

@@ -16,7 +16,6 @@ import itertools
 from dataclasses import replace
 
 from fleetmix.config.parameters import Parameters
-# Import common classes 
 from .common import Cluster, ClusteringSettings, Symbols
 from .heuristics import (
     get_feasible_customers_subset,
@@ -51,7 +50,6 @@ def generate_clusters_for_configurations(
         logger.warning("Input customers or configurations are empty. Returning empty DataFrame.")
         return pd.DataFrame()
 
-    # Create shared caches using multiprocessing.Manager
     with Manager() as manager:
         shared_demand_cache = manager.dict()
         shared_route_time_cache = manager.dict()
@@ -83,7 +81,6 @@ def generate_clusters_for_configurations(
         else:
             logger.info("TSP route estimation not used. Skipping global matrix precomputation.")
 
-        # Use itertools.count for safer ID generation across parallel runs potentially
         cluster_id_generator = itertools.count()
 
         # 4. Process configurations in parallel for each settings configuration
@@ -100,7 +97,7 @@ def generate_clusters_for_configurations(
                     settings_for_run,
                     shared_demand_cache,
                     shared_route_time_cache,
-                    params  # Pass params
+                    params
                 )
                 for _, config in configurations_df.iterrows()
             )
@@ -244,7 +241,6 @@ def _get_clustering_settings_list(params: Parameters) -> List[ClusteringSettings
     if base_settings.method == 'combine':
         logger.info("🔄 Generating settings variations for 'combine' method")
         # 1. Base methods (kmeans, kmedoids, gmm) - Assume primarily geographical (Geo=1, Dem=0)
-        # This reflects original logic where these likely ignored param weights in combine mode
         base_method_names = ['minibatch_kmeans', 'kmedoids', 'gaussian_mixture']
         for name in base_method_names:
             settings_list.append(replace(
@@ -259,9 +255,9 @@ def _get_clustering_settings_list(params: Parameters) -> List[ClusteringSettings
         for geo_w, demand_w in weight_combinations:
             settings_list.append(replace(
                 base_settings,
-                method='agglomerative', # Set method to agglomerative
-                geo_weight=geo_w, # Use specific weight combo
-                demand_weight=demand_w # Use specific weight combo
+                method='agglomerative',
+                geo_weight=geo_w,
+                demand_weight=demand_w
             ))
 
     else:

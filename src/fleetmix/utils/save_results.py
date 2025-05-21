@@ -53,22 +53,15 @@ def save_optimization_results(
 ) -> None:
     """Save optimization results to a file (Excel or JSON) and create visualization"""
     
-    # Determine the base results directory from the parameters object
     base_results_dir = parameters.results_dir
 
-    # Create timestamp and filename if not provided
     if filename is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        # Use the results_dir from the parameters object
         extension = '.xlsx' if format == 'excel' else '.json'
-        # Construct filename using the results_dir from parameters
         output_filename = base_results_dir / f"optimization_results_{timestamp}{extension}"
     else:
-        # If filename is provided, ensure it's a Path object and respect its full path
-        # The parent directory will be created based on this given filename.
         output_filename = Path(filename)
     
-    # Ensure the specific output directory for this file exists
     output_filename.parent.mkdir(parents=True, exist_ok=True)
 
     # Calculate metrics and prepare data
@@ -84,7 +77,6 @@ def save_optimization_results(
         if 'Vehicle_Utilization' in cluster:
             total_utilization = cluster['Vehicle_Utilization']
         else:
-            # For optimization results, calculate from Total_Demand
             total_demand = ast.literal_eval(cluster['Total_Demand']) if isinstance(cluster['Total_Demand'], str) else cluster['Total_Demand']
             config = configurations_df[configurations_df['Config_ID'] == cluster['Config_ID']].iloc[0]
             total_utilization = (sum(total_demand.values()) / config['Capacity']) * 100
@@ -94,7 +86,6 @@ def save_optimization_results(
     
     load_percentages = pd.Series(load_percentages)
     
-    # Prepare summary metrics
     summary_metrics = [
         ('Total Cost ($)', f"{total_fixed_cost + total_variable_cost + total_penalties:,.2f}"),
         ('Fixed Cost ($)', f"{total_fixed_cost:,.2f}"),
@@ -187,7 +178,6 @@ def save_optimization_results(
             cluster_details.at[cluster_idx, 'Load_total_pct'] = total_load_pct
             cluster_details.at[cluster_idx, 'Load_empty_pct'] = 1 - total_load_pct
 
-    # Prepare all data
     data = {
         'summary_metrics': summary_metrics,
         'configurations_df': configurations_df,

@@ -35,7 +35,7 @@ def main():
             parameters=params,
             verbose=False
         )
-        # Use params.results_dir which is now set and created by the Parameters class
+
         output_path = params.results_dir / f"mcvrp_{instance}.json"
         save_optimization_results(
             execution_time=time.time() - start_time,

@@ -122,26 +122,20 @@ def main() -> None:
             filename_stub = f"vrp_{vrp_type.value}_{instance_stub}_{benchmark_type.value}"
         else:  # MCVRP
             instance = instances[0]
-            # Path resolution for MCVRP is handled here as it's simpler (always one file)
-            # We use FileExistsError for CVRP files since we do explicit check above
-            # The actual FileNotFoundError for MCVRP will be raised by mcvrp.py if file doesn't exist
             instance_path = Path(__file__).parent.parent / "benchmarking" / "datasets" / "mcvrp" / f"{instance}.dat"
             customers_df, params = convert_to_fsm(
                 vrp_type,
-                instance_path=instance_path, # mcvrp_to_fsm expects instance_path
+                instance_path=instance_path,
             )
             filename_stub = f"vrp_{vrp_type.value}_{instance}"
     except FileNotFoundError as e:
         parser.error(str(e))
-        return # Should not be strictly necessary as parser.error exits, but good for clarity
+        return 
 
-    # results_dir is now managed by the params object, typically created within convert_to_fsm
-    # Ensure params.results_dir is used for constructing the results_path
-    # The directory params.results_dir should already be created by Parameters.__post_init__
     ext = "xlsx" if args.format == "excel" else "json"
     results_path = params.results_dir / f"{filename_stub}.{ext}"
 
-    start_time = time.time() # Start timer for execution_time
+    start_time = time.time() 
     solution, configs_df = run_optimization(
         customers_df=customers_df,
         params=params,
@@ -154,7 +148,7 @@ def main() -> None:
         solver_status=solution["solver_status"],
         solver_runtime_sec=solution["solver_runtime_sec"],
         post_optimization_runtime_sec=solution["post_optimization_runtime_sec"],
-        configurations_df=configs_df, # Pass configs_df received from run_optimization
+        configurations_df=configs_df,
         selected_clusters=solution["selected_clusters"],
         total_fixed_cost=solution["total_fixed_cost"],
         total_variable_cost=solution["total_variable_cost"],
@@ -166,7 +160,7 @@ def main() -> None:
         parameters=params,
         filename=results_path,
         format=args.format,
-        is_benchmark=True, # All calls from this CLI are considered benchmarks
+        is_benchmark=True,
         expected_vehicles=params.expected_vehicles,
     )
 

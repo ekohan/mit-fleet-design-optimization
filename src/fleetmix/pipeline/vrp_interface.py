@@ -39,7 +39,6 @@ def run_optimization(
         params=params
     )
 
-    # Solve FSM optimization using possibly stubbed solver
     solve_fn = _optimization_module.solve_fsm_problem
     solution = solve_fn(
         clusters_df=clusters_df,
