@@ -16,9 +16,9 @@ if project_root not in sys.path:
 from fleetmix.utils.logging import setup_logging
 from fleetmix.pipeline.vrp_interface import VRPType, convert_to_fsm, run_optimization
 from fleetmix.benchmarking.converters.cvrp import CVRPBenchmarkType
-from fleetmix.cli.convert_mcvrp_to_fsm import DEFAULT_INSTANCE as DEFAULT_MCVRP_INSTANCE
 from fleetmix.utils.save_results import save_optimization_results
 
+DEFAULT_MCVRP_INSTANCE = "10_3_3_3_(01)"
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -72,17 +72,17 @@ def _build_parser() -> argparse.ArgumentParser:
 def _print_info() -> None:
     print("\nUnified VRP-to-FSM Conversion Tool")
     print("=" * 80)
-    print("Supported VRP types:")
-    print("  mcvrp: Multicompartment VRP (3 goods)")
-    print(
-        "    Example: python src/benchmarking/vrp_to_fsm.py \
-        --vrp-type mcvrp --instance 10_3_3_3_(01)"
-    )
-    print("  cvrp: Classic VRP (2 or 3 goods) with benchmark variants")
-    print(
-        "    Example: python src/benchmarking/vrp_to_fsm.py \
-        --vrp-type cvrp --instance X-n106-k14 --benchmark-type normal"
-    )
+    print("\nExamples:")
+    print("  # Multi-compartment VRP (MCVRP)")
+    print(f"  python -m fleetmix.cli --vrp-type mcvrp --instance {DEFAULT_MCVRP_INSTANCE}")
+    print("\n  # Classic VRP (CVRP) normal benchmark")
+    print("  python -m fleetmix.cli --vrp-type cvrp --instance X-n106-k14 --benchmark-type normal")
+    print("\n  # CVRP split benchmark (2 goods)")
+    print("  python -m fleetmix.cli --vrp-type cvrp --instance X-n106-k14 --benchmark-type split --num-goods 2")
+    print("\n  # CVRP scaled benchmark (3 goods)")
+    print("  python -m fleetmix.cli --vrp-type cvrp --instance X-n106-k14 --benchmark-type scaled --num-goods 3")
+    print("\n  # CVRP combined benchmark (multiple instances)")
+    print("  python -m fleetmix.cli --vrp-type cvrp --instance X-n106-k14 Y-n54-k6 --benchmark-type combined")
     print("\nUse --help to see all available options.")
 
 
@@ -130,10 +130,11 @@ def main() -> None:
         parser.error(str(e))
         return # Should not be strictly necessary as parser.error exits, but good for clarity
 
-    results_dir = Path(__file__).parent.parent.parent.parent / "results"
-    results_dir.mkdir(parents=True, exist_ok=True)
+    # results_dir is now managed by the params object, typically created within convert_to_fsm
+    # Ensure params.results_dir is used for constructing the results_path
+    # The directory params.results_dir should already be created by Parameters.__post_init__
     ext = "xlsx" if args.format == "excel" else "json"
-    results_path = results_dir / f"{filename_stub}.{ext}"
+    results_path = params.results_dir / f"{filename_stub}.{ext}"
 
     start_time = time.time() # Start timer for execution_time
     solution, configs_df = run_optimization(

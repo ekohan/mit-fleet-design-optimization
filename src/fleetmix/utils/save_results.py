@@ -53,16 +53,23 @@ def save_optimization_results(
 ) -> None:
     """Save optimization results to a file (Excel or JSON) and create visualization"""
     
+    # Determine the base results directory from the parameters object
+    base_results_dir = parameters.results_dir
+
     # Create timestamp and filename if not provided
     if filename is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_dir = Path(__file__).resolve().parent.parent.parent / 'results'
+        # Use the results_dir from the parameters object
         extension = '.xlsx' if format == 'excel' else '.json'
-        filename = results_dir / f"optimization_results_{timestamp}{extension}"
+        # Construct filename using the results_dir from parameters
+        output_filename = base_results_dir / f"optimization_results_{timestamp}{extension}"
+    else:
+        # If filename is provided, ensure it's a Path object and respect its full path
+        # The parent directory will be created based on this given filename.
+        output_filename = Path(filename)
     
-    # Ensure results directory exists
-    results_dir = Path(filename).parent
-    results_dir.mkdir(parents=True, exist_ok=True)
+    # Ensure the specific output directory for this file exists
+    output_filename.parent.mkdir(parents=True, exist_ok=True)
 
     # Calculate metrics and prepare data
     if 'Customers' in selected_clusters.columns:
@@ -211,17 +218,17 @@ def save_optimization_results(
 
     try:
         if format == 'json':
-            _write_to_json(filename, data)
+            _write_to_json(output_filename, data)
         else:
-            _write_to_excel(filename, data)
+            _write_to_excel(output_filename, data)
             
         # Only create visualization for optimization results
         if not is_benchmark:
             depot_coords = (parameters.depot['latitude'], parameters.depot['longitude'])
-            visualize_clusters(selected_clusters, depot_coords, filename)
+            visualize_clusters(selected_clusters, depot_coords, str(output_filename))
             
     except Exception as e:
-        print(f"Error saving results to {filename}: {str(e)}")
+        print(f"Error saving results to {output_filename}: {str(e)}")
         raise
 
 def _write_to_excel(filename: str, data: dict) -> None:

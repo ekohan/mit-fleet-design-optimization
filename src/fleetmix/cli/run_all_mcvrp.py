@@ -18,8 +18,8 @@ from fleetmix.utils.save_results import save_optimization_results
 def main():
     setup_logging()
     inst_dir = Path(__file__).parent.parent / "benchmarking" / "datasets" / "mcvrp"
-    results_dir = Path(__file__).parent.parent.parent.parent / "results"
-    results_dir.mkdir(parents=True, exist_ok=True)
+    # results_dir will be determined by the params object, initialized per instance
+    # The directory params.results_dir should already be created by Parameters.__post_init__
 
     for dat_path in sorted(inst_dir.glob("*.dat")):
         instance = dat_path.stem
@@ -39,7 +39,8 @@ def main():
             parameters=params,
             verbose=False
         )
-        output_path = results_dir / f"mcvrp_{instance}.json"
+        # Use params.results_dir which is now set and created by the Parameters class
+        output_path = params.results_dir / f"mcvrp_{instance}.json"
         save_optimization_results(
             execution_time=time.time() - start_time,
             solver_name=solution["solver_name"],

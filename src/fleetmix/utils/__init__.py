@@ -14,3 +14,10 @@ optimisation logic but essential for a production-grade workflow:
 These modules are **dependency-free** beyond the scientific Python stack so they can be imported in
 isolation by other projects.
 """
+
+from .project_root import PROJECT_ROOT, get_project_root
+
+__all__ = [
+    "PROJECT_ROOT", 
+    "get_project_root"
+]
