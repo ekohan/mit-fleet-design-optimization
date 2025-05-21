@@ -45,13 +45,6 @@ docs/                      # algorithm notes, design drivers
 results/                   # auto-generated outputs
 ```
 
-> **Migration Note:** Legacy flat-module imports have been migrated to the package structure above.  Import using, e.g.:
-> ```python
-> from fleetmix.clustering import generate_clusters_for_configurations
-> from fleetmix.optimization import solve_fsm_problem
-> ```
-> Lightweight shims remain for backward compatibility until v1.0.0.
-
 ---
 
 ## Core Workflow

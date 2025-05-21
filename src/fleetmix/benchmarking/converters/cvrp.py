@@ -36,17 +36,6 @@ def convert_cvrp_to_fsm(
     if benchmark_type == CVRPBenchmarkType.COMBINED and len(instance_names) < 2:
         raise ValueError("Combined benchmark type requires at least 2 instances")
 
-    # --- BEGIN MODIFICATION: Pre-check for missing instance files ---
-    missing_files = []
-    for name in instance_names:
-        instance_path_check = Path(__file__).parent.parent / 'datasets' / 'cvrp' / f'{name}.vrp'
-        if not instance_path_check.exists():
-            missing_files.append(str(instance_path_check.resolve()))
-    
-    if missing_files:
-        raise FileNotFoundError(f"CVRP instance file(s) not found: {', '.join(missing_files)}")
-    # --- END MODIFICATION ---
-
     # Default split ratios if not provided
     if split_ratios is None:
         if num_goods == 2:
@@ -68,7 +57,7 @@ def convert_cvrp_to_fsm(
         return _convert_split(instances[0], split_ratios)
     elif benchmark_type == CVRPBenchmarkType.SCALED:
         return _convert_scaled(instances[0], num_goods)
-    else:  # COMBINED
+    else:
         return _convert_combined(instances)
 
 

@@ -6,10 +6,12 @@ Tables 2–3 in Sections 5–6 of the paper.
 
 Key entry points
 ----------------
-• `run_benchmark.py`      – batch runner for synthetic CVRP → FSM tests.
-• `run_all_mcvrp.py`      – runs Henke & Hübner (2015) instances through the pipeline.
-• `run_all_cvrp.py`       – runs Uchoa et al. (2017) instances through the pipeline.
-• `solvers/vrp_solver.py` – thin wrapper around PyVRP to obtain lower/upper bounds.
+All entrypoints are centralized in the `fleetmix/cli` directory.
+
+This package provides benchmark instances and converters that are used by the CLI tools:
+• Parsers for benchmark instances
+• Converters from standard formats to fleet sizing and mix problem format
+• Thin wrapper around PyVRP to obtain lower/upper bounds
 
 All helper functions are re-exported via `__all__` for convenience.
 """
