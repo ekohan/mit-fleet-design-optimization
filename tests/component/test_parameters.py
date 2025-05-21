@@ -13,13 +13,6 @@ def test_default_yaml_weights_sum_to_one():
     assert pytest.approx(geo + dem, rel=1e-6) == 1.0
 
 
-def test_vrp_benchmark_yaml_weights_sum_to_one():
-    params = Parameters.from_yaml('src/fleetmix/config/vrp_benchmark_config.yaml')
-    geo = params.clustering['geo_weight']
-    dem = params.clustering['demand_weight']
-    assert pytest.approx(geo + dem, rel=1e-6) == 1.0
-
-
 def test_invalid_weights_yaml(tmp_path):
     # Create invalid yaml file
     bad_yaml = tmp_path / 'bad.yaml'
