@@ -32,18 +32,20 @@ Fast, reproducible tooling for **multi‑compartment vehicle fleet design** in u
 ## Quick Start
 
 ```bash
-# 1 · clone & install (Poetry/pip supported)
+# 1 · clone & setup environment (virtualenv, dependencies, data import)
 git clone https://github.com/ekohan/fleetmix.git && cd fleetmix
-python -m venv fleetmix-env && source fleetmix-env/bin/activate
-pip install -r requirements.txt && pip install -e .
+./init.sh
 
-# 2 · run smoke example (tiny 2‑customer CSV)
+# Install the package in editable mode
+pip install -e .
+
+# 2 · run smoke example (tiny 2-customer CSV)
 python -m fleetmix.cli.main \
        --demand-file tests/_assets/smoke/mini_demand.csv \
        --config tests/_assets/smoke/mini.yaml
 ```
 
-> **TODO**: bundle a richer sample dataset and a one‑liner `fleetmix demo`.
+> **TODO**: bundle a richer sample dataset and a one-liner `fleetmix demo`.
 
 ---
 
