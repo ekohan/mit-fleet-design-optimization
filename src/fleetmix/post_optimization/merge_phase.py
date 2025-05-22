@@ -2,7 +2,7 @@
 merge_phase.py
 
 Implements the **improvement phase** (Section 4.4 of the paper) that iteratively tries to merge
-small, neighbouring clusters after the core FSM model (Model 2) has been solved.
+small, neighbouring clusters after the core FSM model has been solved.
 
 Rationale
 ~~~~~~~~~

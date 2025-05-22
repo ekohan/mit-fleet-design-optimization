@@ -39,3 +39,6 @@ coverage/coverage-summary.json
 *.docx
 *.xml
 *.egg-info/
+
+# TODO: do add the paper
+paper_wip.txt

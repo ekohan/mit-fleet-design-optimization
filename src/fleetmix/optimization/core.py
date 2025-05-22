@@ -63,7 +63,7 @@ def solve_fsm_problem(
     solver=None,
     verbose: bool = False
 ) -> Dict:
-    """Solve the Fleet Size-and-Mix MILP (Model 2).
+    """Solve the Fleet Size-and-Mix MILP.
 
     This is the tactical optimisation layer described in Section 4.3 of the
     paper.  It takes the candidate clusters produced during the cluster-first
@@ -179,7 +179,7 @@ def _create_model(
     parameters: Parameters
 ) -> Tuple[pulp.LpProblem, Dict[str, pulp.LpVariable], Dict[Tuple[str, Any], pulp.LpVariable], Dict[Tuple[str, str], float]]:
     """
-    Create the optimization model (Model 2) aligning with the mathematical formulation.
+    Create the optimization model M aligning with the mathematical formulation.
     """
     import pulp
 
