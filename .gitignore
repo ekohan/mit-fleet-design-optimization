@@ -16,7 +16,7 @@ notebooks/.ipynb_checkpoints/
 
 # Python virtual environments
 venv/
-mit-fleet-env/
+fleetmix-env/
 
 # IDEs
 .idea/

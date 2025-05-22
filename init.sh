@@ -3,11 +3,11 @@
 set -e  # Exit on error
 
 # Check if the virtual environment already exists
-if [ ! -d "mit-fleet-env" ]; then
+if [ ! -d "fleetmix-env" ]; then
   echo "Creating Python virtual environment..."
-  python -m venv mit-fleet-env
+  python -m venv fleetmix-env
 else
-  echo "Virtual environment 'mit-fleet-env' already exists. Skipping creation."
+  echo "Virtual environment 'fleetmix-env' already exists. Skipping creation."
 fi
 
 # Activate the virtual environment
@@ -16,10 +16,10 @@ echo "Activating Python virtual environment..."
 # Check the OS and set the activation command accordingly
 if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
   # For Windows
-  source mit-fleet-env/Scripts/activate
+  source fleetmix-env/Scripts/activate
 else
   # For Unix-based systems (Linux, macOS)
-  source mit-fleet-env/bin/activate
+  source fleetmix-env/bin/activate
 fi
 
 # Verify activation
