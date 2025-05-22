@@ -1,33 +1,28 @@
-import os
-import sys
 import pytest
 from pathlib import Path
-import subprocess
 
-# Ensure project root is on sys.path so that `import src` works
-repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
+# Define project root for path fixtures
+repo_root = Path(__file__).resolve().parent.parent
 
 @pytest.fixture(scope="session")
 def small_vrp_path():
     """Path to a small CVRP instance file for component tests"""
-    return Path(repo_root) / "src" / "benchmarking" / "cvrp_instances" / "X-n101-k25.vrp"
+    return repo_root / "src" / "fleetmix" / "benchmarking" / "datasets" / "cvrp" / "X-n101-k25.vrp"
 
 @pytest.fixture(scope="session")
 def small_sol_path():
     """Path to the solution file for the small CVRP instance"""
-    return Path(repo_root) / "src" / "benchmarking" / "cvrp_instances" / "X-n101-k25.sol"
+    return repo_root / "src" / "fleetmix" / "benchmarking" / "datasets" / "cvrp" / "X-n101-k25.sol"
 
 @pytest.fixture(scope="session")
 def mini_yaml():
     """Path to the minimal YAML config for integration tests"""
-    return Path(repo_root) / "tests" / "_assets" / "smoke" / "mini.yaml"
+    return repo_root / "tests" / "_assets" / "smoke" / "mini.yaml"
 
 @pytest.fixture(scope="session")
 def mini_demand_csv():
     """Path to the minimal demand CSV for integration tests"""
-    return Path(repo_root) / "tests" / "_assets" / "smoke" / "mini_demand.csv"
+    return repo_root / "tests" / "_assets" / "smoke" / "mini_demand.csv"
 
 @pytest.fixture(autouse=True)
 def tmp_results_dir(tmp_path, monkeypatch):
@@ -38,14 +33,14 @@ def tmp_results_dir(tmp_path, monkeypatch):
     # Run CLI commands from project root, but ensure results go to fake_results
     monkeypatch.setenv("PROJECT_RESULTS_DIR", str(fake_results))
     # Also redirect working directory to project root just in case
-    monkeypatch.chdir(Path(__file__).parent.parent)
+    monkeypatch.chdir(repo_root)
     return fake_results
 
 # Toy data fixtures for FSM tests
 @pytest.fixture
 def toy_fsm_core_data():
     import pandas as pd
-    from src.config.parameters import Parameters
+    from fleetmix.config.parameters import Parameters
     clusters_df = pd.DataFrame({
         'Cluster_ID': [1],
         'Customers': [['C1']],
@@ -72,7 +67,7 @@ def toy_fsm_core_data():
 @pytest.fixture
 def toy_fsm_edge_data():
     import pandas as pd
-    from src.config.parameters import Parameters
+    from fleetmix.config.parameters import Parameters
     clusters_df = pd.DataFrame([{
         'Cluster_ID': 1,
         'Customers': ['C1', 'C2'],
@@ -95,7 +90,7 @@ def toy_fsm_edge_data():
 @pytest.fixture
 def toy_fsm_model_build_data():
     import pandas as pd
-    from src.config.parameters import Parameters
+    from fleetmix.config.parameters import Parameters
     clusters_df = pd.DataFrame([{
         'Cluster_ID': 'k1',
         'Customers': [1, 2],
@@ -110,7 +105,7 @@ def toy_fsm_model_build_data():
         'Chilled': 0,
         'Frozen': 0
     }])
-    params = Parameters.from_yaml('src/config/default_config.yaml')
+    params = Parameters.from_yaml('src/fleetmix/config/default_config.yaml')
     return clusters_df, config_df, params
 
 # Smoke dataset fixtures

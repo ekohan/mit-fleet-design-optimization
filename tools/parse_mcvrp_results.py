@@ -3,10 +3,10 @@ import json
 import csv
 from pathlib import Path
 
+from fleetmix.utils import PROJECT_ROOT
 
 def main():
-    # Locate results directory relative to project root
-    results_dir = Path(__file__).parent.parent / "results"
+    results_dir = PROJECT_ROOT / "results"
     out_csv = results_dir / "summary_mcvrp.csv"
     rows = []
 

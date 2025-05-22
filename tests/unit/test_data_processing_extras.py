@@ -3,7 +3,7 @@ import warnings
 import pytest
 from pathlib import Path
 
-from src.utils.data_processing import load_customer_demand
+from fleetmix.utils.data_processing import load_customer_demand
 
 
 def test_happy_path_and_zero_to_one(tmp_path, monkeypatch):
@@ -19,7 +19,7 @@ def test_happy_path_and_zero_to_one(tmp_path, monkeypatch):
     ])
     df.to_csv(csv, index=False)
     # Monkeypatch demand profiles directory
-    monkeypatch.setattr('src.utils.data_processing.get_demand_profiles_dir', lambda: tmp_path)
+    monkeypatch.setattr('fleetmix.utils.data_processing.get_demand_profiles_dir', lambda: tmp_path)
 
     # Capture pandas SettingWithCopyWarning if any
     with warnings.catch_warnings(record=True) as recs:
@@ -50,7 +50,7 @@ def test_malformed_rows(tmp_path, monkeypatch):
     # Prepare a malformed CSV (wrong headers)
     csv = tmp_path / "bad.csv"
     csv.write_text("wrong,columns\n1,2\n")
-    monkeypatch.setattr('src.utils.data_processing.get_demand_profiles_dir', lambda: tmp_path)
+    monkeypatch.setattr('fleetmix.utils.data_processing.get_demand_profiles_dir', lambda: tmp_path)
 
     # Expect an error when loading malformed data
     with pytest.raises(Exception):

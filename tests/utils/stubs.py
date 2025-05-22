@@ -21,8 +21,8 @@ The stubs are designed to be composable, so you can use only what you need.
 import contextlib
 from pathlib import Path
 import pandas as pd
-import src.clustering as clustering_module
-import src.fsm_optimizer as fsm_module
+import fleetmix.clustering as clustering_module
+import fleetmix.optimization as optimization_module
 
 @contextlib.contextmanager
 def stub_data_processing(monkeypatch):
@@ -39,7 +39,7 @@ def stub_data_processing(monkeypatch):
         ])
     
     # Patch at the module level to completely replace the function
-    monkeypatch.setattr("src.utils.data_processing.load_customer_demand", full_stub_customer_demand)
+    monkeypatch.setattr("fleetmix.utils.data_processing.load_customer_demand", full_stub_customer_demand)
     
     yield
 
@@ -65,9 +65,10 @@ def stub_clustering(monkeypatch):
 def stub_solver(monkeypatch):
     """Stub FSM solver to return empty but valid solution."""
     monkeypatch.setattr(
-        fsm_module,
+        optimization_module,
         "solve_fsm_problem",
         lambda *args, **kwargs: {
+            "total_cost": 0,
             "selected_clusters": pd.DataFrame(),
             "missing_customers": set(),
             "vehicles_used": {},
@@ -86,7 +87,7 @@ def stub_solver(monkeypatch):
 def stub_save_results(monkeypatch, output_dir):
     """Stub save_optimization_results to write dummy output files."""
     # Import locally to avoid circular dependencies during test collection
-    import src.utils.save_results as save_module_local
+    import fleetmix.utils.save_results as save_module_local
 
     def fake_save(*args, **kwargs):
         # Get the format from kwargs or default to excel
@@ -102,38 +103,147 @@ def stub_save_results(monkeypatch, output_dir):
 
 @contextlib.contextmanager
 def stub_vrplib(monkeypatch):
-    """Stub CVRPParser in src.benchmarking.cvrp_to_fsm and bypass missing-file guard for .vrp."""
-    import src.benchmarking.cvrp_to_fsm as mod
-    # Monkey-patch Path.exists to return True for .vrp under cvrp_instances
+    """Stub vrplib to bypass file system access for CVRP files."""
+    # Monkey-patch Path.exists to return True for .vrp under datasets/cvrp
     from pathlib import Path
     orig_exists = Path.exists
     def fake_exists(self):
-        if self.suffix == '.vrp' and 'cvrp_instances' in str(self):
+        if self.suffix == '.vrp' and 'datasets/cvrp' in str(self):
             return True
         return orig_exists(self)
     monkeypatch.setattr(Path, 'exists', fake_exists)
+    
+    # Stub open to avoid file system access for .vrp files
+    builtin_open = open
+    def fake_open(path, *args, **kwargs):
+        path_str = str(path)
+        if path_str.endswith('.vrp') and 'datasets/cvrp' in path_str:
+            # Return a string buffer with minimal VRP file content
+            from io import StringIO
+            content = """NAME : stub
+DIMENSION : 3
+CAPACITY : 100
+EDGE_WEIGHT_TYPE : EUC_2D
+NODE_COORD_SECTION
+1 0 0
+2 1 1
+3 2 2
+DEMAND_SECTION
+1 0
+2 10
+3 10
+DEPOT_SECTION
+1
+EOF"""
+            return StringIO(content)
+        if path_str.endswith('.sol') and 'datasets/cvrp' in path_str:
+            # Return a string buffer with minimal solution file content
+            from io import StringIO
+            content = """DIMENSION : 3
+CAPACITY : 100
+VEHICLES : 1
+ROUTES
+1: 1 2 3 1
+EOF"""
+            return StringIO(content)
+        return builtin_open(path, *args, **kwargs)
+    monkeypatch.setattr('builtins.open', fake_open)
+    
+    # Stub vrplib functions
+    import vrplib
+    
+    def fake_read_instance(path, *args, **kwargs):
+        return {
+            'name': 'stub',
+            'dimension': 3,
+            'capacity': 100,
+            'node_coord': [(0, 0), (1, 1), (2, 2)],
+            'demand': [0, 10, 10],
+            'depot': [0],
+            'edge_weight_type': 'EUC_2D'
+        }
+    
+    def fake_read_solution(path, *args, **kwargs):
+        return {
+            'cost': 123.4,
+            'routes': [[0, 1, 2, 0]]
+        }
+    
+    monkeypatch.setattr(vrplib, 'read_instance', fake_read_instance)
+    monkeypatch.setattr(vrplib, 'read_solution', fake_read_solution)
 
-    # Dummy parser with minimal behavior
+    # Create stub dummy parser with our predefined behavior
     class DummyParser:
-        def __init__(self, path): pass
+        def __init__(self, path): 
+            self.file_path = Path(path)
+            self.instance_name = self.file_path.stem
+        
         def parse(self):
-            class Inst:
-                demands = {1: 1, 2: 1}
-                capacity = 1
-                num_vehicles = 1
-                coordinates = {1: (0, 0), 2: (1, 1)}
-                depot_id = 1
-            return Inst()
+            from fleetmix.benchmarking.models import CVRPInstance
+            return CVRPInstance(
+                name=self.instance_name,
+                dimension=3,
+                capacity=100,
+                depot_id=1,
+                coordinates={1: (0, 0), 2: (1, 1), 3: (2, 2)},
+                demands={1: 0, 2: 10, 3: 10},
+                edge_weight_type='EUC_2D',
+                num_vehicles=1
+            )
+        
         def parse_solution(self):
-            return {'routes': [], 'cost': 0}
-    monkeypatch.setattr(mod, 'CVRPParser', DummyParser)
+            from fleetmix.benchmarking.models import CVRPSolution
+            return CVRPSolution(
+                routes=[[1, 2, 3, 1]],
+                cost=123.4,
+                num_vehicles=1,
+                expected_vehicles=1
+            )
+    
+    # Patch both the old and new paths for backward compatibility
+    monkeypatch.setattr("fleetmix.benchmarking.cvrp_to_fsm.CVRPParser", DummyParser)
+    monkeypatch.setattr("fleetmix.benchmarking.parsers.cvrp.CVRPParser", DummyParser)
+    
+    yield
+
+@contextlib.contextmanager
+def stub_mcvrp_parser(monkeypatch):
+    """Stub MCVRP parser to return a dummy instance."""
+    from fleetmix.benchmarking.models import MCVRPInstance
+    from pathlib import Path
+    
+    def stub_parse_mcvrp(path):
+        # Create a dummy MCVRP instance
+        return MCVRPInstance(
+            name="stub_instance",
+            source_file=Path("stub_path"),
+            dimension=3,
+            capacity=100,
+            vehicles=2,
+            depot_id=1,
+            coords={1: (0, 0), 2: (1, 1), 3: (2, 2)},
+            demands={1: (0, 0, 0), 2: (10, 0, 0), 3: (0, 5, 5)}
+        )
+    
+    # Patch parser in both parser and converter modules
+    monkeypatch.setattr("fleetmix.benchmarking.parsers.mcvrp.parse_mcvrp", stub_parse_mcvrp)
+    monkeypatch.setattr("fleetmix.benchmarking.converters.mcvrp.parse_mcvrp", stub_parse_mcvrp)
+    
+    # Also patch Path.exists to return True for the MCVRP instance
+    orig_exists = Path.exists
+    def fake_exists(self):
+        if self.name.endswith('.dat') and 'mcvrp' in str(self):
+            return True
+        return orig_exists(self)
+    monkeypatch.setattr(Path, 'exists', fake_exists)
+    
     yield
 
 @contextlib.contextmanager
 def stub_vehicle_configurations(monkeypatch):
-    """Stub generate_vehicle_configurations in src.benchmarking.cvrp_to_fsm."""
+    """Stub generate_vehicle_configurations in fleetmix.cli.cvrp_to_fsm."""
     import pandas as pd
-    import src.benchmarking.cvrp_to_fsm as mod
+    import fleetmix.cli.cvrp_to_fsm as mod
     monkeypatch.setattr(
         mod,
         'generate_vehicle_configurations',
@@ -145,9 +255,9 @@ def stub_vehicle_configurations(monkeypatch):
 
 @contextlib.contextmanager
 def stub_benchmark_clustering(monkeypatch):
-    """Stub generate_clusters_for_configurations in src.benchmarking.cvrp_to_fsm."""
+    """Stub generate_clusters_for_configurations in fleetmix.cli.cvrp_to_fsm."""
     import pandas as pd
-    import src.benchmarking.cvrp_to_fsm as mod
+    import fleetmix.cli.cvrp_to_fsm as mod
     monkeypatch.setattr(
         mod,
         'generate_clusters_for_configurations',
@@ -175,14 +285,20 @@ def stub_demand(monkeypatch):
              'Dry_Demand': 5, 'Chilled_Demand': 0, 'Frozen_Demand': 0}
         ])
     
-    # Find all modules that might import this function
-    import src.main
-    import src.utils.data_processing
-    import src.benchmarking.run_benchmark
-    
-    # Patch all known imports
-    monkeypatch.setattr(src.utils.data_processing, "load_customer_demand", fake_demand)
-    monkeypatch.setattr(src.main, "load_customer_demand", fake_demand)
-    monkeypatch.setattr(src.benchmarking.run_benchmark, "load_customer_demand", fake_demand)
+    # Patch all known imports in fleetmix modules
+    import fleetmix.utils.data_processing as dp_mod
+    import fleetmix.cli.main as main_mod
+    import fleetmix.cli.run_benchmark as rb_mod
+    monkeypatch.setattr(dp_mod, "load_customer_demand", fake_demand)
+    monkeypatch.setattr(main_mod, "load_customer_demand", fake_demand)
+    monkeypatch.setattr(rb_mod, "load_customer_demand", fake_demand)
     
     yield 
+
+def stub_parse_mcvrp(path):
+    """Stub parse_mcvrp function."""
+    return DummyMCVRPInstance()
+
+def mock_parsers(monkeypatch):
+    """Mock out all instance parsers for testing."""
+    monkeypatch.setattr("fleetmix.benchmarking.parsers.mcvrp.parse_mcvrp", stub_parse_mcvrp) 

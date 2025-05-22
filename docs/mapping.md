@@ -8,7 +8,7 @@ research methodology and its open-source implementation.
 | `src/utils/vehicle_configurations.py` | Enumerate all feasible vehicle types × compartment sets | §4.1 Generate Vehicle Configurations |
 | `src/clustering.py` | Build capacity- & time-feasible customer clusters | §4.2 Generate Feasible Customer Clusters (Fig. 1, Algorithm 1) |
 | `src/utils/route_time.py` | Route-time estimation heuristics (Legacy, BHH, TSP) | §4.2, footnote on clustering time checks |
-| `src/fsm_optimizer.py` | Mixed-integer programme for fleet size-and-mix (Model 2) | §4.3 Fleet Size and Mix Optimisation |
+| `src/fsm_optimizer.py` | Mixed-integer programme for fleet size-and-mix | §4.3 Fleet Size and Mix Optimisation |
 | `src/post_optimization.py` | Iterative merge improvement phase | §4.4 Improvement Phase |
 | `src/main.py` | CLI pipeline that chains clustering → MILP → post-opt | §5, §6 Computational Results & Case Study |
 | `src/benchmarking/run_benchmark.py` | Batch runner for CVRP → FSM adaptation tests across multiple variants | §5 Effectiveness of Decomposition Approach |

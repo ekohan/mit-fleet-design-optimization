@@ -1,6 +1,5 @@
 import pytest
-
-from src.benchmarking.cvrp_parser import CVRPParser
+from fleetmix.benchmarking.parsers.cvrp import CVRPParser
 
 def test_parse_instance_and_solution(small_vrp_path):
     # Initialize parser

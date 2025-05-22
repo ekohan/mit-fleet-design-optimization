@@ -26,8 +26,6 @@ results/*.xlsx
 results/*.json
 results/*.html
 results/*.csv
-results_back
-back_results
 
 # Testing
 .hypothesis/
@@ -40,4 +38,7 @@ coverage/coverage-summary.json
 *.pdf
 *.docx
 *.xml
+*.egg-info/
 
+# TODO: do add the paper
+paper_wip.txt

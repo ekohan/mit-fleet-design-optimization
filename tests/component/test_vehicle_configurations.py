@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.utils.vehicle_configurations import generate_vehicle_configurations
+from fleetmix.utils.vehicle_configurations import generate_vehicle_configurations
 
 def test_generate_vehicle_configurations_basic():
     # One vehicle type, two goods

@@ -2,7 +2,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from src.utils.route_time import _legacy_estimation, _bhh_estimation
+from fleetmix.utils.route_time import _legacy_estimation, _bhh_estimation
 
 
 def test_legacy_estimation_zero_customers():

@@ -1,7 +1,7 @@
 import hypothesis.strategies as st
 from hypothesis import given, settings
 import pandas as pd
-from src.utils.vehicle_configurations import generate_vehicle_configurations
+from fleetmix.utils.vehicle_configurations import generate_vehicle_configurations
 
 @settings(max_examples=20)
 @given(
