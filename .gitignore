@@ -32,6 +32,7 @@ results/*.csv
 .coverage*
 coverage/*
 coverage/coverage-summary.json
+src/*.egg-info/
 
 # Etc
 *tex

@@ -1,4 +1,4 @@
-# fleetmix — Fleet Size & Mix Optimizer for Multi‑Compartment Fleets
+# fleetmix — Fleet Size & Mix Optimizer for Multi‑Compartment Fleets
 
 *Written for transparent research, hardened for production use.*
 
@@ -6,38 +6,38 @@ Fast, reproducible tooling for **multi‑compartment vehicle fleet design** in u
 
 ---
 
-## Why fleetmix ?
+## Why fleetmix ?
 
-* **Scales** — >1 000 customers solved in seconds via a *cluster‑first → MILP‑second* matheuristic.
-* **Extensible** — pluggable clustering engines, route‑time estimators, and solver back‑ends.
-* **Reproducible** — every experiment in the journal article reruns with one script.
+* **Scales** — >1 000 customers solved in seconds via a *cluster‑first → MILP‑second* matheuristic.
+* **Extensible** — pluggable clustering engines, route‑time estimators, and solver back‑ends.
+* **Reproducible** — every experiment in the journal article reruns with one script.
 
 ---
 
 ## Table of Contents
 
-1. [Quick Start](#quick-start)
-2. [Architecture Overview](#architecture-overview)
-3. [Command‑Line Usage](#command-line-usage)
-4. [Benchmarking Suite](#benchmarking-suite)
-5. [Library API](#library-api)
-6. [Repository Layout](#repository-layout)
-7. [Paper ↔ Code Map](#paper-↔-code-map)
+1. [Quick Start](#quick-start)
+2. [Architecture Overview](#architecture-overview)
+3. [Command‑Line Usage](#command-line-usage)
+4. [Benchmarking Suite](#benchmarking-suite)
+5. [Library API](#library-api)
+6. [Repository Layout](#repository-layout)
+7. [Paper ↔ Code Map](#paper-↔-code-map)
 8. [Contributing](#contributing)
 9. [Citation](#citation)
 10. [License](#license)
 
 ---
 
-## Quick Start
+## Quick Start
 
 ```bash
-# 1 · clone & install (Poetry/pip supported)
+# 1 · clone & install (Poetry/pip supported)
 git clone https://github.com/ekohan/fleetmix.git && cd fleetmix
 python -m venv fleetmix-env && source fleetmix-env/bin/activate
 pip install -r requirements.txt && pip install -e .
 
-# 2 · run smoke example (tiny 2‑customer CSV)
+# 2 · run smoke example (tiny 2‑customer CSV)
 python -m fleetmix.cli.main \
        --demand-file tests/_assets/smoke/mini_demand.csv \
        --config tests/_assets/smoke/mini.yaml
@@ -47,21 +47,21 @@ python -m fleetmix.cli.main \
 
 ---
 
-## Architecture Overview
+## Architecture Overview
 
 ```mermaid
 graph LR
-    A[Customer CSV / VRP instance] --> B[Clustering • route‑time check]
-    B --> C[MILP fleet‑selection]
-    C --> D[Merge improvement phase]
-    D --> E[Results (JSON | XLSX | HTML)]
+    A[Customer CSV / VRP instance] --> B[Clustering • route‑time check]
+    B --> C[MILP fleet‑selection]
+    C --> D[Merge improvement phase]
+    D --> E["Results (JSON | XLSX | HTML)"]
 ```
 
 *Full algorithmic details are in §4 of the paper.*
 
 ---
 
-## Command‑Line Usage
+## Command‑Line Usage
 
 ### Optimise a fleet
 
@@ -81,7 +81,7 @@ python -m fleetmix.cli.vrp_to_fsm \
        --vrp-type cvrp --instance X-n101-k25 --benchmark-type split
 ```
 
-### Reproduce all paper experiments (Henke & Uchoa sets)
+### Reproduce all paper experiments (Henke & Uchoa sets)
   
 ```bash
 python -m fleetmix.cli.run_all_mcvrp                # 153 MCVRP instances
@@ -91,9 +91,9 @@ python -m fleetmix.cli.run_upper_and_lower_bounds   # TODO: bounds check
 
 ---
 
-## Benchmarking Suite
+## Benchmarking Suite
 
-Located under `src/fleetmix/benchmarking/` fileciteturn1file4.
+Located under `src/fleetmix/benchmarking/`
 
 * **Converters** – turn `.vrp` / `.dat` instances into Fleet‑Size‑and‑Mix demand tables.
 * **Parsers & Models** – light dataclasses for CVRP / MCVRP metadata.
@@ -104,7 +104,7 @@ Upper‑ and lower‑bound reference solutions are generated automatically for s
 
 ---
 
-## Library API
+## Library API
 
 _TODO: Check this section. Consider removing.
 
@@ -127,11 +127,11 @@ print(solution['total_fixed_cost'] + solution['total_variable_cost'])
 
 ---
 
-## Repository Layout
+## Repository Layout
 
 ```
 src/fleetmix/
-  clustering/            # capacity‑ & time‑feasible cluster generation
+  clustering/            # capacity & time‑feasible cluster generation
   optimization/          # MILP core pulp / gurobi backend
   post_optimization/     # merge‑phase heuristic
   benchmarking/          # datasets • converters • baseline solvers
@@ -145,7 +145,7 @@ src/fleetmix/
 
 ---
 
-## Paper ↔ Code Map
+## Paper ↔ Code Map
 
 See `docs/mapping.md` for a line‑by‑line crosswalk between paper sections and implementation.
 
@@ -167,9 +167,9 @@ If you use this software, please cite the companion article (pre‑print DOI for
 
 ```latex
 @article{Kohan2025FleetMix,
-  author  = {Eric Kohan},
+  author  = {Eric Kohan},
   title   = {Designing Multi‑Compartment Vehicle Fleets for Last‑Mile Food Distribution Systems},
-  journal = {To appear},
+  journal = {To appear},
   year    = {2025}
 }
 ```
